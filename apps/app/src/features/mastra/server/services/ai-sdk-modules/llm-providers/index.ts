@@ -4,6 +4,7 @@ import type { AiProvider } from '~/features/mastra/interfaces/ai-provider';
 
 import { resolveAnthropicModel } from './anthropic';
 import { resolveAzureOpenaiModel } from './azure-openai';
+import { resolveDeepseekModel } from './deepseek';
 import { resolveGoogleModel } from './google';
 import { resolveOpenaiModel } from './openai';
 
@@ -31,4 +32,5 @@ export const modelResolvers: Record<
   anthropic: resolveAnthropicModel,
   google: resolveGoogleModel,
   'azure-openai': resolveAzureOpenaiModel,
+  deepseek: resolveDeepseekModel,
 };

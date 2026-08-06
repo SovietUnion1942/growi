@@ -35,6 +35,7 @@ export const AI_PROVIDER_DEFS = {
   anthropic: { enumerable: true, label: 'Anthropic' },
   google: { enumerable: true, label: 'Google' },
   'azure-openai': { enumerable: false, label: 'Azure OpenAI' },
+  deepseek: { enumerable: true, label: 'DeepSeek' },
 } as const satisfies Record<string, AiProviderMeta>;
 
 export type AiProvider = keyof typeof AI_PROVIDER_DEFS;

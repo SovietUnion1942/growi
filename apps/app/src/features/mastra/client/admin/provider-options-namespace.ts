@@ -18,6 +18,7 @@ const PROVIDER_OPTIONS_NAMESPACE: Record<AiProvider, string> = {
   anthropic: 'anthropic',
   google: 'google',
   'azure-openai': 'openai',
+  deepseek: 'deepseek',
 };
 
 /**

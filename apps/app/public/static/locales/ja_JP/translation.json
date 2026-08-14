@@ -299,6 +299,14 @@
       "page_create": "ページを作成した時にそのページをサブスクライブします。"
     }
   },
+  "push_notification_settings": {
+    "push_notification_settings": "プッシュ通知設定",
+    "enable_push_notification": "プッシュ通知を有効にする",
+    "enable_push_notification_desc": "この端末にブラウザのプッシュ通知を送信します。",
+    "unsupported": "お使いのブラウザはプッシュ通知に対応していません。",
+    "permission_denied": "通知の許可が得られませんでした。",
+    "permission_denied_hint": "ブラウザの設定で通知がブロックされています。設定から許可に変更してください。"
+  },
   "ui_settings": {
     "ui_settings": "UI設定",
     "side_bar_mode": {

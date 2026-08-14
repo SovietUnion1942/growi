@@ -8,6 +8,7 @@ import ExternalAccountLinkedMe from './ExternalAccountLinkedMe';
 import InAppNotificationSettings from './InAppNotificationSettings';
 import OtherSettings from './OtherSettings';
 import PasswordSettings from './PasswordSettings';
+import PushNotificationSettings from './PushNotificationSettings';
 import UserSettings from './UserSettings';
 
 const UserInformationIcon = () => (
@@ -52,6 +53,15 @@ const InAppNotificationSettingsIcon = () => (
     className="material-symbols-outlined"
   >
     notifications
+  </span>
+);
+
+const PushNotificationSettingsIcon = () => (
+  <span
+    data-testid="push-notification-settings-tab-button"
+    className="material-symbols-outlined"
+  >
+    notifications_active
   </span>
 );
 
@@ -103,6 +113,11 @@ const PersonalSettings = () => {
         Icon: OtherSettingsIcon,
         Content: OtherSettings,
         i18n: t('Other Settings'),
+      },
+      push_notification_settings: {
+        Icon: PushNotificationSettingsIcon,
+        Content: PushNotificationSettings,
+        i18n: t('push_notification_settings.push_notification_settings'),
       },
     };
   }, [t]);

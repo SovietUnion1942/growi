@@ -39,6 +39,7 @@ const SCOPE_SEED_USER = {
       access_token: {},
     },
     in_app_notification: {},
+    push_notification: {},
     other: {},
   },
   features: {
@@ -116,6 +117,7 @@ type ReadUserSettingsScope =
   | 'read:user_settings:api:access_token'
   | 'read:user_settings:api:*'
   | 'read:user_settings:in_app_notification'
+  | 'read:user_settings:push_notification'
   | 'read:user_settings:other'
   | 'read:user_settings:*';
 
@@ -162,6 +164,7 @@ type WriteUserSettingsScope =
   | 'write:user_settings:api:access_token'
   | 'write:user_settings:api:*'
   | 'write:user_settings:in_app_notification'
+  | 'write:user_settings:push_notification'
   | 'write:user_settings:other'
   | 'write:user_settings:*';
 

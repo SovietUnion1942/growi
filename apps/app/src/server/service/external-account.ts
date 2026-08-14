@@ -6,6 +6,7 @@ import loggerFactory from '~/utils/logger';
 import { prisma } from '~/utils/prisma';
 
 import { NullUsernameToBeRegisteredError } from '../models/errors';
+import { UserStatus } from '../models/user/conts';
 import type PassportService from './passport';
 
 const logger = loggerFactory('growi:service:external-account-service');
@@ -31,6 +32,10 @@ class ExternalAccountService {
 
     try {
       // find or register(create) user
+      const statusToBeRegistered = this.determineStatusForNewUser(
+        providerId,
+        userInfo.email,
+      );
       const externalAccount = await prisma.externalaccounts.findOrRegister(
         isSameUsernameTreatedAsIdenticalUser,
         isSameEmailTreatedAsIdenticalUser,
@@ -39,6 +44,7 @@ class ExternalAccountService {
         userInfo.username,
         userInfo.name,
         userInfo.email,
+        statusToBeRegistered,
       );
       return externalAccount;
     } catch (err) {
@@ -73,6 +79,21 @@ class ExternalAccountService {
         throw new ErrorV3(err.message);
       }
     }
+  }
+
+  private determineStatusForNewUser(
+    providerId: IExternalAuthProviderType,
+    email?: string,
+  ): number {
+    if (providerId === 'google') {
+      return email?.endsWith('@s.kori.doshisha.ac.jp')
+        ? UserStatus.STATUS_ACTIVE
+        : UserStatus.STATUS_REGISTERED;
+    }
+    if (providerId === 'github') {
+      return UserStatus.STATUS_REGISTERED;
+    }
+    return UserStatus.STATUS_ACTIVE;
   }
 }
 

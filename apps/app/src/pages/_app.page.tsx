@@ -17,6 +17,7 @@ import {
   useHydrateGlobalEachAtoms,
   useHydrateGlobalInitialAtoms,
 } from '~/states/global/hydrate';
+import loggerFactory from '~/utils/logger';
 import { swrGlobalConfiguration } from '~/utils/swr-utils';
 
 import type { CommonEachProps, CommonInitialProps } from './common-props';
@@ -32,6 +33,8 @@ import '~/styles/tailwind.css';
 
 // register custom serializer
 registerTransformerForObjectId();
+
+const logger = loggerFactory('growi:_app');
 
 const StateManagementContainer = ({
   children,
@@ -95,6 +98,14 @@ const GrowiAppSubstance = ({
 
   useEffect(() => {
     import('bootstrap/dist/js/bootstrap');
+  }, []);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        logger.error('Service Worker registration failed:', err);
+      });
+    }
   }, []);
 
   // Use the layout defined at the page level, if available

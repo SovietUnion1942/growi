@@ -142,7 +142,9 @@ export const MessageThread = (props: Props): JSX.Element => {
                 >
                   <div
                     className={
-                      isMine ? 'bg-primary text-white' : 'bg-white border'
+                      isMine
+                        ? 'bg-primary text-white'
+                        : 'bg-body-tertiary border'
                     }
                     style={{
                       maxWidth: '75%',

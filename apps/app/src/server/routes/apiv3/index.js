@@ -45,6 +45,7 @@ import { setup as setupInstaller } from './installer';
 import { setup as setupInvited } from './invited';
 import { setup as setupLogout } from './logout';
 import { setup as setupMarkdownSetting } from './markdown-setting';
+import { setup as setupMessages } from './messages';
 import { setup as setupMongo } from './mongo';
 import { setup as setupNotificationSetting } from './notification-setting';
 import { setup as setupPage } from './page';
@@ -175,6 +176,7 @@ export const setup = (crowi, app) => {
     return [router, routerForAdmin, routerForAuth];
   }
 
+  router.use('/messages', setupMessages(crowi));
   router.use('/in-app-notification', setupInAppNotification(crowi));
   router.use('/news', newsRoute(crowi));
 

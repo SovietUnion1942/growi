@@ -79,6 +79,7 @@ export const extension = Prisma.defineExtension((client) => {
           usernameToBeRegistered: string | undefined,
           nameToBeRegistered = '',
           mailToBeRegistered?: string,
+          statusToBeRegistered?: number,
         ) {
           const context =
             Prisma.getExtensionContext<typeof prisma.externalaccounts>(this);
@@ -148,7 +149,7 @@ export const extension = Prisma.defineExtension((client) => {
                 mailToBeRegistered,
                 undefined,
                 undefined,
-                UserStatus.STATUS_ACTIVE,
+                statusToBeRegistered ?? UserStatus.STATUS_ACTIVE,
               );
             })
             .then((newUser) => {

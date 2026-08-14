@@ -25,6 +25,7 @@ import instanciatePageBulkExportJobCleanUpCronService from '~/features/page-bulk
 import instanciatePageBulkExportJobCronService from '~/features/page-bulk-export/server/service/page-bulk-export-job-cron';
 import type { SessionConfig } from '~/interfaces/session-config';
 import { startCron as startAccessTokenCron } from '~/server/service/access-token';
+import { startCron as startAttendanceReminderCron } from '~/server/service/attendance-reminder-cron';
 import { projectRoot } from '~/server/util/project-dir-utils';
 import { getGrowiVersion } from '~/utils/growi-version';
 import loggerFactory from '~/utils/logger';
@@ -494,6 +495,8 @@ class Crowi {
     auditLogBulkExportJobCleanUpCronService.startCron();
 
     startAccessTokenCron();
+
+    startAttendanceReminderCron();
 
     // News feed sync cron
     const { NewsCronService } = await import(

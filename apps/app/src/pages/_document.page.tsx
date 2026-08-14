@@ -138,6 +138,7 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
           <link rel="stylesheet" key="link-theme" href={themeHref} />
           <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <link rel="alternate icon" href="/favicon.ico" />
+          <link rel="manifest" href="/manifest.json" />
           <HeadersForGrowiPlugin
             pluginResourceEntries={pluginResourceEntries}
           />

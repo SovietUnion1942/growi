@@ -76,8 +76,8 @@ COPY --from=pruner $OPT_DIR/out/full/ .
 COPY tsconfig.base.json .
 
 # Build
-RUN turbo run clean
-RUN turbo run build --filter @growi/app
+RUN turbo run clean --concurrency=1
+RUN turbo run build --filter @growi/app --concurrency=1
 
 # Produce artifacts
 RUN bash apps/app/bin/assemble-prod.sh

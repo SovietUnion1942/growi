@@ -81,6 +81,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.82",
     "@ai-sdk/azure": "^3.0.72",
+    "@ai-sdk/deepseek": "2.0.51",
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.69",
     "@ai-sdk/react": "^3.0.178",
@@ -341,6 +342,7 @@
     "usehooks-ts": "^2.6.0",
     "uuid": "^11.0.3",
     "validator": "^13.15.22",
+    "web-push": "^3.6.7",
     "ws": "^8.17.1",
     "xss": "^1.0.15",
     "y-codemirror.next": "^0.3.5",

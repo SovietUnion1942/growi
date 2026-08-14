@@ -20,6 +20,12 @@ import { deleteAccessTokenHandlersFactory } from './delete-access-token';
 import { deleteAllAccessTokensHandlersFactory } from './delete-all-access-tokens';
 import { generateAccessTokenHandlerFactory } from './generate-access-token';
 import { getAccessTokenHandlerFactory } from './get-access-tokens';
+import {
+  getPushSubscriptionsHandlerFactory,
+  getVapidPublicKeyHandlerFactory,
+  subscribePushNotificationHandlerFactory,
+  unsubscribePushNotificationHandlerFactory,
+} from './push-notification';
 
 const logger = loggerFactory('growi:routes:apiv3:personal-setting');
 
@@ -948,6 +954,30 @@ export const setup = (crowi) => {
         return res.apiv3Err('getting-in-app-notification-settings-failed');
       }
     },
+  );
+
+  router.get(
+    '/push-notification/vapid-public-key',
+    accessTokenParser([SCOPE.READ.USER_SETTINGS.PUSH_NOTIFICATION]),
+    getVapidPublicKeyHandlerFactory(crowi),
+  );
+
+  router.put(
+    '/push-notification/subscribe',
+    accessTokenParser([SCOPE.WRITE.USER_SETTINGS.PUSH_NOTIFICATION]),
+    subscribePushNotificationHandlerFactory(crowi),
+  );
+
+  router.delete(
+    '/push-notification/subscribe',
+    accessTokenParser([SCOPE.WRITE.USER_SETTINGS.PUSH_NOTIFICATION]),
+    unsubscribePushNotificationHandlerFactory(crowi),
+  );
+
+  router.get(
+    '/push-notification/subscriptions',
+    accessTokenParser([SCOPE.READ.USER_SETTINGS.PUSH_NOTIFICATION]),
+    getPushSubscriptionsHandlerFactory(crowi),
   );
 
   return router;

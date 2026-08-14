@@ -82,3 +82,15 @@ export const markConversationAsRead = async (
 ): Promise<void> => {
   await apiv3Post(`/messages/conversations/${conversationId}/read`);
 };
+
+export const searchUsers = async (
+  searchText: string,
+): Promise<IConversationParticipant[]> => {
+  const res = await apiv3Get('/users', {
+    searchText,
+    page: 1,
+    sort: 'name',
+    sortOrder: 'asc',
+  });
+  return res.data.paginateResult.docs;
+};

@@ -112,7 +112,15 @@ export const setup = (crowi: Crowi): Router => {
           user._id,
           targetUserId,
         );
-        return res.apiv3({ conversation });
+
+        const conversationObj = conversation.toObject();
+        const populated = await conversation.populate('participants');
+        conversationObj.participants = populated.participants.map((p) =>
+          serializeUserSecurely(p),
+        );
+        conversationObj.unreadCount = 0;
+
+        return res.apiv3({ conversation: conversationObj });
       } catch (err) {
         return res.apiv3Err(err);
       }

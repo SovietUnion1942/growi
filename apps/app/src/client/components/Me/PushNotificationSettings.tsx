@@ -6,7 +6,9 @@ import { apiv3Delete, apiv3Get, apiv3Put } from '~/client/util/apiv3-client';
 import { toastError, toastSuccess } from '~/client/util/toastr';
 
 // VAPID公開鍵(Base64URL文字列)をpushManager.subscribeが要求するUint8Arrayに変換する
-const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
+const urlBase64ToUint8Array = (
+  base64String: string,
+): Uint8Array<ArrayBuffer> => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 

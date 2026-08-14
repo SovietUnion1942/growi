@@ -9,14 +9,20 @@ import { SocketEventName } from '~/interfaces/websocket';
 import type Crowi from '~/server/crowi';
 import { accessTokenParser } from '~/server/middlewares/access-token-parser';
 import loginRequiredFactory from '~/server/middlewares/login-required';
+import { sendPushNotificationToUser } from '~/server/service/push-notification';
 import {
   getRoomNameWithId,
   RoomPrefix,
 } from '~/server/service/socket-io/helper';
+import loggerFactory from '~/utils/logger';
 
 import { Conversation } from '../../models/Conversation';
 import { Message } from '../../models/Message';
 import type { ApiV3Response } from './interfaces/apiv3-response';
+
+const logger = loggerFactory('growi:routes:apiv3:messages');
+
+const MESSAGE_PUSH_BODY_MAX_LENGTH = 100;
 
 const router = express.Router();
 
@@ -209,6 +215,28 @@ export const setup = (crowi: Crowi): Router => {
               });
           });
         }
+
+        // fire-and-forget: don't make the sender wait on push delivery
+        const recipientIds = conversation.participants.filter(
+          (p) => !p.equals(user._id),
+        );
+        const senderName = user.name || user.username;
+        const pushBody =
+          body.length > MESSAGE_PUSH_BODY_MAX_LENGTH
+            ? `${body.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
+            : body;
+        Promise.all(
+          recipientIds.map((recipientId) =>
+            sendPushNotificationToUser(recipientId.toString(), {
+              title: `${senderName} からのメッセージ`,
+              body: pushBody,
+              url: '/',
+              tag: conversationId,
+            }),
+          ),
+        ).catch((err) => {
+          logger.error('Failed to send push notification for message', err);
+        });
 
         return res.apiv3({ message });
       } catch (err) {

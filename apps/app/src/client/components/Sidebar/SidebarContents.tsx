@@ -14,6 +14,7 @@ import {
 import { Bookmarks } from './Bookmarks';
 import { CustomSidebar } from './Custom';
 import { InAppNotification } from './InAppNotification';
+import { Messages } from './Messages';
 import { PageTree } from './PageTree';
 import { RecentChanges } from './RecentChanges';
 import Tag from './Tag';
@@ -42,6 +43,12 @@ export const SidebarContents = memo(() => {
         if (isGuestUser == null) return () => <></>; // wait for isGuestUser to be determined
         if (!isGuestUser) {
           return InAppNotification;
+        }
+        return PageTree;
+      case SidebarContentsType.MESSAGES:
+        if (isGuestUser == null) return () => <></>; // wait for isGuestUser to be determined
+        if (!isGuestUser) {
+          return Messages;
         }
         return PageTree;
       case SidebarContentsType.AI:

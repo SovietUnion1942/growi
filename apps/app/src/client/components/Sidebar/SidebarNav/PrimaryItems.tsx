@@ -23,6 +23,13 @@ const PrimaryItemForNotification = dynamic(
   { ssr: false },
 );
 
+const PrimaryItemForMessages = dynamic(
+  () =>
+    import('../Messages/PrimaryItemForMessages').then(
+      (mod) => mod.PrimaryItemForMessages,
+    ),
+  { ssr: false },
+);
 type Props = {
   onItemHover?: (contents: SidebarContentsType) => void;
 };
@@ -101,6 +108,12 @@ export const PrimaryItems = memo((props: Props) => {
       />
       {isGuestUser === false && (
         <PrimaryItemForNotification
+          sidebarMode={sidebarMode}
+          onHover={onItemHover}
+        />
+      )}
+      {isGuestUser === false && (
+        <PrimaryItemForMessages
           sidebarMode={sidebarMode}
           onHover={onItemHover}
         />

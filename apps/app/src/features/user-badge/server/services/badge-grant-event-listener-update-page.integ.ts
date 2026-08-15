@@ -33,9 +33,11 @@ import mongoose, { Types } from 'mongoose';
 
 import { getInstance } from '^/test/setup/crowi';
 
-import { ActionGroupSize } from '~/interfaces/activity';
+import { ActionGroupSize, SupportedTargetModel } from '~/interfaces/activity';
+import { parseSnapshot } from '~/models/serializers/in-app-notification-snapshot/user-badge';
 import type Crowi from '~/server/crowi';
 import { generateAddActivityMiddleware } from '~/server/middlewares/add-activity';
+import type { InAppNotificationDocument } from '~/server/models/in-app-notification';
 import type { PageModel } from '~/server/models/page';
 import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-response';
 import { updatePageHandlersFactory } from '~/server/routes/apiv3/page/update-page';
@@ -81,6 +83,35 @@ async function waitForUserBadge(
   return false;
 }
 
+/**
+ * Poll until an InAppNotification for the given user/targetModel exists, or
+ * time out. Notification persistence (InAppNotificationService's own
+ * listener on `crowi.events.activity`'s `'updated'` event, which runs
+ * `generateSnapshot` and `bulkWrite`s the result) happens asynchronously
+ * relative to the request handler returning, exactly like `waitForUserBadge`
+ * above.
+ */
+async function waitForInAppNotification(
+  userId: Types.ObjectId,
+  targetModel: string,
+  maxWaitMs = 5000,
+): Promise<InAppNotificationDocument | null> {
+  const InAppNotification =
+    mongoose.model<InAppNotificationDocument>('InAppNotification');
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    const found = await InAppNotification.findOne({
+      user: userId,
+      targetModel,
+    });
+    if (found != null) {
+      return found;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return null;
+}
+
 describe('update-page apiv3 route -> real BadgeGrantService event listener (task 3.2)', () => {
   let crowi: Crowi;
   let testUser: IUserHasId;
@@ -104,6 +135,9 @@ describe('update-page apiv3 route -> real BadgeGrantService event listener (task
     await prisma.activities.deleteMany({ where: { ip: TEST_IP } });
     await UserBadge.deleteMany({ user: testUserId });
     await BadgeType.deleteMany({});
+    const InAppNotification =
+      mongoose.model<InAppNotificationDocument>('InAppNotification');
+    await InAppNotification.deleteMany({ user: testUserId });
     await UserBadge.init();
 
     // ACTION_PAGE_UPDATE must be in-gate so settleActivityRecord persists it.
@@ -121,6 +155,9 @@ describe('update-page apiv3 route -> real BadgeGrantService event listener (task
     await prisma.activities.deleteMany({ where: { ip: TEST_IP } });
     await UserBadge.deleteMany({ user: testUserId });
     await BadgeType.deleteMany({});
+    const InAppNotification =
+      mongoose.model<InAppNotificationDocument>('InAppNotification');
+    await InAppNotification.deleteMany({ user: testUserId });
     await crowi.models.User.deleteMany({ username: TEST_USERNAME });
     await configManager.updateConfigs(
       {
@@ -219,5 +256,19 @@ describe('update-page apiv3 route -> real BadgeGrantService event listener (task
       level: 1,
       grantedBy: null,
     });
+
+    // Requirement 5.1: the granted user's notification list must carry a
+    // notification whose snapshot includes the granted badge's name -- the
+    // strongest available proof, since this drives the same real pipeline
+    // (Activity -> InAppNotificationService listener -> generateSnapshot ->
+    // bulkWrite) a real grant goes through in production.
+    const notification = await waitForInAppNotification(
+      testUserId,
+      SupportedTargetModel.MODEL_USER_BADGE,
+    );
+    expect(notification).not.toBeNull();
+    expect(notification?.snapshot).toBeDefined();
+    const snapshot = parseSnapshot(notification?.snapshot as string);
+    expect(snapshot.badgeName).toBe('Bronze');
   });
 });

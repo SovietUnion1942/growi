@@ -146,7 +146,7 @@
   - `/api/v3/badge-types` 等に実際に HTTP リクエストが到達することを確認できる
   - _Requirements: 1.1, 3.1_
   - _Depends: 5.1, 5.2_
-- [ ] 9.4 InAppNotification スナップショット生成への UserBadge 分岐追加
+- [x] 9.4 InAppNotification スナップショット生成への UserBadge 分岐追加
   - `generateSnapshot` に UserBadge 向け分岐とシリアライザを追加する
   - バッジ付与後、対象ユーザーの通知一覧にバッジ名を含む通知が表示されることを確認できる
   - _Requirements: 5.1_

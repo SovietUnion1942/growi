@@ -101,7 +101,7 @@
   - _Requirements: 1.1_
   - _Boundary: badge-type client store_
   - _Depends: 5.1_
-- [ ] 6.2 (P) ユーザーバッジ一覧用 SWR ストア実装
+- [x] 6.2 (P) ユーザーバッジ一覧用 SWR ストア実装
   - `useSWRxUserBadges(userId)` を実装する
   - 指定ユーザーの付与バッジ一覧(BadgeType 情報込み)が実際に取得できることを確認できる
   - _Requirements: 4.3_

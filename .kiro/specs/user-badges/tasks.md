@@ -179,7 +179,7 @@
 - [x] 11.3 自動付与エンドツーエンド統合テスト
   - ページ更新 API 経由でしきい値を跨いだ際に、`UserBadge` 作成・通知生成までが一気通貫で行われることを確認する
   - _Requirements: 2.1, 2.2, 2.3, 2.5, 5.1_
-- [ ] 11.4 手動付与・権限・resweep 統合テスト
+- [x] 11.4 手動付与・権限・resweep 統合テスト
   - 管理者以外の操作拒否、automatic 区分への手動付与拒否、resweep による遡及付与を確認する
   - _Requirements: 1.6, 2.5, 3.3, 3.4_
 - [ ]* 11.5 バッジ表示 UI テスト
@@ -200,3 +200,4 @@
 - `apps/app/src/features/user-badge/client/i18n-badge-management.spec.ts` (task 1.6's key-parity test) has been failing since task 7.1/7.2 added ~20 badge_management.* keys without updating that test's fixed key-set assertion (it still expects exactly 3 keys). Confirmed pre-existing, not caused by 7.3. Fix this drift as part of task 11.x or a standalone follow-up before final validation.
 - ManualGrantModal reuses `Sidebar/Messages/UserSearchList.tsx` (a DM-messaging-feature component) as its user picker via cross-feature import. Works correctly today, but consider extracting a feature-agnostic UserPicker (e.g. into packages/ui or a generic client/components/User/ dir) if that Messages feature's component semantics narrow later.
 - **IMPORTANT for task 11.x / final validation**: no task in this spec actually wires `UserPicture`'s real ~17 call sites (or `User.badgeSummaryCached`) to real badge data yet -- `useUserPictureBadges` (task 10.3) exists and is tested in isolation but has zero real callers today. Badges are not visibly rendered anywhere in the running app yet, even though every underlying piece (model, service, API, store, component) is built and tested. This is a genuine end-to-end wiring gap that should be surfaced in the feature-level GO/NO-GO assessment, not silently assumed closed.
+- When testing a code path whose bug manifests as a silently-swallowed error (e.g. resweepBadgeType's per-user catch), assert on the SPECIFIC downstream field the bug corrupts (here: User.badgeSummaryCached), not just on a step that completes before the failure point (here: UserBadge creation, which succeeds regardless). A test that only checks the earlier-completing step is structurally blind to the exact regression it's meant to catch.

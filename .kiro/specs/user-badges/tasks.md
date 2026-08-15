@@ -71,7 +71,7 @@
   - 導入前からしきい値を満たしていたユーザーに対し、この関数の実行で新たにバッジが付与されることを確認できる
   - _Requirements: 2.5_
 
-- [ ] 4. (P) UserPicture へのバッジ表示拡張
+- [x] 4. (P) UserPicture へのバッジ表示拡張
   - `packages/ui/src/components/UserPicture.tsx` に新規 optional prop `badges` を追加する(表示専用のローカル型、既存 props やレンダリングには影響しない)
   - `badges` が未指定/空配列の場合は既存の描画から見た目が変化しないことを確認できる
   - `badges` が1件以上のとき、アバター横にバッジアイコンが表示されることを確認できる

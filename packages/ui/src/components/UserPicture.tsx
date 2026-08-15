@@ -144,6 +144,23 @@ const hasProfileImage = (
   return obj != null && typeof obj === 'object' && 'imageUrlCached' in obj;
 };
 
+/**
+ * Display-only badge type for UserPicture.
+ *
+ * This type is self-contained within `packages/ui` and must not depend on
+ * `apps/app` domain types. `iconKey` is either a Material Symbols icon name
+ * or a single emoji character.
+ */
+export type UserPictureBadge = {
+  iconKey: string;
+  name: string;
+  level: number | null;
+};
+
+// A rough heuristic to distinguish a single emoji character from a Material
+// Symbols icon name (which is always ASCII, e.g. "star", "military_tech").
+const isEmojiIconKey = (iconKey: string): boolean => !/^[ -~]+$/.test(iconKey);
+
 type Props = {
   user?: Partial<IUser> | Ref<IUser> | null;
   size?: UserPictureSize;
@@ -154,6 +171,7 @@ type Props = {
   rootClassName?: string;
   rootStyle?: CSSProperties;
   testId?: string;
+  badges?: UserPictureBadge[];
 };
 
 export const UserPicture = memo((userProps: Props): JSX.Element => {
@@ -167,6 +185,7 @@ export const UserPicture = memo((userProps: Props): JSX.Element => {
     rootClassName,
     rootStyle,
     testId,
+    badges,
   } = userProps;
 
   // Extract user information
@@ -202,9 +221,31 @@ export const UserPicture = memo((userProps: Props): JSX.Element => {
   // biome-ignore lint/performance/noImgElement: ignore
   const imgElement = <img src={src} alt={displayName} className={className} />;
 
+  const badgeElements =
+    badges != null && badges.length > 0 ? (
+      <span className="user-picture-badges">
+        {badges.map((badge) => (
+          <span
+            key={`${badge.iconKey}-${badge.name}`}
+            data-testid="user-picture-badge"
+            role="img"
+            aria-label={badge.name}
+            title={badge.name}
+          >
+            {isEmojiIconKey(badge.iconKey) ? (
+              badge.iconKey
+            ) : (
+              <span className="material-symbols-outlined">{badge.iconKey}</span>
+            )}
+          </span>
+        ))}
+      </span>
+    ) : null;
+
   const children = (
     <>
       {imgElement}
+      {badgeElements}
       {rootEl != null && showTooltip && (
         <UncontrolledTooltip
           placement="bottom"

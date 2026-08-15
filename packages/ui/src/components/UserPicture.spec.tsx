@@ -218,3 +218,113 @@ describe('UserPicture — Task 4 (badges prop, req 4.1, 4.2)', () => {
     });
   });
 });
+
+describe('UserPicture — Task 10.3 (badge tooltip catalog resolution, req 4.5)', () => {
+  it('shows the badge name in its own tooltip when hovered/focused, even without a description', () => {
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Top Contributor', level: 3 },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    const tooltip = badgeEl?.querySelector('[data-testid="mock-tooltip"]');
+    expect(tooltip?.textContent).toContain('Top Contributor');
+  });
+
+  it('shows both the name and description when the badge has a resolved description', () => {
+    const badges: UserPictureBadge[] = [
+      {
+        iconKey: 'star',
+        name: 'Top Contributor',
+        level: 3,
+        description: 'Awarded for outstanding contributions',
+      },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    const tooltip = badgeEl?.querySelector('[data-testid="mock-tooltip"]');
+    expect(tooltip?.textContent).toContain('Top Contributor');
+    expect(tooltip?.textContent).toContain(
+      'Awarded for outstanding contributions',
+    );
+  });
+
+  it('gives each badge its own independent tooltip, not the avatar/username one', () => {
+    const badges: UserPictureBadge[] = [
+      {
+        iconKey: 'star',
+        name: 'Top Contributor',
+        description: 'First description',
+        level: 3,
+      },
+      {
+        iconKey: '🏆',
+        name: 'Champion',
+        description: 'Second description',
+        level: null,
+      },
+    ];
+    render(
+      <UserPicture user={makeUser({ name: 'Alice' })} noLink badges={badges} />,
+    );
+
+    const tooltips = screen.getAllByTestId('mock-tooltip');
+    // One for the avatar/username tooltip + one per badge.
+    expect(tooltips).toHaveLength(3);
+
+    const badgeTooltipTexts = tooltips
+      .map((tooltip) => tooltip.textContent)
+      .filter((text) => text != null && !text.includes('Alice'));
+    expect(badgeTooltipTexts).toContainEqual(
+      expect.stringContaining('First description'),
+    );
+    expect(badgeTooltipTexts).toContainEqual(
+      expect.stringContaining('Second description'),
+    );
+  });
+
+  it('makes each badge keyboard-focusable so the tooltip can be reached without a mouse', () => {
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Top Contributor', level: 3 },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    expect(badgeEl?.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('gives each badge a unique DOM id even when two UserPicture instances render the same badge', () => {
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Top Contributor', level: 3 },
+    ];
+    const { container: containerA } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+    const { container: containerB } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const idA = containerA.querySelector(
+      '[data-testid="user-picture-badge"]',
+    )?.id;
+    const idB = containerB.querySelector(
+      '[data-testid="user-picture-badge"]',
+    )?.id;
+    expect(idA).toBeTruthy();
+    expect(idB).toBeTruthy();
+    expect(idA).not.toBe(idB);
+  });
+});

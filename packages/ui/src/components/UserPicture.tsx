@@ -5,6 +5,7 @@ import {
   memo,
   type ReactNode,
   useCallback,
+  useId,
   useState,
 } from 'react';
 import dynamic from 'next/dynamic';
@@ -155,6 +156,14 @@ export type UserPictureBadge = {
   iconKey: string;
   name: string;
   level: number | null;
+  /**
+   * Optional badge description, resolved client-side (in `apps/app`, not
+   * here) from a badge type catalog and shown in the badge's hover/focus
+   * tooltip alongside `name` (requirement 4.5). Absent -- rather than an
+   * empty string -- when no description could be resolved yet, so the
+   * tooltip falls back to showing just `name`.
+   */
+  description?: string;
 };
 
 // A rough heuristic to distinguish a single emoji character from a Material
@@ -221,24 +230,57 @@ export const UserPicture = memo((userProps: Props): JSX.Element => {
   // biome-ignore lint/performance/noImgElement: ignore
   const imgElement = <img src={src} alt={displayName} className={className} />;
 
+  // Namespaces each badge's tooltip target id to this component instance, so
+  // multiple `UserPicture`s rendering the same user's badges on one page
+  // (e.g. a search results list) never collide on `id` (unlike the badge's
+  // own `key`, `id` must be globally unique in the DOM).
+  const badgeIdPrefix = useId();
+
   const badgeElements =
     badges != null && badges.length > 0 ? (
       <span className="user-picture-badges">
-        {badges.map((badge) => (
-          <span
-            key={`${badge.iconKey}-${badge.name}`}
-            data-testid="user-picture-badge"
-            role="img"
-            aria-label={badge.name}
-            title={badge.name}
-          >
-            {isEmojiIconKey(badge.iconKey) ? (
-              badge.iconKey
-            ) : (
-              <span className="material-symbols-outlined">{badge.iconKey}</span>
-            )}
-          </span>
-        ))}
+        {badges.map((badge, index) => {
+          const badgeElementId = `${badgeIdPrefix}-badge-${index}`;
+          // Requirement 4.5: hovering or focusing a badge icon shows its
+          // name and (when resolved) description. `tabIndex={0}` makes the
+          // badge keyboard-focusable so `trigger="hover focus"` actually
+          // has a focus event to react to.
+          return (
+            <span
+              key={`${badge.iconKey}-${badge.name}`}
+              id={badgeElementId}
+              data-testid="user-picture-badge"
+              role="img"
+              aria-label={badge.name}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: role="img" is correct here (this is content, not a control); tabIndex only makes the badge keyboard-focusable so its tooltip's "focus" trigger (requirement 4.5) is actually reachable without a mouse.
+              tabIndex={0}
+            >
+              {isEmojiIconKey(badge.iconKey) ? (
+                badge.iconKey
+              ) : (
+                <span className="material-symbols-outlined">
+                  {badge.iconKey}
+                </span>
+              )}
+              <UncontrolledTooltip
+                placement="top"
+                target={badgeElementId}
+                trigger="hover focus"
+                popperClassName={tooltipClassName}
+                delay={0}
+                fade={false}
+              >
+                {badge.name}
+                {badge.description != null && (
+                  <>
+                    <br />
+                    {badge.description}
+                  </>
+                )}
+              </UncontrolledTooltip>
+            </span>
+          );
+        })}
       </span>
     ) : null;
 

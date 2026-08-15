@@ -195,6 +195,66 @@ describe('/badge-types route', () => {
     });
   });
 
+  describe('GET /catalog (task 10.3, requirement 4.5)', () => {
+    it('returns a minimal { _id, description } catalog for a logged-in non-admin user', async () => {
+      currentUser = nonAdminUser;
+      listBadgeTypesMock.mockResolvedValueOnce([automaticBadgeType] as never);
+
+      const { app } = buildApp();
+      const res = await request(app).get('/_api/v3/badge-types/catalog');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        badgeTypes: [{ _id: 'bt-1', description: 'Awarded for editing pages' }],
+      });
+      expect(listBadgeTypesMock).toHaveBeenCalledWith(false);
+    });
+
+    it('does not require admin (unlike GET /)', async () => {
+      currentUser = nonAdminUser;
+      listBadgeTypesMock.mockResolvedValueOnce([]);
+
+      const { app } = buildApp();
+      const res = await request(app).get('/_api/v3/badge-types/catalog');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      currentUser = undefined;
+
+      const { app } = buildApp();
+      const res = await request(app).get('/_api/v3/badge-types/catalog');
+
+      expect(res.status).toBe(401);
+      expect(listBadgeTypesMock).not.toHaveBeenCalled();
+    });
+
+    it('does not leak admin-only fields (name/iconKey/category/levels/createdBy) in the catalog entries', async () => {
+      currentUser = nonAdminUser;
+      listBadgeTypesMock.mockResolvedValueOnce([automaticBadgeType] as never);
+
+      const { app } = buildApp();
+      const res = await request(app).get('/_api/v3/badge-types/catalog');
+
+      expect(Object.keys(res.body.badgeTypes[0]).sort()).toEqual([
+        '_id',
+        'description',
+      ]);
+    });
+
+    it('returns 500 with ApiV3Response error shape for an unexpected service error', async () => {
+      currentUser = nonAdminUser;
+      listBadgeTypesMock.mockRejectedValueOnce(new Error('boom'));
+
+      const { app } = buildApp();
+      const res = await request(app).get('/_api/v3/badge-types/catalog');
+
+      expect(res.status).toBe(500);
+      expect(res.body.errors).toBeDefined();
+    });
+  });
+
   describe('POST /', () => {
     const validBody = {
       name: 'Editor',

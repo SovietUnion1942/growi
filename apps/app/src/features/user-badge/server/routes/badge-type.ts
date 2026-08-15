@@ -150,6 +150,47 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
     },
   );
 
+  /**
+   * `GET /badge-types/catalog` (task 10.3, requirement 4.5): a lightweight,
+   * NON-admin-gated catalog for `UserPicture`'s badge tooltip resolution.
+   *
+   * The badge-type catalog CRUD above (`GET /`, `POST /`, `PUT /:id`,
+   * `DELETE /:id`) is admin-only per requirement 1.6, but a badge tooltip
+   * must be resolvable by ANY logged-in viewer of a user's profile page
+   * (requirement 4.5 makes no admin distinction). Rather than relax
+   * `GET /`'s own admin gate (which would leak the full admin management
+   * payload -- `iconKey`, `category`, `levels`, `createdBy`, soft-delete
+   * state -- to non-admins), this route exposes only the single field the
+   * tooltip is actually missing: `description`. `name` is not included here
+   * because it is already carried end-to-end by `User.badgeSummaryCached`
+   * (`IUserBadgeSummaryEntry.name`) and therefore already reaches
+   * `UserPicture`'s `badges` prop without a catalog lookup; only the
+   * `BadgeType`-level `description` (requirement 4.5's "説明") has no path
+   * to the client today. See design.md's Implementation Notes on
+   * `UserPicture(拡張)` for the "resolve from a client-side catalog fetched
+   * once" design intent this route implements.
+   */
+  router.get(
+    '/catalog',
+    loginRequiredStrictly,
+    async (_req: AuthorizedRequest, res: ApiV3Response) => {
+      try {
+        const badgeTypes = await listBadgeTypes(false);
+        const catalog = badgeTypes.map(({ _id, description }) => ({
+          _id,
+          description,
+        }));
+        return res.apiv3({ badgeTypes: catalog });
+      } catch (err) {
+        const msg = 'Error occurred in fetching the badge type catalog';
+        logger.error(msg, err);
+        return res.apiv3Err(
+          new ErrorV3(msg, 'badge-type-catalog-fetch-failed'),
+        );
+      }
+    },
+  );
+
   router.post(
     '/',
     loginRequiredStrictly,

@@ -164,7 +164,7 @@
   - ユーザーページを開くとバッジ一覧セクションが表示されることを確認できる
   - _Requirements: 4.3_
   - _Depends: 8_
-- [ ] 10.3 バッジツールチップ用カタログ参照配線
+- [x] 10.3 バッジツールチップ用カタログ参照配線
   - `UserPicture` のホバー/フォーカス時に、バッジ種類カタログから名前・説明を解決して表示する
   - ツールチップに必要な i18n キーを追加する
   - バッジアイコンにカーソルを合わせると名前と説明が表示されることを確認できる
@@ -199,3 +199,4 @@
 - The admin badge UI's `t('Create')`/`t('Update')`/`t('Edit')`/`t('Delete')`/`t('Cancel')` button labels are bare, unnamespaced i18next keys with no corresponding entry in any locale JSON -- i18next falls back to the raw English key text regardless of locale, so non-English admins see raw English button labels. Introduced in 7.1, inherited by 7.2. Not blocking any individual task, but worth a real i18n key + translation pass (11.x or a dedicated follow-up) before this admin UI ships.
 - `apps/app/src/features/user-badge/client/i18n-badge-management.spec.ts` (task 1.6's key-parity test) has been failing since task 7.1/7.2 added ~20 badge_management.* keys without updating that test's fixed key-set assertion (it still expects exactly 3 keys). Confirmed pre-existing, not caused by 7.3. Fix this drift as part of task 11.x or a standalone follow-up before final validation.
 - ManualGrantModal reuses `Sidebar/Messages/UserSearchList.tsx` (a DM-messaging-feature component) as its user picker via cross-feature import. Works correctly today, but consider extracting a feature-agnostic UserPicker (e.g. into packages/ui or a generic client/components/User/ dir) if that Messages feature's component semantics narrow later.
+- **IMPORTANT for task 11.x / final validation**: no task in this spec actually wires `UserPicture`'s real ~17 call sites (or `User.badgeSummaryCached`) to real badge data yet -- `useUserPictureBadges` (task 10.3) exists and is tested in isolation but has zero real callers today. Badges are not visibly rendered anywhere in the running app yet, even though every underlying piece (model, service, API, store, component) is built and tested. This is a genuine end-to-end wiring gap that should be surfaced in the feature-level GO/NO-GO assessment, not silently assumed closed.

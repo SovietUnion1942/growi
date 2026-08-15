@@ -29,6 +29,8 @@ vi.mock('~/components/Common/PagePathHierarchicalLink', () => ({
   PagePathHierarchicalLink: () => <span data-testid="mock-page-path" />,
 }));
 
+import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+
 import { PageItem } from './RecentChangesSubstance';
 
 const basePage = {
@@ -54,14 +56,7 @@ describe('PageItem', () => {
         _id: 'user1',
         name: 'Alice',
         username: 'alice',
-        badgeSummaryCached: [
-          {
-            badgeType: 'badge-type-1',
-            iconKey: 'star',
-            name: 'Top Contributor',
-            level: 3,
-          },
-        ],
+        badgeSummaryCached: makeBadgeSummaryFixture(),
       },
     } as unknown as IPageHasId;
 

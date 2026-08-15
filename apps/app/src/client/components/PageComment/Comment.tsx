@@ -9,6 +9,10 @@ import { useTranslation } from 'next-i18next';
 import { UncontrolledTooltip } from 'reactstrap';
 import urljoin from 'url-join';
 
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import type { RendererOptions } from '~/interfaces/renderer-options';
 
 import RevisionRenderer from '../../../components/PageView/RevisionRenderer';
@@ -56,6 +60,26 @@ export const Comment = (props: CommentProps): JSX.Element => {
 
   const commentId = comment._id;
   const creator = isPopulated(comment.creator) ? comment.creator : undefined;
+
+  // `IUserBadgeSummaryEntry.badgeType` (packages/core) is typed as
+  // `Types.ObjectId` for the server-side Mongoose model, but by the time it
+  // reaches this client component (via JSON API response serialization) it
+  // is actually a string; normalize explicitly here to match
+  // `UserPictureBadgeSource.badgeType: string` (same pattern as UserInfo.tsx
+  // / RecentChangesSubstance.tsx, task 12.2/12.3).
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    return creator?.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        name,
+        level,
+      }),
+    );
+  }, [creator?.badgeSummaryCached]);
+
+  const badges = useUserPictureBadges(badgeSummary);
+
   const createdAt = new Date(comment.createdAt);
   const updatedAt = new Date(comment.updatedAt);
   const isEdited = createdAt < updatedAt;
@@ -158,7 +182,7 @@ export const Comment = (props: CommentProps): JSX.Element => {
         <div id={commentId} className={rootClassName}>
           <div className="page-comment-main bg-comment rounded mb-2">
             <div className="d-flex align-items-center">
-              <UserPicture user={creator} className="me-2" />
+              <UserPicture user={creator} className="me-2" badges={badges} />
               <div className="small fw-bold me-3">
                 <Username user={creator} />
               </div>

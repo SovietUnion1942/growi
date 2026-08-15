@@ -15,11 +15,42 @@ import {
   BadgeGrantManualCategoryMismatchError,
   BadgeTypeNotFoundError,
 } from './badge-type-errors';
+import type { IBadgeTypeHasId } from './badge-type-service';
 
 const logger = loggerFactory('growi:features:user-badge:badge-grant-service');
 
 /** `UserBadge` as returned from persistence, i.e. including its Mongo `_id`. */
 export type IUserBadgeHasId = IUserBadge & { _id: Types.ObjectId };
+
+/**
+ * A `UserBadge` with its `badgeType` reference resolved to the full
+ * `BadgeType` document, rather than left as a bare `ObjectId` (design.md,
+ * user-badge apiv3 route's `GET /user-badges` response: `IUserBadgeHasId[]`
+ * with "BadgeType 情報を populate"). Consumers (the user-badge apiv3 route,
+ * and eventually `BadgeShelf`) need the badge's name/icon/level metadata
+ * alongside the grant record itself without a second round-trip per badge.
+ */
+export type IUserBadgeWithBadgeType = Omit<IUserBadgeHasId, 'badgeType'> & {
+  badgeType: IBadgeTypeHasId;
+};
+
+/**
+ * Lists every badge granted to a single user, most recently granted first,
+ * with each grant's `badgeType` populated to the full `BadgeType` document
+ * (requirement 4.3: a user's page shows all granted badges with name/icon).
+ * Read-only -- this is a query, not part of the "single write gateway" that
+ * `recordBadgeGrant` is for automatic/manual grants.
+ */
+export const listUserBadges = async (
+  targetUserId: string,
+): Promise<IUserBadgeWithBadgeType[]> => {
+  const userBadges = await UserBadge.find({ user: targetUserId })
+    .sort({ grantedAt: -1 })
+    .populate<{ badgeType: IBadgeTypeHasId }>('badgeType')
+    .lean();
+
+  return userBadges as unknown as IUserBadgeWithBadgeType[];
+};
 
 /**
  * Counts the user's cumulative Wiki-editing contributions: page creations
@@ -164,18 +195,20 @@ async function updateBadgeSummaryCached(userId: string): Promise<void> {
  * UserBadge target; `getAdditionalTargetUsers` is used instead to supply
  * the granted user directly, mirroring `notifyExportResult`'s same pattern.
  *
- * `crowi` is optional so that `evaluateAndGrantForUser`/`grantManualBadge`
- * remain callable (and the grant + cache update still take full effect)
- * from contexts with no `Crowi` instance on hand, such as most of this
- * service's own unit/integration tests that exercise only the grant+cache
- * behavior.
+ * `crowi` is a required parameter: this function is never reachable except
+ * through `recordBadgeGrant`, which itself now requires `crowi` on every
+ * call (tightened at task 5.2 -- see `recordBadgeGrant`'s doc comment). A
+ * caller with no real activity/notification wiring on hand still passes an
+ * explicit `Crowi` test double; `activityService` on that double may itself
+ * be absent, which this function tolerates via the `crowi.activityService
+ * == null` guard below.
  */
 async function emitBadgeGrantActivity(
   userBadge: IUserBadgeHasId,
   userId: string,
-  crowi?: Crowi,
+  crowi: Crowi,
 ): Promise<void> {
-  if (crowi?.activityService == null) {
+  if (crowi.activityService == null) {
     return;
   }
 
@@ -216,6 +249,13 @@ async function emitBadgeGrantActivity(
  * Duplicate-key handling stays with each caller (they react differently: the
  * automatic path treats a duplicate as a no-op, the manual path surfaces a
  * typed error) -- this function lets a duplicate-key error propagate as-is.
+ *
+ * `crowi` is required (tightened at task 5.2, the first real apiv3 caller of
+ * this call chain -- see tasks.md Implementation Notes): a missing `crowi`
+ * used to silently skip the Activity/notification step, which is a subtle,
+ * hard-to-notice requirement-5.1 gap. Making it a compile-time requirement
+ * forces every caller (including tests) to be explicit about the `Crowi`
+ * instance they intend the grant to notify through.
  */
 async function recordBadgeGrant(
   userId: string,
@@ -223,7 +263,7 @@ async function recordBadgeGrant(
   level: number | null,
   grantedBy: Types.ObjectId | string | null,
   note: string | null,
-  crowi?: Crowi,
+  crowi: Crowi,
 ): Promise<IUserBadgeHasId> {
   const created = await UserBadge.create({
     user: userId,
@@ -260,7 +300,7 @@ async function grantLevelIfNotAlreadyGranted(
   userId: string,
   badgeTypeId: Types.ObjectId,
   level: number,
-  crowi?: Crowi,
+  crowi: Crowi,
 ): Promise<IUserBadgeHasId | null> {
   try {
     return await recordBadgeGrant(
@@ -298,8 +338,8 @@ async function grantLevelIfNotAlreadyGranted(
  */
 export const evaluateAndGrantForUser = async (
   userId: string,
-  scopedBadgeTypeId?: string,
-  crowi?: Crowi,
+  scopedBadgeTypeId: string | undefined,
+  crowi: Crowi,
 ): Promise<IUserBadgeHasId[]> => {
   const badgeTypes = await BadgeType.find({
     category: 'automatic',
@@ -386,7 +426,7 @@ export type GrantManualBadgeInput = {
 export const grantManualBadge = async (
   input: GrantManualBadgeInput,
   grantedBy: IUserHasId,
-  crowi?: Crowi,
+  crowi: Crowi,
 ): Promise<IUserBadgeHasId> => {
   const badgeType = await BadgeType.findOne({
     _id: input.badgeTypeId,
@@ -510,22 +550,18 @@ async function findUserIdsWithEditActivity(): Promise<string[]> {
  * cron-based/batched approach deferred as future work if it proves too slow
  * in practice.
  *
- * `crowi` is optional and, when given, is threaded through to every
- * `evaluateAndGrantForUser` call so that badges granted during a resweep
- * also emit `ACTION_USER_BADGE_GRANT` and reach the notification pipeline
- * (requirement 5.1) -- a resweep-triggered grant is a real grant like any
- * other, so it must not silently skip notification just because it came
- * from a backfill path rather than the realtime event listener. This
- * mirrors `evaluateAndGrantForUser`'s own current optional-`crowi` shape
- * (see this file's `emitBadgeGrantActivity` doc comment); the tasks.md
- * Implementation Notes flag `crowi` as needing to become a *required*
- * parameter across the whole chain no later than task 5.2 (the first real
- * apiv3 caller), at which point this function's signature should be
- * tightened in lockstep rather than left the odd one out.
+ * `crowi` is required and threaded through to every `evaluateAndGrantForUser`
+ * call so that badges granted during a resweep also emit
+ * `ACTION_USER_BADGE_GRANT` and reach the notification pipeline (requirement
+ * 5.1) -- a resweep-triggered grant is a real grant like any other, so it
+ * must not silently skip notification just because it came from a backfill
+ * path rather than the realtime event listener. Tightened to required in
+ * lockstep with `evaluateAndGrantForUser`/`grantManualBadge` at task 5.2, per
+ * tasks.md's Implementation Notes.
  */
 export const resweepBadgeType = async (
   badgeTypeId: string,
-  crowi?: Crowi,
+  crowi: Crowi,
 ): Promise<void> => {
   const userIds = await findUserIdsWithEditActivity();
 

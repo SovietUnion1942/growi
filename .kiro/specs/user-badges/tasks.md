@@ -61,7 +61,7 @@
   - `grantManualBadge` を実装し、対象 `BadgeType` が automatic 区分の場合はエラーにする
   - 付与者(`grantedBy`)・日時・任意メモ(`note`)が記録されることを確認できる
   - _Requirements: 3.1, 3.2, 3.4, 3.5_
-- [ ] 3.4 付与時の User キャッシュ更新と通知連携実装
+- [x] 3.4 付与時の User キャッシュ更新と通知連携実装
   - `UserBadge` 作成後、そのバッジ系統内で最高レベルのみを反映する形で `User.badgeSummaryCached` を更新する
   - `ACTION_USER_BADGE_GRANT` の Activity を発火し、既存の通知パイプラインに委譲する
   - バッジ付与後に対象ユーザーの `User.badgeSummaryCached` が更新されていることを確認できる
@@ -192,3 +192,5 @@
 - `findByIdAndUpdate(..., { runValidators: true })` does NOT invoke a Mongoose model's `pre('validate', fn)` document middleware (only schema-level path validators run) -- empirically confirmed on this repo's Mongoose 6.13.9 during task 2.1. Any service using `findByIdAndUpdate` for a document with custom cross-field validation logic must re-run that validation at the service layer explicitly.
 - `IBadgeTypeHasId` is defined and exported from `badge-type-service.ts` (not `interfaces/badge.ts`) -- import it from there in tasks 2.2/5.1 rather than redefining.
 - The `crowi.events.activity` `'updated'` event's `ActivityDocument.user` field is NOT populated at emit time (`createByParameters` never `include`s the user relation, unlike `updateByParameters`) -- use the scalar `activity.userId` field instead, never `.user`, when consuming this event elsewhere.
+- **REQUIRED before/at task 5.2**: `grantManualBadge`'s `crowi` parameter is currently *optional* with a silent no-op skip of the Activity/notification step when omitted. Task 5.2 (user-badge apiv3 route, the first real caller of `grantManualBadge`) MUST either pass `crowi` on every call, or better, this should be tightened to a *required* parameter across `evaluateAndGrantForUser`/`grantManualBadge`/`recordBadgeGrant`/`emitBadgeGrantActivity` so a missing `crowi` is a compile error, not a silent requirement-5.1 gap. Update the 17 pre-3.4 tests that don't pass `crowi` to pass an explicit test double when this is tightened.
+- **Follow-up (not blocking)**: `IUserBadgeSummaryEntry` is currently duplicated (manually synced) between `apps/app/src/features/user-badge/interfaces/badge.ts` (task 1.1) and `packages/core/src/interfaces/user.ts` (task 3.4). Per this repo's own steering rule ("`@growi/core` is the single source of truth for cross-package types"), the canonical definition should move to `@growi/core` with `apps/app`'s copy re-exporting/importing it instead.

@@ -19,11 +19,14 @@
  * research.md: "Decision: 累積貢献数のカウント方式".
  */
 
+import { EventEmitter } from 'node:events';
 import type { IUserHasId } from '@growi/core';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { mock } from 'vitest-mock-extended';
 
 import { SupportedAction } from '~/interfaces/activity';
+import type Crowi from '~/server/crowi';
+import type UserEvent from '~/server/events/user';
 import { prisma } from '~/utils/prisma';
 
 import type { IBadgeType } from '../../interfaces/badge';
@@ -82,6 +85,39 @@ function makeGrantedBy(): IUserHasId {
   return mock<IUserHasId>({ _id: new Types.ObjectId().toString() });
 }
 
+/**
+ * The real User model, registered once via its production factory (mirrors
+ * `user.integ.ts`, whose own `User` binding is likewise untyped `any`: the
+ * factory is a plain `.js` module with no exported TS type), so
+ * `badgeSummaryCached` reads/writes exercise the actual schema added in
+ * task 1.4 rather than an ad-hoc stand-in.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: mirrors user.integ.ts's own `let User: any` -- the factory is an untyped .js module.
+async function getUserModel(): Promise<any> {
+  const existing = mongoose.models.User;
+  if (existing != null) {
+    return existing;
+  }
+  const crowiMock = mock<Crowi>({
+    events: { user: mock<UserEvent>({ on: vi.fn() }) },
+  });
+  const userModule = await import('~/server/models/user');
+  return userModule.default(crowiMock);
+}
+
+async function createUser(): Promise<string> {
+  const User = await getUserModel();
+  const id = new Types.ObjectId();
+  await User.create({
+    _id: id,
+    name: `Badge Test User ${id.toString()}`,
+    username: `badge-test-user-${id.toString()}`,
+    email: `${id.toString()}@example.com`,
+    password: 'password',
+  });
+  return id.toString();
+}
+
 async function createManualBadgeType(
   overrides: Partial<Pick<IBadgeType, 'name'>> = {},
 ): Promise<IBadgeType & { _id: Types.ObjectId }> {
@@ -130,6 +166,8 @@ describe('BadgeGrantService', () => {
     await UserBadge.deleteMany({});
     await BadgeType.deleteMany({});
     await prisma.activities.deleteMany({ where: { ip: TEST_IP } });
+    const User = await getUserModel();
+    await User.deleteMany({ username: /^badge-test-user-/ });
   });
 
   describe('getCumulativeEditCount', () => {
@@ -483,6 +521,173 @@ describe('BadgeGrantService', () => {
         badgeType: badgeType._id,
       });
       expect(count).toBe(1);
+    });
+  });
+
+  describe('User.badgeSummaryCached (task 3.4)', () => {
+    it('reflects a newly automatic-granted badge after evaluateAndGrantForUser (req 4.4)', async () => {
+      const userId = await createUser();
+      const badgeType = await createAutomaticBadgeType();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+
+      await evaluateAndGrantForUser(userId);
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached).toHaveLength(1);
+      expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
+        badgeType: badgeType._id,
+        name: 'Bronze',
+        iconKey: 'edit',
+        level: 1,
+      });
+    });
+
+    it('shows only the highest level once a higher level in the same series is granted, not a duplicate lower-level entry (req 4.4)', async () => {
+      const userId = await createUser();
+      await createAutomaticBadgeType();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      await evaluateAndGrantForUser(userId); // grants level 1
+
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_CREATE,
+      ]);
+      await evaluateAndGrantForUser(userId); // grants level 2
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached).toHaveLength(1);
+      expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
+        name: 'Silver',
+        level: 2,
+      });
+    });
+
+    it('reflects a manual grant too (req 4.4)', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType();
+
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+      );
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached).toHaveLength(1);
+      expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
+        badgeType: badgeType._id,
+        name: badgeType.name,
+        iconKey: badgeType.iconKey,
+        level: null,
+      });
+    });
+  });
+
+  describe('ACTION_USER_BADGE_GRANT Activity emission (task 3.4)', () => {
+    /** Build a Crowi test double wired to a real EventEmitter for events.activity,
+     * mirroring badge-grant-event-listener.integ.ts's own helper of the same shape. */
+    function makeCrowiWithActivityDouble(): {
+      crowi: Crowi;
+      createActivityMock: ReturnType<typeof vi.fn>;
+      activityEmitter: EventEmitter;
+    } {
+      const activityEmitter = new EventEmitter();
+      const createActivityMock = vi.fn();
+      const crowi = mock<Crowi>({
+        activityService: { createActivity: createActivityMock },
+        events: {
+          activity: activityEmitter as unknown as typeof crowi.events.activity,
+        },
+      });
+      return { crowi, createActivityMock, activityEmitter };
+    }
+
+    it('creates an Activity via crowi.activityService.createActivity and emits it for the notification pipeline after an automatic grant (req 5.1)', async () => {
+      const userId = await createUser();
+      await createAutomaticBadgeType();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const fakeActivity = {
+        _id: new Types.ObjectId(),
+        action: SupportedAction.ACTION_USER_BADGE_GRANT,
+      };
+      const { crowi, createActivityMock, activityEmitter } =
+        makeCrowiWithActivityDouble();
+      createActivityMock.mockResolvedValue(fakeActivity);
+      const emitSpy = vi.spyOn(activityEmitter, 'emit');
+
+      await evaluateAndGrantForUser(userId, undefined, crowi);
+
+      expect(createActivityMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: SupportedAction.ACTION_USER_BADGE_GRANT,
+          targetModel: 'UserBadge',
+          user: userId,
+        }),
+      );
+      expect(emitSpy).toHaveBeenCalledWith(
+        'updated',
+        fakeActivity,
+        expect.objectContaining({ user: expect.anything() }),
+        expect.any(Function),
+      );
+    });
+
+    it('creates an Activity after a manual grant too (req 5.1)', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType();
+      const fakeActivity = {
+        _id: new Types.ObjectId(),
+        action: SupportedAction.ACTION_USER_BADGE_GRANT,
+      };
+      const { crowi, createActivityMock, activityEmitter } =
+        makeCrowiWithActivityDouble();
+      createActivityMock.mockResolvedValue(fakeActivity);
+      const emitSpy = vi.spyOn(activityEmitter, 'emit');
+
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+        crowi,
+      );
+
+      expect(createActivityMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: SupportedAction.ACTION_USER_BADGE_GRANT,
+          targetModel: 'UserBadge',
+          user: userId,
+        }),
+      );
+      expect(emitSpy).toHaveBeenCalled();
+    });
+
+    it('does not throw when crowi is omitted, and still updates the cache (req 5.1 out-of-scope-context safety)', async () => {
+      const userId = await createUser();
+      await createAutomaticBadgeType();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+
+      await expect(evaluateAndGrantForUser(userId)).resolves.toHaveLength(1);
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached).toHaveLength(1);
     });
   });
 });

@@ -66,6 +66,23 @@ const factory = (crowi) => {
         ref: 'Attachment',
       },
       imageUrlCached: String,
+      // Denormalized cache of the highest-level badge per badge series, mirroring
+      // the imageUrlCached pattern to avoid N+1 fetches at UserPicture call sites.
+      // Sole writer: features/user-badge's BadgeGrantService (see design.md).
+      badgeSummaryCached: {
+        type: [
+          {
+            badgeType: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: 'BadgeType',
+            },
+            iconKey: String,
+            name: String,
+            level: { type: Number, default: null },
+          },
+        ],
+        default: [],
+      },
       isGravatarEnabled: { type: Boolean, default: false },
       isEmailPublished: { type: Boolean, default: true },
       googleId: String,

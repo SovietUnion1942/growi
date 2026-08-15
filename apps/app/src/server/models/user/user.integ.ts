@@ -248,6 +248,24 @@ describe('User', () => {
     });
   });
 
+  describe('badgeSummaryCached', () => {
+    test('defaults to an empty array on a freshly created and re-fetched user', async () => {
+      await User.create({
+        name: 'Badge Summary Cached Default Test',
+        username: 'badgeSummaryCachedDefaultTest',
+        email: 'badgeSummaryCachedDefaultTest@example.com',
+        password: 'badgeSummaryCachedDefaultTestPass',
+        lang: 'en_US',
+      });
+
+      const fetched = await User.findOne({
+        username: 'badgeSummaryCachedDefaultTest',
+      });
+
+      expect(fetched.badgeSummaryCached).toEqual([]);
+    });
+  });
+
   describe('User Utilities', () => {
     describe('Get user exists from user page path', () => {
       test('found', async () => {

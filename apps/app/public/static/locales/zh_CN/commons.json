@@ -232,6 +232,7 @@
   },
   "badge": {
     "badge": "徽章",
-    "badges": "徽章"
+    "badges": "徽章",
+    "description_loading": "正在加载描述..."
   }
 }

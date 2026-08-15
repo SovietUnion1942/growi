@@ -261,6 +261,7 @@
   },
   "badge": {
     "badge": "Badge",
-    "badges": "Badges"
+    "badges": "Badges",
+    "description_loading": "Loading description..."
   }
 }

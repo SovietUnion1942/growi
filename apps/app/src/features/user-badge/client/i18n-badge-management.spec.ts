@@ -53,7 +53,15 @@ const ADMIN_BADGE_MANAGEMENT_KEYS = [
   'badge_management.category_manual',
 ];
 
-const COMMONS_BADGE_KEYS = ['badge.badge', 'badge.badges'];
+const COMMONS_BADGE_KEYS = [
+  'badge.badge',
+  'badge.badges',
+  // Added at task 10.3: `UserPicture`'s badge tooltip placeholder shown
+  // while the badge type catalog (`useSWRxBadgeTypeCatalog`) is still
+  // loading. See `apps/app/src/features/user-badge/client/hooks/
+  // use-user-picture-badges.ts`.
+  'badge.description_loading',
+];
 
 describe('badge-management baseline i18n keys', () => {
   describe.each(LOCALES)('admin.json (%s)', (locale) => {

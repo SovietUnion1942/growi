@@ -263,6 +263,7 @@
   },
   "badge": {
     "badge": "バッジ",
-    "badges": "バッジ"
+    "badges": "バッジ",
+    "description_loading": "説明を読み込み中..."
   }
 }

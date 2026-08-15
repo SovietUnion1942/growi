@@ -131,6 +131,7 @@
   },
   "badge": {
     "badge": "배지",
-    "badges": "배지"
+    "badges": "배지",
+    "description_loading": "설명을 불러오는 중..."
   }
 }

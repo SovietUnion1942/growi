@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { useCurrentUser } from '~/states/global';
 import {
+  getConversationDisplayName,
   getOtherParticipant,
   type IConversation,
   useSWRxConversations,
@@ -9,6 +10,51 @@ import {
 
 type Props = {
   onSelectConversation: (conversation: IConversation) => void;
+};
+
+const ConversationIcon = ({
+  conversation,
+  currentUserId,
+}: {
+  conversation: IConversation;
+  currentUserId: string | undefined;
+}): JSX.Element => {
+  if (conversation.type === 'broadcast') {
+    return (
+      <span
+        className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
+        style={{ width: 32, height: 32, flexShrink: 0 }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+          campaign
+        </span>
+      </span>
+    );
+  }
+
+  if (conversation.type === 'group') {
+    return (
+      <span
+        className="rounded-circle bg-body-tertiary border d-flex align-items-center justify-content-center me-2"
+        style={{ width: 32, height: 32, flexShrink: 0 }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+          group
+        </span>
+      </span>
+    );
+  }
+
+  const other = getOtherParticipant(conversation, currentUserId);
+  return (
+    <img
+      src={other?.imageUrlCached ?? '/images/icons/user.svg'}
+      alt={other?.name}
+      className="rounded-circle me-2"
+      width={32}
+      height={32}
+    />
+  );
 };
 
 export const ConversationList = (props: Props): JSX.Element => {
@@ -31,34 +77,28 @@ export const ConversationList = (props: Props): JSX.Element => {
 
   return (
     <ul className="list-unstyled">
-      {conversations.map((conversation) => {
-        const other = getOtherParticipant(conversation, currentUser?._id);
-        return (
-          <li key={conversation._id}>
-            <button
-              type="button"
-              className="btn btn-link text-start w-100 d-flex align-items-center py-2 text-decoration-none"
-              onClick={() => onSelectConversation(conversation)}
-            >
-              <img
-                src={other?.imageUrlCached ?? '/images/icons/user.svg'}
-                alt={other?.name}
-                className="rounded-circle me-2"
-                width={32}
-                height={32}
-              />
-              <span className="flex-grow-1">
-                {other?.name ?? other?.username}
+      {conversations.map((conversation) => (
+        <li key={conversation._id}>
+          <button
+            type="button"
+            className="btn btn-link text-start w-100 d-flex align-items-center py-2 text-decoration-none"
+            onClick={() => onSelectConversation(conversation)}
+          >
+            <ConversationIcon
+              conversation={conversation}
+              currentUserId={currentUser?._id}
+            />
+            <span className="flex-grow-1">
+              {getConversationDisplayName(conversation, currentUser?._id)}
+            </span>
+            {conversation.unreadCount > 0 && (
+              <span className="badge rounded-pill bg-primary">
+                {conversation.unreadCount}
               </span>
-              {conversation.unreadCount > 0 && (
-                <span className="badge rounded-pill bg-primary">
-                  {conversation.unreadCount}
-                </span>
-              )}
-            </button>
-          </li>
-        );
-      })}
+            )}
+          </button>
+        </li>
+      ))}
     </ul>
   );
 };

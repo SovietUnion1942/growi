@@ -12,7 +12,7 @@ import type Crowi from '../../crowi';
 import adminRequiredFactory from '../../middlewares/admin-required';
 import loginRequiredFactory from '../../middlewares/login-required';
 import { configManager } from '../config-manager';
-import { getRoomNameWithId, RoomPrefix } from './helper';
+import { BROADCAST_ROOM_NAME, getRoomNameWithId, RoomPrefix } from './helper';
 
 const logger = loggerFactory('growi:service:socket-io');
 
@@ -151,6 +151,7 @@ export class SocketIoService {
         return;
       }
       socket.join(getRoomNameWithId(RoomPrefix.USER, user._id));
+      socket.join(BROADCAST_ROOM_NAME);
     });
   }
 

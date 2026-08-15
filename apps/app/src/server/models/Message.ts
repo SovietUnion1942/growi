@@ -69,7 +69,12 @@ messageSchema.statics.findByConversation = function (
 ) {
   return this.paginate(
     { conversation },
-    { sort: { createdAt: -1 }, offset: skip, limit: offset },
+    {
+      sort: { createdAt: -1 },
+      offset: skip,
+      limit: offset,
+      populate: 'sender',
+    },
   );
 };
 

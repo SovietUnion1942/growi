@@ -1,8 +1,9 @@
-import type { IUserHasId } from '@growi/core';
-import type { Types } from 'mongoose';
+import type { IUserBadgeSummaryEntry, IUserHasId } from '@growi/core';
+import mongoose, { type Types } from 'mongoose';
 
-import { SupportedAction } from '~/interfaces/activity';
+import { SupportedAction, SupportedTargetModel } from '~/interfaces/activity';
 import type Crowi from '~/server/crowi';
+import { preNotifyService } from '~/server/service/pre-notify';
 import loggerFactory from '~/utils/logger';
 import { prisma } from '~/utils/prisma';
 
@@ -54,6 +55,200 @@ function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * Recomputes and persists `User.badgeSummaryCached` for a single user, from
+ * scratch, by reading every `UserBadge` the user currently holds and
+ * grouping by `badgeType`, keeping only the highest `level` per distinct
+ * series (requirement 4.4). A manual grant (`level: null`) is its own
+ * single entry -- the unique (user, badgeType, level) index guarantees at
+ * most one manual `UserBadge` per (user, badgeType), so it never competes
+ * against another entry of the same series.
+ *
+ * Deliberately a recompute, not an incremental patch (design.md,
+ * `research.md` "バッジのアバター併記表示にキャッシュフィールドを導入"): simpler and
+ * correct by construction, and immune to drift between the cache and the
+ * underlying `UserBadge` records.
+ *
+ * `iconKey`/`name` are resolved per-entry from the owning `BadgeType`: for
+ * an automatic grant, from that specific level's own `IBadgeLevel` fields
+ * (each level carries its own name/icon, not the series-level ones); for a
+ * manual grant, from the `BadgeType`'s own top-level fields.
+ */
+async function updateBadgeSummaryCached(userId: string): Promise<void> {
+  const User = mongoose.model<IUserHasId>('User');
+
+  const userBadges = await UserBadge.find({ user: userId }).lean();
+
+  if (userBadges.length === 0) {
+    await User.findByIdAndUpdate(userId, {
+      $set: { badgeSummaryCached: [] },
+    });
+    return;
+  }
+
+  const badgeTypeIds = [
+    ...new Set(userBadges.map((userBadge) => userBadge.badgeType.toString())),
+  ];
+  const badgeTypes = await BadgeType.find({
+    _id: { $in: badgeTypeIds },
+  }).lean();
+  const badgeTypeById = new Map(
+    badgeTypes.map((badgeType) => [badgeType._id.toString(), badgeType]),
+  );
+
+  // Keep only the highest-level UserBadge per distinct badgeType.
+  const highestByBadgeType = new Map<string, (typeof userBadges)[number]>();
+  for (const userBadge of userBadges) {
+    const key = userBadge.badgeType.toString();
+    const current = highestByBadgeType.get(key);
+    const currentLevel = current?.level ?? -1;
+    const candidateLevel = userBadge.level ?? -1;
+    if (current == null || candidateLevel > currentLevel) {
+      highestByBadgeType.set(key, userBadge);
+    }
+  }
+
+  const summary: IUserBadgeSummaryEntry[] = [];
+  for (const userBadge of highestByBadgeType.values()) {
+    const badgeType = badgeTypeById.get(userBadge.badgeType.toString());
+    // Defensive: BadgeType is only ever soft-deleted, never purged, so this
+    // should be unreachable in practice.
+    if (badgeType == null) {
+      continue;
+    }
+
+    if (userBadge.level == null) {
+      summary.push({
+        badgeType: userBadge.badgeType,
+        iconKey: badgeType.iconKey,
+        name: badgeType.name,
+        level: null,
+      });
+      continue;
+    }
+
+    const levelDef = badgeType.levels.find(
+      (level) => level.level === userBadge.level,
+    );
+    summary.push({
+      badgeType: userBadge.badgeType,
+      iconKey: levelDef?.iconKey ?? badgeType.iconKey,
+      name: levelDef?.name ?? badgeType.name,
+      level: userBadge.level,
+    });
+  }
+
+  await User.findByIdAndUpdate(userId, {
+    $set: { badgeSummaryCached: summary },
+  });
+}
+
+/**
+ * Creates the Activity record for a badge grant and delegates to the
+ * existing `InAppNotificationService` pipeline, per design.md's Event
+ * Contract (`ACTION_USER_BADGE_GRANT`).
+ *
+ * This runs OUTSIDE any Express request context on both call paths
+ * (realtime automatic-grant listener, and manual grant from a future
+ * apiv3 route not guaranteed to have gone through the `addActivity`
+ * middleware at this point), so it cannot rely on `res.locals.activity` /
+ * `pendingActivityContext`. Instead it uses
+ * `crowi.activityService.createActivity`, the same request-context-free
+ * creation path already used by `page-bulk-export-job-cron`'s
+ * `notifyExportResult` for its own out-of-request notification (research.md
+ * "Risks & Mitigations" — this was the open risk for this task).
+ *
+ * `contributor`/`user` is set to the GRANTED user (not the granter, if
+ * any), since they are who must be notified. The default
+ * `preNotifyService.generatePreNotify` resolves notification targets via
+ * `Subscription`, a page-only concept that would resolve to nobody for a
+ * UserBadge target; `getAdditionalTargetUsers` is used instead to supply
+ * the granted user directly, mirroring `notifyExportResult`'s same pattern.
+ *
+ * `crowi` is optional so that `evaluateAndGrantForUser`/`grantManualBadge`
+ * remain callable (and the grant + cache update still take full effect)
+ * from contexts with no `Crowi` instance on hand, such as most of this
+ * service's own unit/integration tests that exercise only the grant+cache
+ * behavior.
+ */
+async function emitBadgeGrantActivity(
+  userBadge: IUserBadgeHasId,
+  userId: string,
+  crowi?: Crowi,
+): Promise<void> {
+  if (crowi?.activityService == null) {
+    return;
+  }
+
+  try {
+    const activity = await crowi.activityService.createActivity({
+      action: SupportedAction.ACTION_USER_BADGE_GRANT,
+      targetModel: SupportedTargetModel.MODEL_USER_BADGE,
+      target: userBadge,
+      user: userId,
+    });
+
+    if (activity == null) {
+      return;
+    }
+
+    const getAdditionalTargetUsers = async () => [userId];
+    const preNotify = preNotifyService.generatePreNotify(
+      activity,
+      getAdditionalTargetUsers,
+    );
+
+    crowi.events.activity.emit('updated', activity, userBadge, preNotify);
+  } catch (err) {
+    logger.error('Failed to emit badge grant activity', err);
+  }
+}
+
+/**
+ * Single write gateway for recording a `UserBadge` grant (design.md,
+ * "BadgeGrantService は自動/手動どちらの付与経路も一本化する単一の書き込み窓口"): creates
+ * the `UserBadge`, then updates the granted user's `User.badgeSummaryCached`
+ * (requirement 4.4), then emits the `ACTION_USER_BADGE_GRANT` Activity
+ * (requirement 5.1). Both `evaluateAndGrantForUser` (automatic path) and
+ * `grantManualBadge` (manual path) call this instead of creating `UserBadge`
+ * documents themselves, so the "grant -> cache -> notify" sequence lives in
+ * exactly one place.
+ *
+ * Duplicate-key handling stays with each caller (they react differently: the
+ * automatic path treats a duplicate as a no-op, the manual path surfaces a
+ * typed error) -- this function lets a duplicate-key error propagate as-is.
+ */
+async function recordBadgeGrant(
+  userId: string,
+  badgeTypeId: Types.ObjectId,
+  level: number | null,
+  grantedBy: Types.ObjectId | string | null,
+  note: string | null,
+  crowi?: Crowi,
+): Promise<IUserBadgeHasId> {
+  const created = await UserBadge.create({
+    user: userId,
+    badgeType: badgeTypeId,
+    level,
+    grantedAt: new Date(),
+    grantedBy,
+    note,
+  });
+  // `Document.toObject()` is generic (`toObject<T = ...>()`); the original
+  // (pre-refactor) call sites got their `T` from a `return`-position
+  // contextual type against the enclosing function's declared return type.
+  // Assigning to an intermediate `const` loses that context unless the
+  // variable itself carries an explicit annotation -- without one, `T`
+  // silently falls back to `LeanDocument<any>` and the later use as
+  // `IUserBadgeHasId` fails to typecheck.
+  const userBadge: IUserBadgeHasId = created.toObject();
+
+  await updateBadgeSummaryCached(userId);
+  await emitBadgeGrantActivity(userBadge, userId, crowi);
+
+  return userBadge;
+}
+
+/**
  * Creates a single UserBadge grant, treating a duplicate-key rejection as
  * "already granted" rather than an error (design.md, "Concurrency
  * strategy"). This is what makes `evaluateAndGrantForUser` safe to call
@@ -65,17 +260,17 @@ async function grantLevelIfNotAlreadyGranted(
   userId: string,
   badgeTypeId: Types.ObjectId,
   level: number,
+  crowi?: Crowi,
 ): Promise<IUserBadgeHasId | null> {
   try {
-    const created = await UserBadge.create({
-      user: userId,
-      badgeType: badgeTypeId,
+    return await recordBadgeGrant(
+      userId,
+      badgeTypeId,
       level,
-      grantedAt: new Date(),
-      grantedBy: null,
-      note: null,
-    });
-    return created.toObject();
+      null,
+      null,
+      crowi,
+    );
   } catch (err) {
     if (isDuplicateKeyError(err)) {
       return null;
@@ -104,6 +299,7 @@ async function grantLevelIfNotAlreadyGranted(
 export const evaluateAndGrantForUser = async (
   userId: string,
   scopedBadgeTypeId?: string,
+  crowi?: Crowi,
 ): Promise<IUserBadgeHasId[]> => {
   const badgeTypes = await BadgeType.find({
     category: 'automatic',
@@ -140,7 +336,12 @@ export const evaluateAndGrantForUser = async (
     // (user, badgeType, level) index, so granting them concurrently is safe.
     const results = await Promise.all(
       newlyQualifyingLevels.map((level) =>
-        grantLevelIfNotAlreadyGranted(userId, badgeType._id, level.level),
+        grantLevelIfNotAlreadyGranted(
+          userId,
+          badgeType._id,
+          level.level,
+          crowi,
+        ),
       ),
     );
     for (const result of results) {
@@ -185,6 +386,7 @@ export type GrantManualBadgeInput = {
 export const grantManualBadge = async (
   input: GrantManualBadgeInput,
   grantedBy: IUserHasId,
+  crowi?: Crowi,
 ): Promise<IUserBadgeHasId> => {
   const badgeType = await BadgeType.findOne({
     _id: input.badgeTypeId,
@@ -203,15 +405,14 @@ export const grantManualBadge = async (
   }
 
   try {
-    const created = await UserBadge.create({
-      user: input.userId,
-      badgeType: badgeType._id,
-      level: null,
-      grantedAt: new Date(),
-      grantedBy: grantedBy._id,
-      note: input.note ?? null,
-    });
-    return created.toObject();
+    return await recordBadgeGrant(
+      input.userId,
+      badgeType._id,
+      null,
+      grantedBy._id,
+      input.note ?? null,
+      crowi,
+    );
   } catch (err) {
     if (isDuplicateKeyError(err)) {
       throw new BadgeAlreadyGrantedError(
@@ -277,7 +478,7 @@ export const initBadgeGrantEventListener = (crowi: Crowi): void => {
       }
 
       try {
-        await evaluateAndGrantForUser(activity.userId);
+        await evaluateAndGrantForUser(activity.userId, undefined, crowi);
       } catch (err) {
         logger.error('Automatic badge evaluation failed', err);
       }

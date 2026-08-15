@@ -186,6 +186,30 @@
   - アバター併記(最高レベルのみ)・ユーザーページ全レベル表示・ツールチップの3パターンを確認する
   - _Requirements: 4.1, 4.2, 4.4, 4.5_
 
+- [ ] 12. Integration: UserPicture 実呼び出し箇所への配線(feature-level validation で発見された配線ギャップの解消)
+- [x] 12.1 `USER_FIELDS_EXCEPT_CONFIDENTIAL` に `badgeSummaryCached` を追加
+  - `apps/app/src/server/models/user/conts.ts` の `USER_FIELDS_EXCEPT_CONFIDENTIAL`(Mongoose `populate({select})` 用ホワイトリスト)に `badgeSummaryCached` を追加する
+  - このホワイトリストは `page.populateDataToShowRevision`(12.2 が使う `page.creator`)と `Page.findRecentUpdatedPages` の `populateDataToList`(12.3 が使う `page.lastUpdateUser`)の両方から共有されているため、1箇所の修正で両方のサイトの前提条件を満たすことを確認できる
+  - _Requirements: 4.1_
+- [ ] 12.2 `UserInfo.tsx`(プロフィールヘッダー)へのバッジ表示配線
+  - `author.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
+  - バッジを保有するユーザーのプロフィールページで、ユーザー名の隣にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.1_
+- [ ] 12.3 `RecentChangesSubstance.tsx`(サイドバー最近の更新)へのバッジ表示配線
+  - `page.lastUpdateUser?.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
+  - サイドバーの最近の更新一覧で、バッジを保有するユーザーの更新行にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.1_
+- [ ] 12.4 `Comment.tsx`(コメント投稿者)へのバッジ表示配線
+  - コメントの `creator` は Prisma 経由で取得されており、Prisma の `users` テーブルには `badgeSummaryCached` 列が存在しない(Mongoose 側にしかないフィールド)。Prisma スキーマへの列追加・マイグレーションは行わず、コメント一覧のサーバー側シリアライズ時に Mongoose `User` から対象ユーザー分の `badgeSummaryCached` のみを軽量に取得してマージする
+  - コメント投稿者のバッジを保有するユーザーのアバター横にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+- [ ] 12.5 3箇所のバッジ表示配線に関する統合テスト
+  - 3箇所(プロフィールヘッダー・サイドバー最近の更新・コメント投稿者)それぞれで、バッジ保有ユーザーのデータを渡すと実際に `UserPicture` にバッジが渡ることをテストで確認する
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.2, 12.3, 12.4_
+
 ## Implementation Notes
 - Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).
 - Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).

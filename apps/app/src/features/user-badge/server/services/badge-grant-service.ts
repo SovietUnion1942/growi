@@ -463,6 +463,84 @@ type SettledActivityEventPayload = {
  * (requirements 2.1, 2.2). Not wired into the app boot sequence here --
  * that is task 9.1's responsibility.
  */
+/**
+ * Returns the distinct set of userIds with at least one
+ * ACTION_PAGE_CREATE/ACTION_PAGE_UPDATE activity -- i.e. every user who
+ * could possibly qualify for an automatic badge (requirement 2.1's counted
+ * actions). Deliberately queries `prisma.activities` with `distinct:
+ * ['userId']` rather than iterating `User.find({})`: the latter would also
+ * visit every user who has never edited a page (who can never qualify) and
+ * scales with total user count instead of with actual contributors.
+ */
+async function findUserIdsWithEditActivity(): Promise<string[]> {
+  const rows = await prisma.activities.findMany({
+    where: {
+      action: {
+        in: [
+          SupportedAction.ACTION_PAGE_CREATE,
+          SupportedAction.ACTION_PAGE_UPDATE,
+        ],
+      },
+    },
+    distinct: ['userId'],
+    select: { userId: true },
+  });
+
+  return rows
+    .map((row) => row.userId)
+    .filter((userId): userId is string => userId != null);
+}
+
+/**
+ * Re-runs `evaluateAndGrantForUser`, scoped to a single BadgeType, for every
+ * user who has ever recorded a CREATE/UPDATE activity (requirement 2.5,
+ * design.md System Flows "resweep" note). This is what lets a user who
+ * already met a threshold before the BadgeType (or this feature) existed
+ * receive the badge once an admin creates/edits that BadgeType.
+ *
+ * This function owns only "who to evaluate" + "loop and call" -- the
+ * threshold/level-crossing logic itself is entirely `evaluateAndGrantForUser`
+ * (task 3.1), reused unchanged. Idempotency (safe to call repeatedly, safe to
+ * race against the realtime path) is likewise inherited from that function's
+ * own duplicate-key handling; this wrapper adds none of its own.
+ *
+ * Sequential, not parallelized/batched: per research.md's Risks &
+ * Mitigations note, resweep may run long for a large user base, but a v1
+ * fire-and-forget sequential loop is explicitly accepted, with a
+ * cron-based/batched approach deferred as future work if it proves too slow
+ * in practice.
+ *
+ * `crowi` is optional and, when given, is threaded through to every
+ * `evaluateAndGrantForUser` call so that badges granted during a resweep
+ * also emit `ACTION_USER_BADGE_GRANT` and reach the notification pipeline
+ * (requirement 5.1) -- a resweep-triggered grant is a real grant like any
+ * other, so it must not silently skip notification just because it came
+ * from a backfill path rather than the realtime event listener. This
+ * mirrors `evaluateAndGrantForUser`'s own current optional-`crowi` shape
+ * (see this file's `emitBadgeGrantActivity` doc comment); the tasks.md
+ * Implementation Notes flag `crowi` as needing to become a *required*
+ * parameter across the whole chain no later than task 5.2 (the first real
+ * apiv3 caller), at which point this function's signature should be
+ * tightened in lockstep rather than left the odd one out.
+ */
+export const resweepBadgeType = async (
+  badgeTypeId: string,
+  crowi?: Crowi,
+): Promise<void> => {
+  const userIds = await findUserIdsWithEditActivity();
+
+  for (const userId of userIds) {
+    try {
+      await evaluateAndGrantForUser(userId, badgeTypeId, crowi);
+    } catch (err) {
+      logger.error(
+        `Resweep evaluation failed for user ${userId}, badgeType ${badgeTypeId}`,
+        err,
+      );
+    }
+  }
+};
+
 export const initBadgeGrantEventListener = (crowi: Crowi): void => {
   crowi.events.activity.on(
     'updated',

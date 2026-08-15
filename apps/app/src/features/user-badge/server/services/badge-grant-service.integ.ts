@@ -19,7 +19,9 @@
  * research.md: "Decision: 累積貢献数のカウント方式".
  */
 
+import type { IUserHasId } from '@growi/core';
 import { Types } from 'mongoose';
+import { mock } from 'vitest-mock-extended';
 
 import { SupportedAction } from '~/interfaces/activity';
 import { prisma } from '~/utils/prisma';
@@ -30,7 +32,13 @@ import UserBadge from '../models/user-badge-model';
 import {
   evaluateAndGrantForUser,
   getCumulativeEditCount,
+  grantManualBadge,
 } from './badge-grant-service';
+import {
+  BadgeAlreadyGrantedError,
+  BadgeGrantManualCategoryMismatchError,
+  BadgeTypeNotFoundError,
+} from './badge-type-errors';
 
 // A sentinel ip value so cleanup deletes only this suite's seeded activities.
 const TEST_IP = '10.0.0.77';
@@ -68,6 +76,25 @@ async function seedActivities(
       makeActivityData({ userId, action, createdAt: new Date(now + index) }),
     ),
   });
+}
+
+function makeGrantedBy(): IUserHasId {
+  return mock<IUserHasId>({ _id: new Types.ObjectId().toString() });
+}
+
+async function createManualBadgeType(
+  overrides: Partial<Pick<IBadgeType, 'name'>> = {},
+): Promise<IBadgeType & { _id: Types.ObjectId }> {
+  const createdBy = new Types.ObjectId();
+  const created = await BadgeType.create({
+    name: overrides.name ?? 'Community Helper',
+    description: 'Awarded for community support',
+    iconKey: 'heart',
+    category: 'manual',
+    levels: [],
+    createdBy,
+  });
+  return created.toObject();
 }
 
 async function createAutomaticBadgeType(
@@ -318,6 +345,144 @@ describe('BadgeGrantService', () => {
       const granted = await evaluateAndGrantForUser(userId);
 
       expect(granted).toHaveLength(0);
+    });
+  });
+
+  describe('grantManualBadge', () => {
+    it('grants a manual BadgeType and records grantedBy, grantedAt and note (req 3.1, 3.2)', async () => {
+      const badgeType = await createManualBadgeType();
+      const userId = new Types.ObjectId().toHexString();
+      const grantedBy = makeGrantedBy();
+      const before = Date.now();
+
+      const result = await grantManualBadge(
+        {
+          badgeTypeId: badgeType._id.toString(),
+          userId,
+          note: 'Great community support',
+        },
+        grantedBy,
+      );
+
+      expect(result.user.toString()).toBe(userId);
+      expect(result.badgeType).toEqual(badgeType._id);
+      expect(result.level).toBeNull();
+      expect(result.grantedBy?.toString()).toBe(grantedBy._id);
+      expect(result.note).toBe('Great community support');
+      expect(result.grantedAt.getTime()).toBeGreaterThanOrEqual(before);
+
+      const stored = await UserBadge.findOne({
+        user: userId,
+        badgeType: badgeType._id,
+      });
+      expect(stored).not.toBeNull();
+      expect(stored?.grantedBy?.toString()).toBe(grantedBy._id);
+      expect(stored?.note).toBe('Great community support');
+    });
+
+    it('defaults note to null when omitted', async () => {
+      const badgeType = await createManualBadgeType();
+      const userId = new Types.ObjectId().toHexString();
+
+      const result = await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+      );
+
+      expect(result.note).toBeNull();
+    });
+
+    it('rejects granting when the target BadgeType is automatic (req 3.4)', async () => {
+      const badgeType = await createAutomaticBadgeType();
+      const userId = new Types.ObjectId().toHexString();
+
+      await expect(
+        grantManualBadge(
+          { badgeTypeId: badgeType._id.toString(), userId },
+          makeGrantedBy(),
+        ),
+      ).rejects.toThrow(BadgeGrantManualCategoryMismatchError);
+
+      const count = await UserBadge.countDocuments({ user: userId });
+      expect(count).toBe(0);
+    });
+
+    it('rejects granting when the target BadgeType does not exist', async () => {
+      const userId = new Types.ObjectId().toHexString();
+
+      await expect(
+        grantManualBadge(
+          { badgeTypeId: new Types.ObjectId().toString(), userId },
+          makeGrantedBy(),
+        ),
+      ).rejects.toThrow(BadgeTypeNotFoundError);
+    });
+
+    it('rejects granting when the target BadgeType is soft-deleted (req 1.5 applies to manual grants too)', async () => {
+      const badgeType = await createManualBadgeType();
+      await BadgeType.updateOne(
+        { _id: badgeType._id },
+        { $set: { isDeleted: true, deletedAt: new Date() } },
+      );
+      const userId = new Types.ObjectId().toHexString();
+
+      await expect(
+        grantManualBadge(
+          { badgeTypeId: badgeType._id.toString(), userId },
+          makeGrantedBy(),
+        ),
+      ).rejects.toThrow(BadgeTypeNotFoundError);
+
+      const count = await UserBadge.countDocuments({ user: userId });
+      expect(count).toBe(0);
+    });
+
+    it('grants the same manual BadgeType to two different users independently (req 3.5)', async () => {
+      const badgeType = await createManualBadgeType();
+      const userIdA = new Types.ObjectId().toHexString();
+      const userIdB = new Types.ObjectId().toHexString();
+
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId: userIdA },
+        makeGrantedBy(),
+      );
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId: userIdB },
+        makeGrantedBy(),
+      );
+
+      const countA = await UserBadge.countDocuments({
+        user: userIdA,
+        badgeType: badgeType._id,
+      });
+      const countB = await UserBadge.countDocuments({
+        user: userIdB,
+        badgeType: badgeType._id,
+      });
+      expect(countA).toBe(1);
+      expect(countB).toBe(1);
+    });
+
+    it('rejects a second manual grant of the same BadgeType to the same user with a typed error (not a raw duplicate-key error)', async () => {
+      const badgeType = await createManualBadgeType();
+      const userId = new Types.ObjectId().toHexString();
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+      );
+
+      await expect(
+        grantManualBadge(
+          { badgeTypeId: badgeType._id.toString(), userId },
+          makeGrantedBy(),
+        ),
+      ).rejects.toThrow(BadgeAlreadyGrantedError);
+
+      const count = await UserBadge.countDocuments({
+        user: userId,
+        badgeType: badgeType._id,
+      });
+      expect(count).toBe(1);
     });
   });
 });

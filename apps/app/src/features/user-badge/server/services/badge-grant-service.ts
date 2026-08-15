@@ -1,3 +1,4 @@
+import type { IUserHasId } from '@growi/core';
 import type { Types } from 'mongoose';
 
 import { SupportedAction } from '~/interfaces/activity';
@@ -8,6 +9,11 @@ import { prisma } from '~/utils/prisma';
 import type { IUserBadge } from '../../interfaces/badge';
 import BadgeType from '../models/badge-type-model';
 import UserBadge from '../models/user-badge-model';
+import {
+  BadgeAlreadyGrantedError,
+  BadgeGrantManualCategoryMismatchError,
+  BadgeTypeNotFoundError,
+} from './badge-type-errors';
 
 const logger = loggerFactory('growi:features:user-badge:badge-grant-service');
 
@@ -145,6 +151,75 @@ export const evaluateAndGrantForUser = async (
   }
 
   return granted;
+};
+
+export type GrantManualBadgeInput = {
+  badgeTypeId: string;
+  userId: string;
+  note?: string;
+};
+
+/**
+ * Grants a manual-category BadgeType to a single user (requirements 3.1,
+ * 3.2, 3.5), recording the acting admin as `grantedBy` and the given `note`
+ * (or `null` when omitted).
+ *
+ * Rejects, before writing anything, when:
+ * - the `BadgeType` does not exist or is soft-deleted (`BadgeTypeNotFoundError`).
+ *   A soft-deleted BadgeType must stop accepting new grants just like an
+ *   automatic one does (requirement 1.5's "そのバッジ種類による新規付与を停止する"
+ *   applies to manual BadgeTypes too, even though 1.5 predates this task).
+ * - the `BadgeType.category` is `'automatic'` (`BadgeGrantManualCategoryMismatchError`,
+ *   requirement 3.4) — automatic BadgeTypes are only ever granted by
+ *   `evaluateAndGrantForUser`.
+ *
+ * A duplicate manual grant to the SAME user (same `(user, badgeType,
+ * level: null)`) is surfaced as `BadgeAlreadyGrantedError` rather than the
+ * raw Mongoose E11000 error or a silent no-op: unlike the automatic path
+ * (which is re-evaluated repeatedly as a matter of course and must be
+ * idempotent), a manual grant is a single explicit admin action, so the
+ * admin should be told clearly that this exact grant already exists.
+ * Granting the same manual BadgeType to a DIFFERENT user is unaffected,
+ * since the unique index is scoped per-user (requirement 3.5).
+ */
+export const grantManualBadge = async (
+  input: GrantManualBadgeInput,
+  grantedBy: IUserHasId,
+): Promise<IUserBadgeHasId> => {
+  const badgeType = await BadgeType.findOne({
+    _id: input.badgeTypeId,
+    isDeleted: false,
+  });
+  if (badgeType == null) {
+    throw new BadgeTypeNotFoundError(
+      `BadgeType not found: ${input.badgeTypeId}`,
+    );
+  }
+
+  if (badgeType.category === 'automatic') {
+    throw new BadgeGrantManualCategoryMismatchError(
+      'Automatic BadgeTypes can only be granted by threshold evaluation, not manually.',
+    );
+  }
+
+  try {
+    const created = await UserBadge.create({
+      user: input.userId,
+      badgeType: badgeType._id,
+      level: null,
+      grantedAt: new Date(),
+      grantedBy: grantedBy._id,
+      note: input.note ?? null,
+    });
+    return created.toObject();
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      throw new BadgeAlreadyGrantedError(
+        `BadgeType ${input.badgeTypeId} is already granted to user ${input.userId}.`,
+      );
+    }
+    throw err;
+  }
 };
 
 /** Actions that count toward automatic badge evaluation (requirement 2.6). */

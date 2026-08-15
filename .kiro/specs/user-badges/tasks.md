@@ -57,7 +57,7 @@
   - `crowi.events.activity` の `'updated'` イベントを購読し、対象アクションのときのみ 3.1 の評価ロジックを呼び出す
   - ページ更新 API を叩いた際、しきい値を跨いだユーザーに実際に `UserBadge` が作成されることを確認できる
   - _Requirements: 2.1, 2.2_
-- [ ] 3.3 手動付与ロジック実装
+- [x] 3.3 手動付与ロジック実装
   - `grantManualBadge` を実装し、対象 `BadgeType` が automatic 区分の場合はエラーにする
   - 付与者(`grantedBy`)・日時・任意メモ(`note`)が記録されることを確認できる
   - _Requirements: 3.1, 3.2, 3.4, 3.5_

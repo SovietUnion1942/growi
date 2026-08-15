@@ -1,10 +1,17 @@
-import { type JSX, useState } from 'react';
+import { type JSX, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { mutate as mutateGlobal } from 'swr';
 
 import { useCurrentUser } from '~/states/global';
-import { getOtherParticipant, type IConversation } from '~/stores/messages';
+import {
+  CONVERSATIONS_SWR_KEY,
+  getConversationDisplayName,
+  type IConversation,
+  muteConversation,
+} from '~/stores/messages';
 
 import { ConversationList } from './ConversationList';
+import { GroupMembersModal } from './GroupMembersModal';
 import { MessageThread } from './MessageThread';
 import { StartConversationModal } from './StartConversationModal';
 
@@ -15,11 +22,15 @@ export const Messages = (): JSX.Element => {
   const [activeConversation, setActiveConversation] =
     useState<IConversation | null>(null);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
-  const otherParticipant =
-    activeConversation != null
-      ? getOtherParticipant(activeConversation, currentUser?._id)
-      : undefined;
+  const muteToggleHandler = useCallback(async () => {
+    if (activeConversation == null) return;
+    const newMuted = !activeConversation.isMuted;
+    await muteConversation(activeConversation._id, newMuted);
+    setActiveConversation({ ...activeConversation, isMuted: newMuted });
+    mutateGlobal(CONVERSATIONS_SWR_KEY);
+  }, [activeConversation]);
 
   return (
     <div className="px-3">
@@ -33,7 +44,38 @@ export const Messages = (): JSX.Element => {
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
         )}
-        <h3 className="fs-6 fw-bold mb-0 flex-grow-1">{t('Messages')}</h3>
+        <h3 className="fs-6 fw-bold mb-0 flex-grow-1 text-truncate">
+          {activeConversation != null
+            ? getConversationDisplayName(activeConversation, currentUser?._id)
+            : t('Messages')}
+        </h3>
+
+        {activeConversation != null && activeConversation.type === 'group' && (
+          <button
+            type="button"
+            className="btn btn-link p-0 me-2"
+            onClick={() => setIsMembersModalOpen(true)}
+            title="メンバー管理"
+          >
+            <span className="material-symbols-outlined">group</span>
+          </button>
+        )}
+
+        {activeConversation != null && (
+          <button
+            type="button"
+            className="btn btn-link p-0"
+            onClick={muteToggleHandler}
+            title={activeConversation.isMuted ? 'ミュート解除' : 'ミュート'}
+          >
+            <span className="material-symbols-outlined">
+              {activeConversation.isMuted
+                ? 'notifications_off'
+                : 'notifications'}
+            </span>
+          </button>
+        )}
+
         {activeConversation == null && (
           <button
             type="button"
@@ -49,10 +91,7 @@ export const Messages = (): JSX.Element => {
       {activeConversation == null ? (
         <ConversationList onSelectConversation={setActiveConversation} />
       ) : (
-        <MessageThread
-          conversationId={activeConversation._id}
-          otherParticipant={otherParticipant}
-        />
+        <MessageThread conversation={activeConversation} />
       )}
 
       <StartConversationModal
@@ -61,8 +100,21 @@ export const Messages = (): JSX.Element => {
         onConversationCreated={(conversation) => {
           setIsStartModalOpen(false);
           setActiveConversation(conversation);
+          mutateGlobal(CONVERSATIONS_SWR_KEY);
         }}
       />
+
+      {activeConversation != null && (
+        <GroupMembersModal
+          isOpen={isMembersModalOpen}
+          onClose={() => setIsMembersModalOpen(false)}
+          conversation={activeConversation}
+          onUpdated={(conversation) => {
+            setActiveConversation(conversation);
+            mutateGlobal(CONVERSATIONS_SWR_KEY);
+          }}
+        />
+      )}
     </div>
   );
 };

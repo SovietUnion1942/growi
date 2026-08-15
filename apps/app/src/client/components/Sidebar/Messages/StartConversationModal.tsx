@@ -1,15 +1,15 @@
-import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
-import { UserPicture } from '@growi/ui/dist/components';
+import { type JSX, useCallback, useState } from 'react';
 import { Modal, ModalBody, ModalHeader } from 'reactstrap';
-import { debounce } from 'throttle-debounce';
 
 import { useCurrentUser } from '~/states/global';
 import {
   createConversation,
+  createGroupConversation,
   type IConversation,
   type IConversationParticipant,
-  searchUsers,
 } from '~/stores/messages';
+
+import { UserSearchList } from './UserSearchList';
 
 type Props = {
   isOpen: boolean;
@@ -17,97 +17,157 @@ type Props = {
   onConversationCreated: (conversation: IConversation) => void;
 };
 
+type Mode = 'direct' | 'group';
+
 export const StartConversationModal = (props: Props): JSX.Element => {
   const { isOpen, onClose, onConversationCreated } = props;
 
   const currentUser = useCurrentUser();
 
-  const [searchText, setSearchText] = useState('');
-  const [results, setResults] = useState<IConversationParticipant[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [mode, setMode] = useState<Mode>('direct');
+  const [selectedMembers, setSelectedMembers] = useState<
+    IConversationParticipant[]
+  >([]);
+  const [groupName, setGroupName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // an empty searchText matches every user server-side, so this also
-  // serves as the "show the full list" fetch when the modal first opens
-  const runSearch = useMemo(
-    () =>
-      debounce(300, async (text: string) => {
-        try {
-          const users = await searchUsers(text);
-          setResults(users.filter((u) => u._id !== currentUser?._id));
-        } finally {
-          setIsSearching(false);
-        }
-      }),
-    [currentUser?._id],
-  );
+  const reset = useCallback(() => {
+    setMode('direct');
+    setSelectedMembers([]);
+    setGroupName('');
+  }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      setSearchText('');
-      setIsSearching(true);
-      runSearch('');
-    }
-  }, [isOpen, runSearch]);
+  const closeHandler = useCallback(() => {
+    reset();
+    onClose();
+  }, [onClose, reset]);
 
-  const changeHandler = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const text = e.target.value;
-      setSearchText(text);
-      setIsSearching(true);
-      runSearch(text);
-    },
-    [runSearch],
-  );
-
-  const selectHandler = useCallback(
+  const selectDirectHandler = useCallback(
     async (user: IConversationParticipant) => {
-      if (isCreating) {
-        return;
-      }
+      if (isCreating) return;
       setIsCreating(true);
       try {
         const conversation = await createConversation(user._id);
         onConversationCreated(conversation);
-        setSearchText('');
-        setResults([]);
+        reset();
       } finally {
         setIsCreating(false);
       }
     },
-    [isCreating, onConversationCreated],
+    [isCreating, onConversationCreated, reset],
   );
 
+  const addMemberHandler = useCallback((user: IConversationParticipant) => {
+    setSelectedMembers((prev) => [...prev, user]);
+  }, []);
+
+  const removeMemberHandler = useCallback((userId: string) => {
+    setSelectedMembers((prev) => prev.filter((m) => m._id !== userId));
+  }, []);
+
+  const createGroupHandler = useCallback(async () => {
+    if (isCreating || groupName.trim() === '' || selectedMembers.length === 0) {
+      return;
+    }
+    setIsCreating(true);
+    try {
+      const conversation = await createGroupConversation(
+        selectedMembers.map((m) => m._id),
+        groupName.trim(),
+      );
+      onConversationCreated(conversation);
+      reset();
+    } finally {
+      setIsCreating(false);
+    }
+  }, [groupName, isCreating, onConversationCreated, reset, selectedMembers]);
+
+  const excludeUserIds = [
+    currentUser?._id,
+    ...selectedMembers.map((m) => m._id),
+  ].filter((id): id is string => id != null);
+
   return (
-    <Modal isOpen={isOpen} toggle={onClose}>
-      <ModalHeader toggle={onClose}>新しい会話を始める</ModalHeader>
+    <Modal isOpen={isOpen} toggle={closeHandler}>
+      <ModalHeader toggle={closeHandler}>新しい会話を始める</ModalHeader>
       <ModalBody>
-        <input
-          type="text"
-          className="form-control mb-3"
-          placeholder="ユーザーを検索"
-          value={searchText}
-          onChange={changeHandler}
-          disabled={isCreating}
-        />
+        <fieldset className="btn-group w-100 mb-3">
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === 'direct' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setMode('direct')}
+          >
+            1対1
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === 'group' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setMode('group')}
+          >
+            グループ
+          </button>
+        </fieldset>
 
-        {isSearching && <div className="text-center py-2">Loading...</div>}
+        {mode === 'direct' && (
+          <UserSearchList
+            excludeUserIds={excludeUserIds}
+            onSelectUser={selectDirectHandler}
+            disabled={isCreating}
+          />
+        )}
 
-        <ul className="list-unstyled mb-0">
-          {results.map((user) => (
-            <li key={user._id}>
-              <button
-                type="button"
-                className="btn btn-link text-start w-100 d-flex align-items-center py-2 text-decoration-none"
-                onClick={() => selectHandler(user)}
-                disabled={isCreating}
-              >
-                <UserPicture user={user} size="sm" noLink noTooltip />
-                <span className="ms-2">{user.name ?? user.username}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {mode === 'group' && (
+          <>
+            <input
+              type="text"
+              className="form-control mb-3"
+              placeholder="グループ名"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              disabled={isCreating}
+            />
+
+            {selectedMembers.length > 0 && (
+              <div className="d-flex flex-wrap gap-1 mb-3">
+                {selectedMembers.map((member) => (
+                  <span
+                    key={member._id}
+                    className="badge bg-body-tertiary border text-body d-flex align-items-center"
+                  >
+                    {member.name ?? member.username}
+                    <button
+                      type="button"
+                      className="btn-close btn-close-sm ms-1"
+                      style={{ fontSize: '0.6rem' }}
+                      onClick={() => removeMemberHandler(member._id)}
+                      disabled={isCreating}
+                      aria-label="remove"
+                    />
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <UserSearchList
+              excludeUserIds={excludeUserIds}
+              onSelectUser={addMemberHandler}
+              disabled={isCreating}
+            />
+
+            <button
+              type="button"
+              className="btn btn-primary w-100 mt-3"
+              onClick={createGroupHandler}
+              disabled={
+                isCreating ||
+                groupName.trim() === '' ||
+                selectedMembers.length === 0
+              }
+            >
+              作成
+            </button>
+          </>
+        )}
       </ModalBody>
     </Modal>
   );

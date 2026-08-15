@@ -5,21 +5,20 @@ import { SocketEventName } from '~/interfaces/websocket';
 import { useCurrentUser } from '~/states/global';
 import { useGlobalSocket } from '~/states/socket-io';
 import {
-  type IConversationParticipant,
+  CONVERSATIONS_SWR_KEY,
+  type IConversation,
   markConversationAsRead,
   sendMessage,
   useSWRxMessages,
 } from '~/stores/messages';
 
 type Props = {
-  conversationId: string;
-  otherParticipant?: IConversationParticipant;
+  conversation: IConversation;
 };
 
-const CONVERSATIONS_SWR_KEY = '/messages/conversations';
-
 export const MessageThread = (props: Props): JSX.Element => {
-  const { conversationId, otherParticipant } = props;
+  const { conversation } = props;
+  const conversationId = conversation._id;
 
   const socket = useGlobalSocket();
   const currentUser = useCurrentUser();
@@ -112,11 +111,12 @@ export const MessageThread = (props: Props): JSX.Element => {
 
         <ul className="list-unstyled">
           {messages.map((message, index) => {
-            const isMine = message.sender === currentUser?._id;
+            const isMine = message.sender._id === currentUser?._id;
             // show the sender's avatar/name only at the start of a run of
-            // consecutive messages from the other person, not on every bubble
+            // consecutive messages from the same person, not on every bubble
             const isFirstOfRun =
-              index === 0 || messages[index - 1].sender !== message.sender;
+              index === 0 ||
+              messages[index - 1].sender._id !== message.sender._id;
 
             return (
               <li key={message._id} className="mb-2">
@@ -124,16 +124,16 @@ export const MessageThread = (props: Props): JSX.Element => {
                   <div className="d-flex align-items-center mb-1">
                     <img
                       src={
-                        otherParticipant?.imageUrlCached ??
+                        message.sender.imageUrlCached ??
                         '/images/icons/user.svg'
                       }
-                      alt={otherParticipant?.name}
+                      alt={message.sender.name}
                       className="rounded-circle me-2"
                       width={20}
                       height={20}
                     />
                     <span className="small text-muted">
-                      {otherParticipant?.name ?? otherParticipant?.username}
+                      {message.sender.name ?? message.sender.username}
                     </span>
                   </div>
                 )}

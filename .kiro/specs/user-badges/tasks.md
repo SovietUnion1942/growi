@@ -131,7 +131,7 @@
   - _Depends: 6.2_
 
 - [ ] 9. Integration: サーバー配線
-- [ ] 9.1 BadgeGrantService の起動時インスタンス化
+- [x] 9.1 BadgeGrantService の起動時インスタンス化
   - `apps/app/src/server/crowi/index.ts` の起動シーケンスで `BadgeGrantService` をインスタンス化する
   - サーバー起動後、ページ更新をトリガーに `BadgeGrantService` のイベントリスナーが実際に発火することを確認できる
   - _Requirements: 2.1, 2.2_

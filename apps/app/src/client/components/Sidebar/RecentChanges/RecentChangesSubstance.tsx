@@ -1,4 +1,4 @@
-import { type JSX, memo, useCallback, useEffect } from 'react';
+import { type JSX, memo, useCallback, useEffect, useMemo } from 'react';
 import { type IPageHasId, isPopulated } from '@growi/core';
 import { DevidedPagePath } from '@growi/core/dist/models';
 import { UserPicture } from '@growi/ui/dist/components';
@@ -7,6 +7,10 @@ import { useTranslation } from 'react-i18next';
 import FormattedDistanceDate from '~/client/components/FormattedDistanceDate';
 import InfiniteScroll from '~/client/components/InfiniteScroll';
 import { PagePathHierarchicalLink } from '~/components/Common/PagePathHierarchicalLink';
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import { LinkedPagePath } from '~/models/linked-page-path';
 import { useSetSearchKeyword } from '~/states/search';
 import { useSWRINFxRecentlyUpdated } from '~/stores/page-listing';
@@ -86,8 +90,31 @@ const PageTags = memo((props: PageTagsProps): JSX.Element => {
 });
 PageTags.displayName = 'PageTags';
 
-const PageItem = memo(
+export const PageItem = memo(
   ({ page, isSmall, onClickTag }: PageItemProps): JSX.Element => {
+    const { lastUpdateUser } = page;
+
+    // `page.lastUpdateUser` is typed as `Ref<IUser>` (string | ObjectId | populated
+    // user), even though `Page.findRecentUpdatedPages` always populates it in
+    // practice; narrow with `isPopulated` before reading `badgeSummaryCached`.
+    // `badgeType` is normalized to `string` to match `UserPictureBadgeSource`
+    // (see the same normalization in `UserInfo.tsx`, task 12.2).
+    const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+      if (lastUpdateUser == null || !isPopulated(lastUpdateUser)) {
+        return undefined;
+      }
+      return lastUpdateUser.badgeSummaryCached?.map(
+        ({ badgeType, iconKey, name, level }) => ({
+          badgeType: String(badgeType),
+          iconKey,
+          name,
+          level,
+        }),
+      );
+    }, [lastUpdateUser]);
+
+    const badges = useUserPictureBadges(badgeSummary);
+
     const dPagePath = new DevidedPagePath(page.path, false, true);
     const linkedPagePathFormer = new LinkedPagePath(dPagePath.former);
     const linkedPagePathLatter = new LinkedPagePath(dPagePath.latter);
@@ -116,6 +143,7 @@ const PageItem = memo(
               user={page.lastUpdateUser}
               size="md"
               className="d-inline-block"
+              badges={badges}
             />
           </div>
 

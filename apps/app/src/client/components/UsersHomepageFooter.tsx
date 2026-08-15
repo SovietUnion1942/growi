@@ -3,11 +3,13 @@ import { useTranslation } from 'next-i18next';
 
 import { RecentActivity } from '~/client/components/RecentActivity/RecentActivity';
 import { RecentCreated } from '~/client/components/RecentCreated/RecentCreated';
+import { BadgeShelf } from '~/features/user-badge/client/components/BadgeShelf';
 import { useCurrentUser } from '~/states/global';
 
 import { BookmarkFolderTree } from './Bookmarks/BookmarkFolderTree';
 import { ContributionGraph } from './ContributionGraph/ContributionGraph';
 import {
+  BADGE_SHELF_ID,
   BOOKMARKS_LIST_ID,
   CONTRIBUTION_GRAPH_ID,
   RECENT_ACTIVITY_LIST_ID,
@@ -81,6 +83,19 @@ export const UsersHomepageFooter = (
       <div>
         <Suspense fallback={<div>Loading contribution graph...</div>}>
           <ContributionGraph userId={creatorId} />
+        </Suspense>
+      </div>
+
+      <h2
+        id={BADGE_SHELF_ID}
+        className="grw-user-page-header border-bottom pb-2 mb-3 d-flex"
+      >
+        <span className="material-symbols-outlined me-2">military_tech</span>
+        {t('user_home_page.badges')}
+      </h2>
+      <div>
+        <Suspense fallback={<div>Loading badges...</div>}>
+          <BadgeShelf userId={creatorId} />
         </Suspense>
       </div>
 

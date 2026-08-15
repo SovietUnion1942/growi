@@ -159,7 +159,7 @@
   - 管理画面サイドバーからバッジ管理画面に遷移できることを確認できる
   - _Requirements: 1.6_
   - _Depends: 7.1_
-- [ ] 10.2 ユーザーページフッターへの BadgeShelf 組み込み
+- [x] 10.2 ユーザーページフッターへの BadgeShelf 組み込み
   - `UsersHomepageFooter.tsx` の ContributionGraph セクション直後に `BadgeShelf` を配置する
   - ユーザーページを開くとバッジ一覧セクションが表示されることを確認できる
   - _Requirements: 4.3_

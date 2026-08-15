@@ -53,7 +53,7 @@
   - コメント投稿等のアクションがカウントに含まれないことをテストで確認できる
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6_
   - _Boundary: BadgeGrantService_
-- [ ] 3.2 リアルタイム自動付与のイベント購読実装
+- [x] 3.2 リアルタイム自動付与のイベント購読実装
   - `crowi.events.activity` の `'updated'` イベントを購読し、対象アクションのときのみ 3.1 の評価ロジックを呼び出す
   - ページ更新 API を叩いた際、しきい値を跨いだユーザーに実際に `UserBadge` が作成されることを確認できる
   - _Requirements: 2.1, 2.2_
@@ -191,3 +191,4 @@
 - Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).
 - `findByIdAndUpdate(..., { runValidators: true })` does NOT invoke a Mongoose model's `pre('validate', fn)` document middleware (only schema-level path validators run) -- empirically confirmed on this repo's Mongoose 6.13.9 during task 2.1. Any service using `findByIdAndUpdate` for a document with custom cross-field validation logic must re-run that validation at the service layer explicitly.
 - `IBadgeTypeHasId` is defined and exported from `badge-type-service.ts` (not `interfaces/badge.ts`) -- import it from there in tasks 2.2/5.1 rather than redefining.
+- The `crowi.events.activity` `'updated'` event's `ActivityDocument.user` field is NOT populated at emit time (`createByParameters` never `include`s the user relation, unlike `updateByParameters`) -- use the scalar `activity.userId` field instead, never `.user`, when consuming this event elsewhere.

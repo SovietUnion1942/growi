@@ -95,7 +95,7 @@
   - _Depends: 3.1, 3.3_
 
 - [ ] 6. Core: クライアントストア
-- [ ] 6.1 (P) バッジ種類管理用 SWR ストア実装
+- [x] 6.1 (P) バッジ種類管理用 SWR ストア実装
   - `useSWRxBadgeTypeList`/`useSWRxBadgeType` を `useSWRImmutable` で実装する
   - 管理画面から一覧データが実際に取得できることを確認できる
   - _Requirements: 1.1_
@@ -195,3 +195,4 @@
 - **REQUIRED before/at task 5.2**: `grantManualBadge`'s `crowi` parameter is currently *optional* with a silent no-op skip of the Activity/notification step when omitted. Task 5.2 (user-badge apiv3 route, the first real caller of `grantManualBadge`) MUST either pass `crowi` on every call, or better, this should be tightened to a *required* parameter across `evaluateAndGrantForUser`/`grantManualBadge`/`recordBadgeGrant`/`emitBadgeGrantActivity` so a missing `crowi` is a compile error, not a silent requirement-5.1 gap. Update the 17 pre-3.4 tests that don't pass `crowi` to pass an explicit test double when this is tightened.
 - **Follow-up (not blocking)**: `IUserBadgeSummaryEntry` is currently duplicated (manually synced) between `apps/app/src/features/user-badge/interfaces/badge.ts` (task 1.1) and `packages/core/src/interfaces/user.ts` (task 3.4). Per this repo's own steering rule ("`@growi/core` is the single source of truth for cross-package types"), the canonical definition should move to `@growi/core` with `apps/app`'s copy re-exporting/importing it instead.
 - `adminRequiredFactory(crowi)` called bare (no fallback) redirects (302) a logged-in non-admin instead of returning 403 -- this repo's `admin-required.ts` only produces JSON 403 when an explicit fallback is passed as the 2nd argument (see `socket-io.ts` for the reference pattern). Any apiv3 route requiring a JSON 403 for non-admin callers (not a page redirect) must pass a custom fallback; task 5.2's route needs the same treatment.
+- No `GET /badge-types/:id` endpoint exists (task 5.1 only built `GET /`, `POST /`, `PUT /:id`, `DELETE /:id`). `useSWRxBadgeType(id)` derives its item from `useSWRxBadgeTypeList()`'s own cached data rather than issuing a second fetch -- two hooks resolving to the same conceptual resource must share ONE SWR key, not two independently-keyed fetches for identical data (a real stale-cache bug, caught by review on the first attempt here).

@@ -118,7 +118,7 @@
   - 削除確認モーダルから `deleteBadgeType` API を呼び出す
   - 削除後、一覧からそのバッジ種類が消えることを確認できる
   - _Requirements: 1.5_
-- [ ] 7.3 手動付与用ユーザー検索・付与モーダル実装
+- [x] 7.3 手動付与用ユーザー検索・付与モーダル実装
   - ユーザー検索 + manual 区分バッジ選択 + メモ入力フォームを実装する
   - 付与操作後にトースト通知が表示されることを確認できる
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
@@ -197,3 +197,5 @@
 - `adminRequiredFactory(crowi)` called bare (no fallback) redirects (302) a logged-in non-admin instead of returning 403 -- this repo's `admin-required.ts` only produces JSON 403 when an explicit fallback is passed as the 2nd argument (see `socket-io.ts` for the reference pattern). Any apiv3 route requiring a JSON 403 for non-admin callers (not a page redirect) must pass a custom fallback; task 5.2's route needs the same treatment.
 - No `GET /badge-types/:id` endpoint exists (task 5.1 only built `GET /`, `POST /`, `PUT /:id`, `DELETE /:id`). `useSWRxBadgeType(id)` derives its item from `useSWRxBadgeTypeList()`'s own cached data rather than issuing a second fetch -- two hooks resolving to the same conceptual resource must share ONE SWR key, not two independently-keyed fetches for identical data (a real stale-cache bug, caught by review on the first attempt here).
 - The admin badge UI's `t('Create')`/`t('Update')`/`t('Edit')`/`t('Delete')`/`t('Cancel')` button labels are bare, unnamespaced i18next keys with no corresponding entry in any locale JSON -- i18next falls back to the raw English key text regardless of locale, so non-English admins see raw English button labels. Introduced in 7.1, inherited by 7.2. Not blocking any individual task, but worth a real i18n key + translation pass (11.x or a dedicated follow-up) before this admin UI ships.
+- `apps/app/src/features/user-badge/client/i18n-badge-management.spec.ts` (task 1.6's key-parity test) has been failing since task 7.1/7.2 added ~20 badge_management.* keys without updating that test's fixed key-set assertion (it still expects exactly 3 keys). Confirmed pre-existing, not caused by 7.3. Fix this drift as part of task 11.x or a standalone follow-up before final validation.
+- ManualGrantModal reuses `Sidebar/Messages/UserSearchList.tsx` (a DM-messaging-feature component) as its user picker via cross-feature import. Works correctly today, but consider extracting a feature-agnostic UserPicker (e.g. into packages/ui or a generic client/components/User/ dir) if that Messages feature's component semantics narrow later.

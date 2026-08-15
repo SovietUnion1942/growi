@@ -1390,6 +1390,19 @@
     "delete_modal": {
       "header": "バッジ種類を削除",
       "desc": "このバッジ種類による新規付与は停止されます。既にユーザーへ付与済みのバッジは削除後もそのユーザーの記録として表示され続けます。"
+    },
+    "manual_grant": {
+      "button": "バッジを付与",
+      "title": "バッジを手動付与",
+      "select_user": "ユーザー",
+      "selected_user": "選択中のユーザー",
+      "change_user": "変更",
+      "badge_type": "バッジ種類",
+      "badge_type_placeholder": "手動区分のバッジ種類を選択",
+      "no_manual_badge_types": "まだ手動区分のバッジ種類が作成されていません。",
+      "note": "メモ",
+      "note_placeholder": "付与理由(任意)",
+      "grant": "付与"
     }
   }
 }

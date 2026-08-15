@@ -1389,6 +1389,19 @@
     "delete_modal": {
       "header": "删除徽章类型",
       "desc": "该徽章类型将停止授予新用户。已授予用户的徽章在删除后仍会保留在其记录中。"
+    },
+    "manual_grant": {
+      "button": "授予徽章",
+      "title": "手动授予徽章",
+      "select_user": "用户",
+      "selected_user": "已选用户",
+      "change_user": "更改",
+      "badge_type": "徽章类型",
+      "badge_type_placeholder": "选择一个手动类别的徽章类型",
+      "no_manual_badge_types": "尚未创建任何手动类别的徽章类型。",
+      "note": "备注",
+      "note_placeholder": "授予原因（可选）",
+      "grant": "授予"
     }
   }
 }

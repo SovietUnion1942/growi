@@ -1379,6 +1379,19 @@
     "delete_modal": {
       "header": "Supprimer le type de badge",
       "desc": "Ce type de badge ne sera plus attribué aux nouveaux utilisateurs. Les badges déjà attribués aux utilisateurs resteront dans leurs enregistrements."
+    },
+    "manual_grant": {
+      "button": "Attribuer un badge",
+      "title": "Attribuer un badge manuellement",
+      "select_user": "Utilisateur",
+      "selected_user": "Utilisateur sélectionné",
+      "change_user": "Changer",
+      "badge_type": "Type de badge",
+      "badge_type_placeholder": "Sélectionner un type de badge manuel",
+      "no_manual_badge_types": "Aucun type de badge manuel n'a encore été créé.",
+      "note": "Note",
+      "note_placeholder": "Raison de l'attribution (facultatif)",
+      "grant": "Attribuer"
     }
   }
 }

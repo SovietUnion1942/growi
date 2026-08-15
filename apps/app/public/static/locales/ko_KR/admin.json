@@ -1380,6 +1380,19 @@
     "delete_modal": {
       "header": "배지 종류 삭제",
       "desc": "이 배지 종류는 더 이상 새로 부여되지 않습니다. 이미 사용자에게 부여된 배지는 삭제 후에도 해당 사용자의 기록으로 계속 표시됩니다."
+    },
+    "manual_grant": {
+      "button": "배지 부여",
+      "title": "배지 수동 부여",
+      "select_user": "사용자",
+      "selected_user": "선택된 사용자",
+      "change_user": "변경",
+      "badge_type": "배지 종류",
+      "badge_type_placeholder": "수동 구분의 배지 종류를 선택하세요",
+      "no_manual_badge_types": "아직 수동 구분의 배지 종류가 없습니다.",
+      "note": "메모",
+      "note_placeholder": "부여 사유(선택 사항)",
+      "grant": "부여"
     }
   }
 }

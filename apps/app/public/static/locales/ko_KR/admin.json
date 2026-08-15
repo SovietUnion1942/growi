@@ -1355,5 +1355,10 @@
         "description": "데이터 초기화를 수행하지 않고 MongoDB 페이지와 Vault git 트리 간의 데이터 불일치를 수동으로 복구합니다."
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "배지 관리",
+    "category_automatic": "자동",
+    "category_manual": "수동"
   }
 }

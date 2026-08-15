@@ -258,5 +258,9 @@
       },
       "cancel": "Cancel"
     }
+  },
+  "badge": {
+    "badge": "Badge",
+    "badges": "Badges"
   }
 }

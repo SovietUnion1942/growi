@@ -1364,5 +1364,10 @@
         "description": "在不进行完整初始化的情况下，手动对账 MongoDB 页面与 Vault git 树之间的数据不一致。"
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "徽章管理",
+    "category_automatic": "自动",
+    "category_manual": "手动"
   }
 }

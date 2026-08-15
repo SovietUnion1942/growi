@@ -1354,5 +1354,10 @@
         "description": "Réconcilie manuellement les incohérences de données entre les pages MongoDB et les arbres git du Vault sans effectuer une initialisation complète."
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "Gestion des badges",
+    "category_automatic": "Automatique",
+    "category_manual": "Manuel"
   }
 }

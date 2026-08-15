@@ -218,6 +218,18 @@ describe('BadgeGrantService', () => {
 
       expect(count).toBe(0);
     });
+
+    it('returns 0 without erroring for a user with no activity rows at all (req 2.1)', async () => {
+      // Unlike the "excludes non-edit actions" case above, this user has
+      // NO seeded activities of any kind -- not even ones filtered out by
+      // the action clause. `prisma.activities.count` must resolve to 0
+      // rather than reject on an empty result set.
+      const userId = new Types.ObjectId().toHexString();
+
+      const count = await getCumulativeEditCount(userId);
+
+      expect(count).toBe(0);
+    });
   });
 
   describe('evaluateAndGrantForUser', () => {
@@ -410,6 +422,60 @@ describe('BadgeGrantService', () => {
         badgeType: badgeTypeB._id,
       });
       expect(bGrants).toHaveLength(0);
+    });
+
+    it('grants only the newly-added lower-threshold level, leaving an already-granted higher level untouched, when a new level is inserted into the series retroactively (req 2.2, 2.3, 2.4)', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      // Start with a single level (threshold 3) and grant it.
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const firstRun = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
+      expect(firstRun).toHaveLength(1);
+      expect(firstRun[0].level).toBe(1);
+
+      // An admin retroactively inserts a NEW level with a LOWER threshold
+      // than the one already granted (e.g. a "Starter" tier added after the
+      // fact). The cumulative count (3) already qualifies for it too.
+      await BadgeType.updateOne(
+        { _id: badgeType._id },
+        {
+          $set: {
+            levels: [
+              { level: 0, name: 'Starter', iconKey: 'edit', threshold: 1 },
+              { level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 },
+            ],
+          },
+        },
+      );
+
+      const secondRun = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
+
+      // Only the newly-added level 0 is granted -- the already-granted
+      // level 1 must not be re-granted or duplicated.
+      expect(secondRun).toHaveLength(1);
+      expect(secondRun[0].level).toBe(0);
+
+      const allGrants = await UserBadge.find({
+        user: userId,
+        badgeType: badgeType._id,
+      });
+      expect(allGrants).toHaveLength(2);
+      const levels = allGrants.map((g) => g.level).sort();
+      expect(levels).toEqual([0, 1]);
     });
 
     it('excludes soft-deleted BadgeTypes from evaluation', async () => {

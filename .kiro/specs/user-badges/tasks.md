@@ -5,7 +5,7 @@
   - `BadgeCategory`, `IBadgeLevel`, `IBadgeType`, `IUserBadge`, `IUserBadgeSummaryEntry` を `features/user-badge/interfaces` に定義する
   - 型チェックが通り、後続タスクから import できる状態になっていることが確認できる
   - _Requirements: 1.1, 1.2, 1.3_
-- [ ] 1.2 BadgeType モデル実装
+- [x] 1.2 BadgeType モデル実装
   - `getOrCreateModel` パターンで `BadgeType` コレクションを定義する
   - `category` が `automatic` のとき `levels`(1件以上、`threshold` 必須)を要求し、`manual` のとき `levels` を空配列に強制するスキーマ検証を実装する
   - `isDeleted`/`deletedAt` によるソフトデリート用フィールドを持たせる

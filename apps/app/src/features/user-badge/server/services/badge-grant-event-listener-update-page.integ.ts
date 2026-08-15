@@ -33,7 +33,11 @@ import mongoose, { Types } from 'mongoose';
 
 import { getInstance } from '^/test/setup/crowi';
 
-import { ActionGroupSize, SupportedTargetModel } from '~/interfaces/activity';
+import {
+  ActionGroupSize,
+  SupportedAction,
+  SupportedTargetModel,
+} from '~/interfaces/activity';
 import { parseSnapshot } from '~/models/serializers/in-app-notification-snapshot/user-badge';
 import type Crowi from '~/server/crowi';
 import { generateAddActivityMiddleware } from '~/server/middlewares/add-activity';
@@ -65,6 +69,73 @@ async function createAutomaticBadgeType(
     createdBy: new Types.ObjectId(),
   });
   return created.toObject();
+}
+
+/**
+ * A two-level automatic BadgeType (thresholds 1 and 2) used to prove
+ * requirement 2.3 -- a single evaluation that crosses multiple levels at
+ * once -- through the REAL update-page route rather than only a direct
+ * `evaluateAndGrantForUser` call.
+ */
+async function createTwoLevelAutomaticBadgeType(): Promise<
+  IBadgeType & { _id: Types.ObjectId }
+> {
+  const created = await BadgeType.create({
+    name: 'Editor',
+    description: 'Awarded for editing pages',
+    iconKey: 'edit',
+    category: 'automatic',
+    levels: [
+      { level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 },
+      { level: 2, name: 'Silver', iconKey: 'edit', threshold: 2 },
+    ],
+    createdBy: new Types.ObjectId(),
+  });
+  return created.toObject();
+}
+
+/**
+ * Seeds one pre-existing ACTION_PAGE_CREATE activity row directly via
+ * Prisma, mirroring the pattern in `badge-grant-service.integ.ts`'s
+ * `seedActivities`. This simulates edit activity that already existed
+ * before the single update-page request under test, so that request's own
+ * settled activity is the SECOND count -- crossing two thresholds (1 and 2)
+ * in the SAME evaluation pass rather than one-at-a-time across two requests.
+ */
+async function seedPriorEditActivity(userId: Types.ObjectId): Promise<void> {
+  await prisma.activities.create({
+    data: {
+      id: new Types.ObjectId().toHexString(),
+      v: 0,
+      action: SupportedAction.ACTION_PAGE_CREATE,
+      target: new Types.ObjectId().toHexString(),
+      createdAt: new Date(),
+      endpoint: TEST_ENDPOINT,
+      ip: TEST_IP,
+      snapshot: {
+        id: new Types.ObjectId().toHexString(),
+        username: TEST_USERNAME,
+      },
+      userId: userId.toHexString(),
+    },
+  });
+}
+
+/** Poll until at least `minCount` UserBadge documents exist for the user, or time out. */
+async function waitForUserBadgeCount(
+  userId: string,
+  minCount: number,
+  maxWaitMs = 5000,
+): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    const count = await UserBadge.countDocuments({ user: userId });
+    if (count >= minCount) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
 }
 
 /** Poll until at least one UserBadge exists for the user, or time out. */
@@ -270,5 +341,105 @@ describe('update-page apiv3 route -> real BadgeGrantService event listener (task
     expect(notification?.snapshot).toBeDefined();
     const snapshot = parseSnapshot(notification?.snapshot as string);
     expect(snapshot.badgeName).toBe('Bronze');
+  });
+
+  it('grants ALL newly-qualified levels from a single real update-page request when it crosses multiple thresholds at once (req 2.3)', async () => {
+    const badgeType = await createTwoLevelAutomaticBadgeType();
+
+    // One pre-existing edit activity (count = 1) plus this test's own
+    // update-page request (count = 2) crosses BOTH level-1 (threshold 1)
+    // and level-2 (threshold 2) in the SAME evaluateAndGrantForUser pass,
+    // since neither level had been granted yet before this request.
+    await seedPriorEditActivity(testUserId);
+
+    const pageId = new Types.ObjectId();
+    const revisionId = new Types.ObjectId();
+
+    const Page = mongoose.model<IPage, PageModel>('Page');
+    const Revision = mongoose.model('Revision');
+
+    const currentPage = {
+      _id: pageId,
+      path: '/update-page-badge-integ-target-multi-level',
+      grant: 1,
+      revision: revisionId,
+      isUpdatable: vi.fn().mockResolvedValue(true),
+    };
+    const updatedPage = {
+      _id: pageId,
+      path: '/update-page-badge-integ-target-multi-level',
+      creator: testUserId,
+      revision: {
+        _id: new Types.ObjectId(),
+        body: 'updated',
+        author: testUserId,
+      },
+    };
+
+    vi.spyOn(Page, 'count').mockResolvedValue(1);
+    // biome-ignore lint/suspicious/noExplicitAny: minimal stub for the viewer lookup
+    vi.spyOn(Page, 'findByIdAndViewer').mockResolvedValue(currentPage as any);
+    // biome-ignore lint/suspicious/noExplicitAny: minimal stub for the previous revision
+    vi.spyOn(Revision, 'findById').mockResolvedValue({
+      _id: revisionId,
+      body: 'prev',
+    } as any);
+    // biome-ignore lint/suspicious/noExplicitAny: minimal stub for the page update
+    vi.spyOn(crowi.pageService, 'updatePage').mockResolvedValue(
+      updatedPage as any,
+    );
+
+    const emitter = new EventEmitter();
+    const resState = { statusCode: 200 };
+    const apiv3 = vi.fn(() => {
+      resState.statusCode = 201;
+      emitter.emit('finish');
+    });
+    const res = {
+      locals: {} as Record<string, unknown>,
+      writableFinished: false,
+      get statusCode() {
+        return resState.statusCode;
+      },
+      on: emitter.on.bind(emitter),
+      apiv3,
+      apiv3Err: vi.fn(),
+    } as unknown as ApiV3Response;
+
+    const req = {
+      method: 'PUT',
+      ip: TEST_IP,
+      originalUrl: TEST_ENDPOINT,
+      user: testUser,
+      body: {
+        pageId: pageId.toString(),
+        body: 'updated body',
+        origin: 'editor',
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: minimal Express request shape
+    } as any;
+
+    const addActivity = generateAddActivityMiddleware();
+    addActivity(req, res, () => {});
+
+    // Invoke the REAL terminal handler exactly once -- both levels must be
+    // granted from this single HTTP request, not two separate requests.
+    const handlers = updatePageHandlersFactory(crowi);
+    const terminalHandler = handlers[handlers.length - 1] as RequestHandler;
+    await terminalHandler(req, res, () => {});
+
+    const gotBothBadges = await waitForUserBadgeCount(
+      testUserId.toHexString(),
+      2,
+    );
+    expect(gotBothBadges).toBe(true);
+
+    const grants = await UserBadge.find({
+      user: testUserId,
+      badgeType: badgeType._id,
+    });
+    expect(grants).toHaveLength(2);
+    const levels = grants.map((grant) => grant.level).sort();
+    expect(levels).toEqual([1, 2]);
   });
 });

@@ -196,7 +196,7 @@
   - バッジを保有するユーザーのプロフィールページで、ユーザー名の隣にバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
   - _Depends: 12.1_
-- [ ] 12.3 `RecentChangesSubstance.tsx`(サイドバー最近の更新)へのバッジ表示配線
+- [x] 12.3 `RecentChangesSubstance.tsx`(サイドバー最近の更新)へのバッジ表示配線
   - `page.lastUpdateUser?.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
   - サイドバーの最近の更新一覧で、バッジを保有するユーザーの更新行にバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_

@@ -25,7 +25,12 @@ import {
   BadgeTypeNotFoundError,
   BadgeTypeValidationError,
 } from './badge-type-errors';
-import { createBadgeType, updateBadgeType } from './badge-type-service';
+import {
+  createBadgeType,
+  deleteBadgeType,
+  listBadgeTypes,
+  updateBadgeType,
+} from './badge-type-service';
 
 const createdBy = mock<IUserHasId>({ _id: new Types.ObjectId().toString() });
 
@@ -205,6 +210,95 @@ describe('BadgeTypeService', () => {
         persistedGrant?.badgeType,
       );
       expect(resolvedBadgeType?.name).toBe('Editor Pro');
+    });
+  });
+
+  describe('deleteBadgeType', () => {
+    it('soft-deletes: sets isDeleted/deletedAt, and the document remains fetchable by id', async () => {
+      const created = await createBadgeType(automaticInput, createdBy);
+
+      await deleteBadgeType(created._id.toString());
+
+      const persisted = await BadgeType.findById(created._id);
+      expect(persisted).not.toBeNull();
+      expect(persisted?.isDeleted).toBe(true);
+      expect(persisted?.deletedAt).not.toBeNull();
+    });
+
+    it('is idempotent when called again on an already soft-deleted BadgeType', async () => {
+      const created = await createBadgeType(automaticInput, createdBy);
+      await deleteBadgeType(created._id.toString());
+      const firstDeletedAt = (await BadgeType.findById(created._id))?.deletedAt;
+
+      await expect(
+        deleteBadgeType(created._id.toString()),
+      ).resolves.toBeUndefined();
+
+      const persisted = await BadgeType.findById(created._id);
+      expect(persisted?.isDeleted).toBe(true);
+      // A no-op second call must not clobber the original deletion timestamp.
+      expect(persisted?.deletedAt?.getTime()).toBe(firstDeletedAt?.getTime());
+    });
+
+    it('rejects deleting a BadgeType id that does not exist', async () => {
+      const missingId = new Types.ObjectId().toString();
+
+      await expect(deleteBadgeType(missingId)).rejects.toThrow(
+        BadgeTypeNotFoundError,
+      );
+    });
+
+    it('leaves an existing UserBadge grant record resolvable and unaffected (requirement 1.5: already-granted badges keep displaying after deletion)', async () => {
+      const created = await createBadgeType(automaticInput, createdBy);
+      const grantedAt = new Date();
+      const userId = new Types.ObjectId();
+      const grant = await UserBadge.create({
+        user: userId,
+        badgeType: created._id,
+        level: 1,
+        grantedAt,
+        grantedBy: null,
+        note: null,
+      });
+
+      await deleteBadgeType(created._id.toString());
+
+      const persistedGrant = await UserBadge.findById(grant._id);
+      expect(persistedGrant?.level).toBe(1);
+      expect(persistedGrant?.badgeType.toString()).toBe(created._id.toString());
+
+      const resolvedBadgeType = await BadgeType.findById(
+        persistedGrant?.badgeType,
+      );
+      expect(resolvedBadgeType).not.toBeNull();
+      expect(resolvedBadgeType?.name).toBe(automaticInput.name);
+      expect(resolvedBadgeType?.isDeleted).toBe(true);
+    });
+  });
+
+  describe('listBadgeTypes', () => {
+    it('excludes soft-deleted BadgeTypes when includeDeleted is false', async () => {
+      const kept = await createBadgeType(automaticInput, createdBy);
+      const deleted = await createBadgeType(manualInput, createdBy);
+      await deleteBadgeType(deleted._id.toString());
+
+      const result = await listBadgeTypes(false);
+
+      expect(result.map((b) => b._id.toString())).toEqual([
+        kept._id.toString(),
+      ]);
+    });
+
+    it('includes soft-deleted BadgeTypes when includeDeleted is true', async () => {
+      const kept = await createBadgeType(automaticInput, createdBy);
+      const deleted = await createBadgeType(manualInput, createdBy);
+      await deleteBadgeType(deleted._id.toString());
+
+      const result = await listBadgeTypes(true);
+
+      expect(result.map((b) => b._id.toString()).sort()).toEqual(
+        [kept._id.toString(), deleted._id.toString()].sort(),
+      );
     });
   });
 });

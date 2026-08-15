@@ -125,3 +125,40 @@ export const updateBadgeType = async (
 
   return updated.toObject();
 };
+
+/**
+ * Soft-deletes a BadgeType (requirement 1.5): the document itself is kept
+ * so that existing `UserBadge` references keep resolving to it, but new
+ * grants must stop choosing it (enforced by callers filtering on
+ * `isDeleted` before granting, and by `listBadgeTypes(false)` excluding it
+ * from the default admin list).
+ *
+ * Calling this again on an already-deleted BadgeType is a no-op success
+ * rather than an error: the end state ("this BadgeType is deleted") is
+ * already satisfied, so treating a repeat call as a client error would
+ * only punish callers for a benign race (e.g. a double click) without any
+ * corresponding data-integrity risk.
+ */
+export const deleteBadgeType = async (id: string): Promise<void> => {
+  const existing = await BadgeType.findById(id);
+  if (existing == null) {
+    throw new BadgeTypeNotFoundError(`BadgeType not found: ${id}`);
+  }
+
+  if (existing.isDeleted) {
+    return;
+  }
+
+  await BadgeType.updateOne(
+    { _id: id },
+    { $set: { isDeleted: true, deletedAt: new Date() } },
+  );
+};
+
+export const listBadgeTypes = async (
+  includeDeleted: boolean,
+): Promise<IBadgeTypeHasId[]> => {
+  const filter = includeDeleted ? {} : { isDeleted: false };
+  const docs = await BadgeType.find(filter);
+  return docs.map((doc) => doc.toObject());
+};

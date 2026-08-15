@@ -40,7 +40,7 @@
   - 編集時に既存の `UserBadge` 付与記録が変更されないことをテストで確認できる
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
   - _Boundary: BadgeTypeService_
-- [ ] 2.2 バッジ種類のソフトデリート・一覧取得実装
+- [x] 2.2 バッジ種類のソフトデリート・一覧取得実装
   - `deleteBadgeType`(ソフトデリート)、`listBadgeTypes(includeDeleted)` を実装する
   - 削除後も `BadgeType` ドキュメント自体は取得可能で、一覧のデフォルト表示からは除外されることを確認できる
   - _Requirements: 1.5_

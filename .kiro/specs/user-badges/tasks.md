@@ -172,7 +172,7 @@
   - _Depends: 4, 6.1_
 
 - [ ] 11. Validation: テスト
-- [ ] 11.1 BadgeType/UserBadge モデルのバリデーション・一意制約ユニットテスト
+- [x] 11.1 BadgeType/UserBadge モデルのバリデーション・一意制約ユニットテスト
   - _Requirements: 1.2, 1.3, 2.4, 3.5_
 - [ ] 11.2 BadgeGrantService のしきい値評価・冪等性・除外アクションユニットテスト
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 3.4_

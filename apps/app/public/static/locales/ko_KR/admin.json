@@ -1359,6 +1359,23 @@
   "badge_management": {
     "badge_management": "배지 관리",
     "category_automatic": "자동",
-    "category_manual": "수동"
+    "category_manual": "수동",
+    "badge_type_list": "배지 종류 목록",
+    "create_badge_type": "배지 종류 만들기",
+    "badge_type_basic_info": "배지 종류 기본 정보",
+    "name": "이름",
+    "icon_key": "아이콘",
+    "icon_key_placeholder": "예: star 또는 Material Symbols 아이콘 이름",
+    "category": "구분",
+    "category_immutable_notice": "구분은 생성 후 변경할 수 없습니다.",
+    "levels": "레벨",
+    "add_level": "레벨 추가",
+    "remove_level": "레벨 삭제",
+    "level_number": "레벨",
+    "level_name": "레벨 이름",
+    "level_icon_key": "레벨 아이콘",
+    "level_threshold": "임계값",
+    "levels_required_for_automatic": "자동 구분의 배지 종류에는 하나 이상의 레벨이 필요합니다.",
+    "no_badge_types": "아직 생성된 배지 종류가 없습니다."
   }
 }

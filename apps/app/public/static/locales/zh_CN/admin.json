@@ -1368,6 +1368,23 @@
   "badge_management": {
     "badge_management": "徽章管理",
     "category_automatic": "自动",
-    "category_manual": "手动"
+    "category_manual": "手动",
+    "badge_type_list": "徽章类型列表",
+    "create_badge_type": "创建徽章类型",
+    "badge_type_basic_info": "徽章类型基本信息",
+    "name": "名称",
+    "icon_key": "图标",
+    "icon_key_placeholder": "例如 star 或 Material Symbols 图标名称",
+    "category": "类别",
+    "category_immutable_notice": "创建后无法更改类别。",
+    "levels": "等级",
+    "add_level": "添加等级",
+    "remove_level": "删除等级",
+    "level_number": "等级",
+    "level_name": "等级名称",
+    "level_icon_key": "等级图标",
+    "level_threshold": "阈值",
+    "levels_required_for_automatic": "自动类别的徽章类型至少需要一个等级。",
+    "no_badge_types": "尚未创建任何徽章类型。"
   }
 }

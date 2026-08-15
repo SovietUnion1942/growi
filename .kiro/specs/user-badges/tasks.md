@@ -12,7 +12,7 @@
   - 不正な構成(automatic で levels なし等)を保存しようとするとバリデーションエラーになることをテストで確認できる
   - _Requirements: 1.2, 1.3_
   - _Depends: 1.1_
-- [ ] 1.3 UserBadge モデル実装
+- [x] 1.3 UserBadge モデル実装
   - `getOrCreateModel` パターンで `UserBadge` コレクションを定義する
   - `(user, badgeType, level)` の一意複合インデックスを設定する
   - 同一 `(user, badgeType, level)` を2回保存すると重複キーエラーになることをテストで確認できる
@@ -185,3 +185,6 @@
 - [ ]* 11.5 バッジ表示 UI テスト
   - アバター併記(最高レベルのみ)・ユーザーページ全レベル表示・ツールチップの3パターンを確認する
   - _Requirements: 4.1, 4.2, 4.4, 4.5_
+
+## Implementation Notes
+- Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).

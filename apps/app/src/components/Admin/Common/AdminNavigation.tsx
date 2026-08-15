@@ -126,6 +126,13 @@ const MenuLabel = ({ menu }: { menu: string }) => {
           {t('audit_log_management.audit_log')}
         </>
       );
+    case 'badges':
+      return (
+        <>
+          <span className="material-symbols-outlined me-1">military_tech</span>
+          {t('badge_management.badge_management')}
+        </>
+      );
     case 'vault':
       return (
         <>
@@ -292,6 +299,11 @@ export const AdminNavigation = (): JSX.Element => {
             isListGroupItems={isListGroupItems}
             isActive={isActiveMenu('/audit-log')}
           />
+          <MenuLink
+            menu="badges"
+            isListGroupItems={isListGroupItems}
+            isActive={isActiveMenu('/badges')}
+          />
 
           <hr />
 
@@ -389,6 +401,7 @@ export const AdminNavigation = (): JSX.Element => {
             )}
             {isActiveMenu('/search') && <MenuLabel menu="search" />}
             {isActiveMenu('/audit-log') && <MenuLabel menu="audit-log" />}
+            {isActiveMenu('/badges') && <MenuLabel menu="badges" />}
             {isActiveMenu('/vault') && <MenuLabel menu="vault" />}
             {isActiveMenu('/plugins') && <MenuLabel menu="plugins" />}
             {isActiveMenu('/data-transfer') && (

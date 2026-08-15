@@ -9,7 +9,12 @@ import { BadgeManagement } from './BadgeManagement';
 
 const apiv3Post = vi.hoisted(() => vi.fn());
 const apiv3Put = vi.hoisted(() => vi.fn());
-vi.mock('~/client/util/apiv3-client', () => ({ apiv3Post, apiv3Put }));
+const apiv3Delete = vi.hoisted(() => vi.fn());
+vi.mock('~/client/util/apiv3-client', () => ({
+  apiv3Post,
+  apiv3Put,
+  apiv3Delete,
+}));
 
 const toastSuccess = vi.hoisted(() => vi.fn());
 const toastError = vi.hoisted(() => vi.fn());
@@ -48,6 +53,15 @@ vi.mock('./BadgeTypeTable', async () => {
     BadgeTypeTable: actual.BadgeTypeTable,
   };
 });
+vi.mock('./BadgeTypeDeleteModal', async () => {
+  const actual = await vi.importActual<typeof import('./BadgeTypeDeleteModal')>(
+    './BadgeTypeDeleteModal',
+  );
+  return {
+    default: actual.BadgeTypeDeleteModal,
+    BadgeTypeDeleteModal: actual.BadgeTypeDeleteModal,
+  };
+});
 
 const mutateBadgeTypes = vi.hoisted(() => vi.fn());
 let badgeTypeListData: IBadgeTypeHasId[] = [];
@@ -83,6 +97,7 @@ const badgeTypeB: IBadgeTypeHasId = {
 beforeEach(() => {
   apiv3Post.mockReset();
   apiv3Put.mockReset();
+  apiv3Delete.mockReset();
   toastSuccess.mockReset();
   toastError.mockReset();
   mutateBadgeTypes.mockReset();
@@ -248,5 +263,79 @@ describe('BadgeManagement', () => {
     expect(
       within(dialog).queryByTestId('badge-type-levels-section'),
     ).not.toBeInTheDocument();
+  });
+
+  it('deletes a badge type: confirming the delete modal calls apiv3Delete with the id, refreshes the list, and closes the modal', async () => {
+    const user = userEvent.setup();
+    apiv3Delete.mockResolvedValue({ data: { isDeleted: true } });
+
+    render(<BadgeManagement />);
+
+    const row = screen.getByText('Reviewer').closest('tr');
+    if (row == null) throw new Error('row not found');
+    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Reviewer/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(apiv3Delete).toHaveBeenCalledWith('/badge-types/badge-type-2');
+    });
+    expect(mutateBadgeTypes).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('cancels a badge type deletion: clicking Cancel closes the modal without calling apiv3Delete', async () => {
+    const user = userEvent.setup();
+
+    render(<BadgeManagement />);
+
+    const row = screen.getByText('Reviewer').closest('tr');
+    if (row == null) throw new Error('row not found');
+    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(apiv3Delete).not.toHaveBeenCalled();
+  });
+
+  it('removes the deleted badge type row from the list after refetch (soft delete excludes it from listBadgeTypes(false))', async () => {
+    const user = userEvent.setup();
+    apiv3Delete.mockResolvedValue({ data: { isDeleted: true } });
+    // Simulate the server-side soft delete: after `mutate()` re-runs
+    // `GET /badge-types`, the deleted item is no longer present because
+    // `listBadgeTypes(false)` excludes soft-deleted items.
+    mutateBadgeTypes.mockImplementation(() => {
+      badgeTypeListData = badgeTypeListData.filter(
+        (bt) => bt._id !== 'badge-type-2',
+      );
+      return Promise.resolve(badgeTypeListData);
+    });
+
+    const { rerender } = render(<BadgeManagement />);
+
+    const row = screen.getByText('Reviewer').closest('tr');
+    if (row == null) throw new Error('row not found');
+    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(mutateBadgeTypes).toHaveBeenCalled();
+    });
+
+    rerender(<BadgeManagement />);
+
+    expect(screen.queryByText('Reviewer')).not.toBeInTheDocument();
+    expect(screen.getByText('Contributor')).toBeInTheDocument();
   });
 });

@@ -1375,6 +1375,10 @@
     "level_icon_key": "Icône du niveau",
     "level_threshold": "Seuil",
     "levels_required_for_automatic": "Au moins un niveau est requis pour un type de badge automatique.",
-    "no_badge_types": "Aucun type de badge n'a encore été créé."
+    "no_badge_types": "Aucun type de badge n'a encore été créé.",
+    "delete_modal": {
+      "header": "Supprimer le type de badge",
+      "desc": "Ce type de badge ne sera plus attribué aux nouveaux utilisateurs. Les badges déjà attribués aux utilisateurs resteront dans leurs enregistrements."
+    }
   }
 }

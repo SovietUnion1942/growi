@@ -7,12 +7,14 @@ type Props = {
   headerLabel?: string;
   badgeTypes: IBadgeTypeHasId[];
   onEdit?: (badgeType: IBadgeTypeHasId) => void;
+  onDelete?: (badgeType: IBadgeTypeHasId) => void;
 };
 
 export const BadgeTypeTable: FC<Props> = ({
   headerLabel,
   badgeTypes,
   onEdit,
+  onDelete,
 }: Props) => {
   const { t } = useTranslation('admin');
 
@@ -21,6 +23,13 @@ export const BadgeTypeTable: FC<Props> = ({
       return;
     }
     onEdit(badgeType);
+  };
+
+  const onClickDelete = (badgeType: IBadgeTypeHasId) => {
+    if (onDelete == null) {
+      return;
+    }
+    onDelete(badgeType);
   };
 
   return (
@@ -35,7 +44,7 @@ export const BadgeTypeTable: FC<Props> = ({
             <th>{t('badge_management.icon_key')}</th>
             <th>{t('badge_management.category')}</th>
             <th>{t('badge_management.levels')}</th>
-            <th style={{ width: 70 }}></th>
+            <th style={{ width: 120 }}></th>
           </tr>
         </thead>
         <tbody>
@@ -59,6 +68,16 @@ export const BadgeTypeTable: FC<Props> = ({
                   aria-label={t('Edit')}
                 >
                   <span className="material-symbols-outlined">edit_square</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm ms-2"
+                  onClick={() => onClickDelete(badgeType)}
+                  aria-label={t('Delete')}
+                >
+                  <span className="material-symbols-outlined">
+                    delete_forever
+                  </span>
                 </button>
               </td>
             </tr>

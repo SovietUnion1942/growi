@@ -1,16 +1,22 @@
 import type { IUserHasId } from '@growi/core';
 import type { Types } from 'mongoose';
 
+import type Crowi from '~/server/crowi';
+import loggerFactory from '~/utils/logger';
+
 import type {
   BadgeCategory,
   IBadgeLevel,
   IBadgeType,
 } from '../../interfaces/badge';
 import BadgeType from '../models/badge-type-model';
+import { resweepBadgeType } from './badge-grant-service';
 import {
   BadgeTypeNotFoundError,
   BadgeTypeValidationError,
 } from './badge-type-errors';
+
+const logger = loggerFactory('growi:features:user-badge:badge-type-service');
 
 /** `BadgeType` as returned from persistence, i.e. including its Mongo `_id`. */
 export type IBadgeTypeHasId = IBadgeType & { _id: Types.ObjectId };
@@ -74,9 +80,26 @@ function assertValidLevelsForCategory(
   }
 }
 
+/**
+ * Fires `resweepBadgeType` without awaiting it (design.md, BadgeTypeService
+ * Implementation Notes: "自動区分のバッジ種類が新規作成または levels/threshold が変更
+ * された場合、BadgeGrantService の resweep を fire-and-forget で呼び出す"). Mirrors
+ * `update-page.ts`'s `postAction(...)` fire-and-forget precedent: the caller
+ * (an apiv3 route handler) must not block its HTTP response on a
+ * potentially long-running resweep over every user with edit activity.
+ * Errors are logged here rather than propagated, since there is no request
+ * still in flight to report them to by the time they occur.
+ */
+function fireResweep(badgeTypeId: Types.ObjectId, crowi: Crowi): void {
+  resweepBadgeType(badgeTypeId.toString(), crowi).catch((err) => {
+    logger.error(`Resweep failed for BadgeType ${badgeTypeId.toString()}`, err);
+  });
+}
+
 export const createBadgeType = async (
   input: CreateBadgeTypeInput,
   createdBy: IUserHasId,
+  crowi: Crowi,
 ): Promise<IBadgeTypeHasId> => {
   assertValidLevelsForCategory(input.category, input.levels);
 
@@ -89,12 +112,20 @@ export const createBadgeType = async (
     createdBy: createdBy._id,
   });
 
+  // Requirement 2.5: a newly-created automatic BadgeType may already match
+  // users' pre-existing activity, so resweep immediately rather than
+  // waiting for their next realtime-triggering edit.
+  if (created.category === 'automatic') {
+    fireResweep(created._id, crowi);
+  }
+
   return created.toObject();
 };
 
 export const updateBadgeType = async (
   id: string,
   input: UpdateBadgeTypeInput,
+  crowi: Crowi,
 ): Promise<IBadgeTypeHasId> => {
   // Runtime guard against `category` changes: the type signature already
   // excludes `category`, but callers at the HTTP boundary work with
@@ -121,6 +152,19 @@ export const updateBadgeType = async (
   );
   if (updated == null) {
     throw new BadgeTypeNotFoundError(`BadgeType not found: ${id}`);
+  }
+
+  // Requirement 2.5: resweep on every successful update to an automatic
+  // BadgeType, not only ones that touch `levels`. Distinguishing a
+  // levels/threshold-changing update from a name/description/iconKey-only
+  // one is fragile here (the `$set` payload alone doesn't say whether the
+  // *values* actually differ from what's stored), and resweep is already
+  // idempotent (task 3.5) and cheap to call slightly more often than the
+  // strict minimum, so this simplification is deliberate: it trades a rare
+  // redundant resweep for certainty that a threshold-lowering edit is never
+  // missed.
+  if (updated.category === 'automatic') {
+    fireResweep(updated._id, crowi);
   }
 
   return updated.toObject();

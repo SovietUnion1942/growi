@@ -303,6 +303,7 @@ class Crowi {
       this.setupPageService(),
       this.setupInAppNotificationService(),
       this.setupActivityService(),
+      this.setupBadgeGrantService(),
       this.setupCommentService(),
       this.setupSyncPageStatusService(),
       this.setUpCustomize(), // depends on pluginService
@@ -931,6 +932,23 @@ class Crowi {
       this.activityService = new ActivityService(this);
       await this.activityService.createTtlIndex();
     }
+  }
+
+  /**
+   * Registers BadgeGrantService's own `crowi.events.activity` listener
+   * (mirroring InAppNotificationService's self-registering-in-constructor
+   * pattern, since `initBadgeGrantEventListener` is a plain function rather
+   * than a class -- see badge-grant-service.ts's doc comment and
+   * research.md's "BadgeGrantService が独自に crowi.events.activity を購読"
+   * decision). Not a cron job, so it does not belong in `setupCron()`.
+   * Dynamically imported like `NewsCronService` in `setupCron()`, to keep
+   * this feature module out of the core server bundle.
+   */
+  async setupBadgeGrantService(): Promise<void> {
+    const { initBadgeGrantEventListener } = await import(
+      '~/features/user-badge/server/services/badge-grant-service'
+    );
+    initBadgeGrantEventListener(this);
   }
 
   setupCommentService(): void {

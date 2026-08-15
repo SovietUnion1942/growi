@@ -219,6 +219,31 @@ describe('UserPicture — Task 4 (badges prop, req 4.1, 4.2)', () => {
   });
 });
 
+describe('UserPicture — Task 11.5 (display-pattern boundary audit, req 4.4)', () => {
+  it('renders every entry it is given as-is, performing no highest-level-per-series reduction of its own', () => {
+    // Req 4.4 splits responsibility across layers: the avatar-adjacent
+    // location shows only the highest level per badge series, but that
+    // reduction is the CALLER's job (server-side `badgeSummaryCached`
+    // generation, see badge-grant-service.ts `updateBadgeSummaryCached`),
+    // not UserPicture's. This pins that boundary: if two levels of the same
+    // series were ever passed in by mistake, UserPicture must not silently
+    // hide the redundant one -- it just renders what it receives.
+    const sameSeriesBadges: UserPictureBadge[] = [
+      { iconKey: 'edit', name: 'Bronze Contributor', level: 1 },
+      { iconKey: 'star', name: 'Gold Contributor', level: 3 },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={sameSeriesBadges} />,
+    );
+
+    expect(
+      container.querySelectorAll('[data-testid="user-picture-badge"]'),
+    ).toHaveLength(2);
+    expect(screen.getByLabelText('Bronze Contributor')).not.toBeNull();
+    expect(screen.getByLabelText('Gold Contributor')).not.toBeNull();
+  });
+});
+
 describe('UserPicture — Task 10.3 (badge tooltip catalog resolution, req 4.5)', () => {
   it('shows the badge name in its own tooltip when hovered/focused, even without a description', () => {
     const badges: UserPictureBadge[] = [

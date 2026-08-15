@@ -84,6 +84,45 @@ describe('BadgeType model validation', () => {
       await expect(doc.validate()).rejects.toThrow();
     });
 
+    it('fails validation when a threshold is 0 (below the min:1 boundary)', async () => {
+      const doc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 0 }],
+        createdBy,
+      });
+
+      await expect(doc.validate()).rejects.toThrow();
+    });
+
+    it('fails validation when a level number is 0 (below the min:1 boundary)', async () => {
+      const doc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 0, name: 'Bronze', iconKey: 'edit', threshold: 5 }],
+        createdBy,
+      });
+
+      await expect(doc.validate()).rejects.toThrow();
+    });
+
+    it('passes validation with the minimum boundary values (level: 1, threshold: 1)', async () => {
+      const doc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 }],
+        createdBy,
+      });
+
+      await expect(doc.validate()).resolves.toBeUndefined();
+    });
+
     it('passes validation with one or more ascending, unique levels each with a threshold', async () => {
       const doc = new BadgeType({
         name: 'Editor',

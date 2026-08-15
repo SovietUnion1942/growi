@@ -10,8 +10,17 @@
  *   - commons.json: badge.{badge, badges}
  *
  * Per-screen/form copy (icons, thresholds, tooltips, buttons, etc.) is
- * intentionally out of scope here — it is added by the owning UI tasks
- * (7.x, 8, 10.1, 10.3) as part of their own implementation.
+ * added by the owning UI tasks (7.x, 8, 10.1, 10.3) as part of their own
+ * implementation; the baseline-key checks above only assert that the
+ * task-1.6 minimum subset exists (not the full current key set).
+ *
+ * The key-set-parity checks below intentionally do NOT hardcode the full
+ * expected key list: they derive it from one locale (the first entry in
+ * `LOCALES`) at run time and assert every other locale matches it. This
+ * keeps the test meaningful as later tasks add more `badge_management.*`/
+ * `badge.*` keys — parity across locales is what matters, not a frozen
+ * snapshot of which keys exist. (A fixed-list version of this test broke
+ * when tasks 7.1/7.2 added ~20 keys without touching the test.)
  *
  * Requirements: 1.1, 4.5
  */
@@ -37,6 +46,20 @@ function getNestedValue(
     if (acc == null || typeof acc !== 'object') return undefined;
     return (acc as Record<string, unknown>)[key];
   }, obj);
+}
+
+// Recursively collects dot-joined leaf key paths from a (possibly nested)
+// translation namespace, e.g. { manual_grant: { note: '...' } } -> ['manual_grant.note'].
+// Used for key-set-parity comparisons so nested namespaces (like
+// `badge_management.manual_grant.*`) are covered, not just top-level keys.
+function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(obj).flatMap(([key, value]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+      return flattenKeys(value as Record<string, unknown>, path);
+    }
+    return [path];
+  });
 }
 
 const adminLocales = Object.fromEntries(
@@ -99,16 +122,29 @@ describe('badge-management baseline i18n keys', () => {
   describe('key-set parity across locales', () => {
     it('admin.json "badge_management" has the identical key set in all 5 locales', () => {
       const [baseLocale, ...restLocales] = LOCALES;
-      const baseKeys = Object.keys(
-        (adminLocales[baseLocale].badge_management ?? {}) as object,
+      const baseKeys = flattenKeys(
+        (adminLocales[baseLocale].badge_management ?? {}) as Record<
+          string,
+          unknown
+        >,
       ).sort();
-      expect(baseKeys).toEqual(
-        ADMIN_BADGE_MANAGEMENT_KEYS.map((k) => k.split('.')[1]).sort(),
+
+      // Sanity check: the namespace must exist and contain at least the
+      // task-1.6 baseline keys — this guards against the baseline itself
+      // silently going empty (e.g. a locale file swapped for `{}`).
+      expect(baseKeys.length).toBeGreaterThanOrEqual(
+        ADMIN_BADGE_MANAGEMENT_KEYS.length,
       );
+      for (const key of ADMIN_BADGE_MANAGEMENT_KEYS) {
+        expect(baseKeys).toContain(key.split('.')[1]);
+      }
 
       for (const locale of restLocales) {
-        const keys = Object.keys(
-          (adminLocales[locale].badge_management ?? {}) as object,
+        const keys = flattenKeys(
+          (adminLocales[locale].badge_management ?? {}) as Record<
+            string,
+            unknown
+          >,
         ).sort();
         expect(
           keys,
@@ -119,16 +155,18 @@ describe('badge-management baseline i18n keys', () => {
 
     it('commons.json "badge" has the identical key set in all 5 locales', () => {
       const [baseLocale, ...restLocales] = LOCALES;
-      const baseKeys = Object.keys(
-        (commonsLocales[baseLocale].badge ?? {}) as object,
+      const baseKeys = flattenKeys(
+        (commonsLocales[baseLocale].badge ?? {}) as Record<string, unknown>,
       ).sort();
-      expect(baseKeys).toEqual(
-        COMMONS_BADGE_KEYS.map((k) => k.split('.')[1]).sort(),
-      );
+
+      expect(baseKeys.length).toBeGreaterThanOrEqual(COMMONS_BADGE_KEYS.length);
+      for (const key of COMMONS_BADGE_KEYS) {
+        expect(baseKeys).toContain(key.split('.')[1]);
+      }
 
       for (const locale of restLocales) {
-        const keys = Object.keys(
-          (commonsLocales[locale].badge ?? {}) as object,
+        const keys = flattenKeys(
+          (commonsLocales[locale].badge ?? {}) as Record<string, unknown>,
         ).sort();
         expect(keys, `commons.json badge keys mismatch in ${locale}`).toEqual(
           baseKeys,

@@ -18,7 +18,7 @@
   - 同一 `(user, badgeType, level)` を2回保存すると重複キーエラーになることをテストで確認できる
   - _Requirements: 2.4, 3.5_
   - _Depends: 1.1_
-- [ ] 1.4 User スキーマへの badgeSummaryCached フィールド追加
+- [x] 1.4 User スキーマへの badgeSummaryCached フィールド追加
   - `apps/app/src/server/models/user/index.js` に `badgeSummaryCached`(配列、デフォルト空配列)を追加する
   - 既存ユーザードキュメントの取得時にフィールドが空配列として返ることを確認できる
   - _Requirements: 4.1_
@@ -188,3 +188,4 @@
 
 ## Implementation Notes
 - Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).
+- Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).

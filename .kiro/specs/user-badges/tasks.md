@@ -22,7 +22,7 @@
   - `apps/app/src/server/models/user/index.js` に `badgeSummaryCached`(配列、デフォルト空配列)を追加する
   - 既存ユーザードキュメントの取得時にフィールドが空配列として返ることを確認できる
   - _Requirements: 4.1_
-- [ ] 1.5 Activity 定数の追加
+- [x] 1.5 Activity 定数の追加
   - `apps/app/src/interfaces/activity.ts` に `ACTION_USER_BADGE_GRANT`, `ACTION_ADMIN_BADGE_TYPE_CREATE/UPDATE/DELETE` を追加する
   - `ACTION_USER_BADGE_GRANT` を `EssentialActionGroup` に追加する
   - `SupportedTargetModel` に `MODEL_USER_BADGE` を追加する

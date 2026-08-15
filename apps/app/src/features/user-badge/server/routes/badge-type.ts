@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 
 import { SupportedAction } from '~/interfaces/activity';
+import type Crowi from '~/server/crowi';
 import { generateAddActivityMiddleware } from '~/server/middlewares/add-activity';
 import adminRequiredFactory from '~/server/middlewares/admin-required';
 import { apiV3FormValidator } from '~/server/middlewares/apiv3-form-validator';
@@ -171,6 +172,7 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
         const badgeType = await createBadgeType(
           { name, description, iconKey, category, levels },
           req.user as IUserHasId,
+          crowi as unknown as Crowi,
         );
 
         const parameters = {
@@ -215,7 +217,11 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
       };
 
       try {
-        const badgeType = await updateBadgeType(id, input);
+        const badgeType = await updateBadgeType(
+          id,
+          input,
+          crowi as unknown as Crowi,
+        );
 
         const parameters = {
           action: SupportedAction.ACTION_ADMIN_BADGE_TYPE_UPDATE,

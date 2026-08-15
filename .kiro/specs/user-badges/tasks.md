@@ -136,7 +136,7 @@
   - サーバー起動後、ページ更新をトリガーに `BadgeGrantService` のイベントリスナーが実際に発火することを確認できる
   - _Requirements: 2.1, 2.2_
   - _Depends: 3.2_
-- [ ] 9.2 BadgeTypeService から BadgeGrantService への resweep 呼び出し配線
+- [x] 9.2 BadgeTypeService から BadgeGrantService への resweep 呼び出し配線
   - automatic 区分の `BadgeType` が新規作成/しきい値変更されたとき、3.5 の resweep を fire-and-forget で呼び出す
   - しきい値を下げる編集を行うと、既存ユーザーに遡及付与が行われることを確認できる
   - _Requirements: 2.5_

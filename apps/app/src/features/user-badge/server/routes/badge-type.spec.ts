@@ -223,6 +223,7 @@ describe('/badge-types route', () => {
           levels: validBody.levels,
         },
         adminUser,
+        expect.anything(),
       );
       expect(activityEmit).toHaveBeenCalledWith(
         'update',
@@ -302,9 +303,11 @@ describe('/badge-types route', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ badgeType: updated });
-      expect(updateBadgeTypeMock).toHaveBeenCalledWith('bt-1', {
-        name: 'Editor Pro',
-      });
+      expect(updateBadgeTypeMock).toHaveBeenCalledWith(
+        'bt-1',
+        { name: 'Editor Pro' },
+        expect.anything(),
+      );
       expect(activityEmit).toHaveBeenCalledWith(
         'update',
         'activity-1',
@@ -320,9 +323,11 @@ describe('/badge-types route', () => {
         .put('/_api/v3/badge-types/bt-1')
         .send({ name: 'Editor Pro', category: 'manual' });
 
-      expect(updateBadgeTypeMock).toHaveBeenCalledWith('bt-1', {
-        name: 'Editor Pro',
-      });
+      expect(updateBadgeTypeMock).toHaveBeenCalledWith(
+        'bt-1',
+        { name: 'Editor Pro' },
+        expect.anything(),
+      );
     });
 
     it('returns 403 when the caller is not an admin', async () => {

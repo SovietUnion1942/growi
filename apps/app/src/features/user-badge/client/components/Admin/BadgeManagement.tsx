@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 
-import { apiv3Post, apiv3Put } from '~/client/util/apiv3-client';
+import { apiv3Delete, apiv3Post, apiv3Put } from '~/client/util/apiv3-client';
 import { toastError, toastSuccess } from '~/client/util/toastr';
 
 import type { IBadgeTypeHasId } from '../../stores/badge-type';
@@ -16,6 +16,11 @@ const BadgeTypeModal = dynamic(
 );
 const BadgeTypeTable = dynamic(
   () => import('./BadgeTypeTable').then((mod) => mod.BadgeTypeTable),
+  { ssr: false },
+);
+const BadgeTypeDeleteModal = dynamic(
+  () =>
+    import('./BadgeTypeDeleteModal').then((mod) => mod.BadgeTypeDeleteModal),
   { ssr: false },
 );
 
@@ -37,6 +42,10 @@ export const BadgeManagement: FC = () => {
   >(undefined);
   const [isCreateModalShown, setCreateModalShown] = useState<boolean>(false);
   const [isUpdateModalShown, setUpdateModalShown] = useState<boolean>(false);
+  const [deleteTargetBadgeType, setDeleteTargetBadgeType] = useState<
+    IBadgeTypeHasId | undefined
+  >(undefined);
+  const [isDeleteModalShown, setDeleteModalShown] = useState<boolean>(false);
 
   /*
    * Functions
@@ -57,6 +66,16 @@ export const BadgeManagement: FC = () => {
   const hideUpdateModal = useCallback(() => {
     setSelectedBadgeType(undefined);
     setUpdateModalShown(false);
+  }, []);
+
+  const showDeleteModal = useCallback((badgeType: IBadgeTypeHasId) => {
+    setDeleteTargetBadgeType(badgeType);
+    setDeleteModalShown(true);
+  }, []);
+
+  const hideDeleteModal = useCallback(() => {
+    setDeleteTargetBadgeType(undefined);
+    setDeleteModalShown(false);
   }, []);
 
   const createBadgeType = useCallback(
@@ -123,6 +142,31 @@ export const BadgeManagement: FC = () => {
     [t, mutateBadgeTypes, hideUpdateModal, selectedBadgeType],
   );
 
+  const deleteBadgeType = useCallback(
+    async (badgeTypeId: string) => {
+      try {
+        await apiv3Delete(`/badge-types/${badgeTypeId}`);
+
+        toastSuccess(
+          t('toaster.update_successed', {
+            target: t('badge_management.badge_management'),
+            ns: 'commons',
+          }),
+        );
+
+        // mutate: soft delete on the server means `listBadgeTypes(false)`
+        // (the only query `GET /badge-types` runs) will no longer include
+        // this item, so a re-fetch naturally removes it from the table.
+        await mutateBadgeTypes();
+
+        hideDeleteModal();
+      } catch (err) {
+        toastError(err);
+      }
+    },
+    [t, mutateBadgeTypes, hideDeleteModal],
+  );
+
   return (
     <div data-testid="admin-badge-management">
       <h2 className="border-bottom">
@@ -158,6 +202,14 @@ export const BadgeManagement: FC = () => {
         headerLabel={t('badge_management.badge_type_list')}
         badgeTypes={badgeTypes}
         onEdit={showUpdateModal}
+        onDelete={showDeleteModal}
+      />
+
+      <BadgeTypeDeleteModal
+        badgeType={deleteTargetBadgeType}
+        isShow={isDeleteModalShown}
+        onHide={hideDeleteModal}
+        onDelete={deleteBadgeType}
       />
     </div>
   );

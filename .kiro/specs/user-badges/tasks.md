@@ -114,7 +114,7 @@
   - フォームに必要な i18n キーを 1.6 の基盤キーに追加する形で用意する
   - 管理者がバッジ種類を作成すると一覧に反映されることをブラウザ操作で確認できる
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
-- [ ] 7.2 バッジ種類削除確認モーダル実装
+- [x] 7.2 バッジ種類削除確認モーダル実装
   - 削除確認モーダルから `deleteBadgeType` API を呼び出す
   - 削除後、一覧からそのバッジ種類が消えることを確認できる
   - _Requirements: 1.5_
@@ -196,3 +196,4 @@
 - **Follow-up (not blocking)**: `IUserBadgeSummaryEntry` is currently duplicated (manually synced) between `apps/app/src/features/user-badge/interfaces/badge.ts` (task 1.1) and `packages/core/src/interfaces/user.ts` (task 3.4). Per this repo's own steering rule ("`@growi/core` is the single source of truth for cross-package types"), the canonical definition should move to `@growi/core` with `apps/app`'s copy re-exporting/importing it instead.
 - `adminRequiredFactory(crowi)` called bare (no fallback) redirects (302) a logged-in non-admin instead of returning 403 -- this repo's `admin-required.ts` only produces JSON 403 when an explicit fallback is passed as the 2nd argument (see `socket-io.ts` for the reference pattern). Any apiv3 route requiring a JSON 403 for non-admin callers (not a page redirect) must pass a custom fallback; task 5.2's route needs the same treatment.
 - No `GET /badge-types/:id` endpoint exists (task 5.1 only built `GET /`, `POST /`, `PUT /:id`, `DELETE /:id`). `useSWRxBadgeType(id)` derives its item from `useSWRxBadgeTypeList()`'s own cached data rather than issuing a second fetch -- two hooks resolving to the same conceptual resource must share ONE SWR key, not two independently-keyed fetches for identical data (a real stale-cache bug, caught by review on the first attempt here).
+- The admin badge UI's `t('Create')`/`t('Update')`/`t('Edit')`/`t('Delete')`/`t('Cancel')` button labels are bare, unnamespaced i18next keys with no corresponding entry in any locale JSON -- i18next falls back to the raw English key text regardless of locale, so non-English admins see raw English button labels. Introduced in 7.1, inherited by 7.2. Not blocking any individual task, but worth a real i18n key + translation pass (11.x or a dedicated follow-up) before this admin UI ships.

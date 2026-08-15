@@ -76,4 +76,23 @@ describe('BadgeTypeTable', () => {
 
     expect(onEdit).toHaveBeenCalledWith(badgeTypeB);
   });
+
+  it('renders a delete button per row and invokes onDelete with the clicked row badge type', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+
+    render(
+      <BadgeTypeTable
+        badgeTypes={[badgeTypeA, badgeTypeB]}
+        headerLabel="x"
+        onDelete={onDelete}
+      />,
+    );
+
+    const row = screen.getByText('Reviewer').closest('tr');
+    if (row == null) throw new Error('row not found');
+    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+
+    expect(onDelete).toHaveBeenCalledWith(badgeTypeB);
+  });
 });

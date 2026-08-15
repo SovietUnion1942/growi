@@ -35,7 +35,7 @@
   - _Requirements: 1.1, 4.5_
 
 - [ ] 2. Core: バッジ種類管理ロジック(BadgeTypeService)
-- [ ] 2.1 (P) バッジ種類の作成・編集ロジック実装
+- [x] 2.1 (P) バッジ種類の作成・編集ロジック実装
   - `createBadgeType`/`updateBadgeType` を実装し、`category` に応じたバリデーションをサービス層でも行う
   - 編集時に既存の `UserBadge` 付与記録が変更されないことをテストで確認できる
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
@@ -189,3 +189,5 @@
 ## Implementation Notes
 - Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).
 - Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).
+- `findByIdAndUpdate(..., { runValidators: true })` does NOT invoke a Mongoose model's `pre('validate', fn)` document middleware (only schema-level path validators run) -- empirically confirmed on this repo's Mongoose 6.13.9 during task 2.1. Any service using `findByIdAndUpdate` for a document with custom cross-field validation logic must re-run that validation at the service layer explicitly.
+- `IBadgeTypeHasId` is defined and exported from `badge-type-service.ts` (not `interfaces/badge.ts`) -- import it from there in tasks 2.2/5.1 rather than redefining.

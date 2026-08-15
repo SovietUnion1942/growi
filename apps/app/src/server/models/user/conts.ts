@@ -19,4 +19,4 @@ export const INACTIVE_USER_STATUSES: readonly UserStatus[] = [
 
 export const USER_FIELDS_EXCEPT_CONFIDENTIAL =
   '_id image isEmailPublished isGravatarEnabled googleId name username email introduction' +
-  ' status lang createdAt lastLoginAt admin imageUrlCached';
+  ' status lang createdAt lastLoginAt admin imageUrlCached badgeSummaryCached';

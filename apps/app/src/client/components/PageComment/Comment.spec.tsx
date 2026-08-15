@@ -52,6 +52,8 @@ vi.mock('./CommentEditor', () => ({
   CommentEditor: () => <div data-testid="mock-comment-editor" />,
 }));
 
+import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+
 import { Comment } from './Comment';
 
 const baseCreator = {
@@ -99,14 +101,7 @@ describe('Comment', () => {
       ...baseComment,
       creator: {
         ...baseCreator,
-        badgeSummaryCached: [
-          {
-            badgeType: 'badge-type-1',
-            iconKey: 'star',
-            name: 'Top Contributor',
-            level: 3,
-          },
-        ],
+        badgeSummaryCached: makeBadgeSummaryFixture(),
       },
     } as unknown as ICommentHasId;
 

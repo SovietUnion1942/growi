@@ -26,6 +26,8 @@ vi.mock('~/features/user-badge/client/stores/badge-type-catalog', () => ({
     useSWRxBadgeTypeCatalog(...args),
 }));
 
+import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+
 import { UserInfo } from './UserInfo';
 
 const baseAuthor = {
@@ -45,14 +47,7 @@ describe('UserInfo', () => {
   it('renders a badge icon next to the username when author has badgeSummaryCached entries', () => {
     const author = {
       ...baseAuthor,
-      badgeSummaryCached: [
-        {
-          badgeType: 'badge-type-1',
-          iconKey: 'star',
-          name: 'Top Contributor',
-          level: 3,
-        },
-      ],
+      badgeSummaryCached: makeBadgeSummaryFixture(),
     } as unknown as IUserHasId;
 
     render(<UserInfo author={author} />);

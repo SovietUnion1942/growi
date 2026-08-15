@@ -1369,6 +1369,23 @@
   "badge_management": {
     "badge_management": "バッジ管理",
     "category_automatic": "自動",
-    "category_manual": "手動"
+    "category_manual": "手動",
+    "badge_type_list": "バッジ種類一覧",
+    "create_badge_type": "バッジ種類を作成",
+    "badge_type_basic_info": "バッジ種類の基本情報",
+    "name": "名前",
+    "icon_key": "アイコン",
+    "icon_key_placeholder": "例: star または Material Symbols のアイコン名",
+    "category": "区分",
+    "category_immutable_notice": "区分は作成後に変更できません。",
+    "levels": "レベル",
+    "add_level": "レベルを追加",
+    "remove_level": "レベルを削除",
+    "level_number": "レベル",
+    "level_name": "レベル名",
+    "level_icon_key": "レベルアイコン",
+    "level_threshold": "しきい値",
+    "levels_required_for_automatic": "自動区分のバッジ種類には、少なくとも1つのレベルが必要です。",
+    "no_badge_types": "まだバッジ種類が作成されていません。"
   }
 }

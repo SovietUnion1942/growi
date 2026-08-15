@@ -1358,6 +1358,23 @@
   "badge_management": {
     "badge_management": "Gestion des badges",
     "category_automatic": "Automatique",
-    "category_manual": "Manuel"
+    "category_manual": "Manuel",
+    "badge_type_list": "Types de badges",
+    "create_badge_type": "Créer un type de badge",
+    "badge_type_basic_info": "Informations du type de badge",
+    "name": "Nom",
+    "icon_key": "Icône",
+    "icon_key_placeholder": "ex. star ou un nom d'icône Material Symbols",
+    "category": "Catégorie",
+    "category_immutable_notice": "La catégorie ne peut pas être modifiée après la création du type de badge.",
+    "levels": "Niveaux",
+    "add_level": "Ajouter un niveau",
+    "remove_level": "Supprimer le niveau",
+    "level_number": "Niveau",
+    "level_name": "Nom du niveau",
+    "level_icon_key": "Icône du niveau",
+    "level_threshold": "Seuil",
+    "levels_required_for_automatic": "Au moins un niveau est requis pour un type de badge automatique.",
+    "no_badge_types": "Aucun type de badge n'a encore été créé."
   }
 }

@@ -1391,6 +1391,19 @@
     "delete_modal": {
       "header": "Delete Badge Type",
       "desc": "This badge type will stop being granted to new users. Badges already granted to users will remain on their records."
+    },
+    "manual_grant": {
+      "button": "Grant Badge",
+      "title": "Manually Grant Badge",
+      "select_user": "User",
+      "selected_user": "Selected user",
+      "change_user": "Change",
+      "badge_type": "Badge Type",
+      "badge_type_placeholder": "Select a manual badge type",
+      "no_manual_badge_types": "No manual badge types have been created yet.",
+      "note": "Note",
+      "note_placeholder": "Optional reason for this grant",
+      "grant": "Grant"
     }
   }
 }

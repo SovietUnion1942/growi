@@ -23,6 +23,10 @@ const BadgeTypeDeleteModal = dynamic(
     import('./BadgeTypeDeleteModal').then((mod) => mod.BadgeTypeDeleteModal),
   { ssr: false },
 );
+const ManualGrantModal = dynamic(
+  () => import('./ManualGrantModal').then((mod) => mod.ManualGrantModal),
+  { ssr: false },
+);
 
 export const BadgeManagement: FC = () => {
   const { t } = useTranslation('admin');
@@ -46,6 +50,8 @@ export const BadgeManagement: FC = () => {
     IBadgeTypeHasId | undefined
   >(undefined);
   const [isDeleteModalShown, setDeleteModalShown] = useState<boolean>(false);
+  const [isManualGrantModalShown, setManualGrantModalShown] =
+    useState<boolean>(false);
 
   /*
    * Functions
@@ -76,6 +82,14 @@ export const BadgeManagement: FC = () => {
   const hideDeleteModal = useCallback(() => {
     setDeleteTargetBadgeType(undefined);
     setDeleteModalShown(false);
+  }, []);
+
+  const showManualGrantModal = useCallback(() => {
+    setManualGrantModalShown(true);
+  }, []);
+
+  const hideManualGrantModal = useCallback(() => {
+    setManualGrantModalShown(false);
   }, []);
 
   const createBadgeType = useCallback(
@@ -173,13 +187,20 @@ export const BadgeManagement: FC = () => {
         {t('badge_management.badge_management')}
       </h2>
 
-      <div className="mb-3">
+      <div className="mb-3 d-flex gap-2">
         <button
           type="button"
           className="btn btn-outline-secondary"
           onClick={showCreateModal}
         >
           {t('badge_management.create_badge_type')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary"
+          onClick={showManualGrantModal}
+        >
+          {t('badge_management.manual_grant.button')}
         </button>
       </div>
 
@@ -210,6 +231,11 @@ export const BadgeManagement: FC = () => {
         isShow={isDeleteModalShown}
         onHide={hideDeleteModal}
         onDelete={deleteBadgeType}
+      />
+
+      <ManualGrantModal
+        isShow={isManualGrantModalShown}
+        onHide={hideManualGrantModal}
       />
     </div>
   );

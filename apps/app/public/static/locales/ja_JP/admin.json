@@ -1365,5 +1365,10 @@
         "description": "データ初期化を行わずに、MongoDB のページと Vault の git ツリー間のデータ不整合の手動修復を試みます。"
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "バッジ管理",
+    "category_automatic": "自動",
+    "category_manual": "手動"
   }
 }

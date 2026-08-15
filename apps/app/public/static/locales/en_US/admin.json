@@ -1366,5 +1366,10 @@
         "description": "Manually reconcile data inconsistencies between MongoDB pages and Vault git trees without performing a full initialization."
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "Badge Management",
+    "category_automatic": "Automatic",
+    "category_manual": "Manual"
   }
 }

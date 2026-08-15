@@ -38,7 +38,7 @@ vi.mock('next/router', () => ({
 // Component under test (imported AFTER mocks are in place)
 // ---------------------------------------------------------------------------
 
-import { UserPicture } from './UserPicture.js';
+import { UserPicture, type UserPictureBadge } from './UserPicture.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -131,6 +131,90 @@ describe('UserPicture — Task 20.3 (tooltip refactoring, req 7.1, 7.3, 7.4)', (
       expect(
         rootSpan?.querySelector('[data-testid="mock-tooltip"]'),
       ).not.toBeNull();
+    });
+  });
+});
+
+describe('UserPicture — Task 4 (badges prop, req 4.1, 4.2)', () => {
+  describe('Req 4.2 — no visual change when badges is undefined/empty', () => {
+    it('renders no badge elements when badges is not passed', () => {
+      const { container } = render(<UserPicture user={makeUser()} noLink />);
+
+      expect(
+        container.querySelectorAll('[data-testid="user-picture-badge"]'),
+      ).toHaveLength(0);
+    });
+
+    it('renders no badge elements when badges is an empty array', () => {
+      const { container } = render(
+        <UserPicture user={makeUser()} noLink badges={[]} />,
+      );
+
+      expect(
+        container.querySelectorAll('[data-testid="user-picture-badge"]'),
+      ).toHaveLength(0);
+    });
+
+    it('still renders exactly one root child and the avatar image when badges is undefined', () => {
+      const { container } = render(<UserPicture user={makeUser()} noLink />);
+
+      expect(container.children).toHaveLength(1);
+      expect(container.firstElementChild?.tagName).toBe('SPAN');
+      expect(screen.getByRole('img')).not.toBeNull();
+    });
+  });
+
+  describe('Req 4.1 — badge icons rendered when badges has 1+ items', () => {
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Top Contributor', level: 3 },
+      { iconKey: '🏆', name: 'Champion', level: null },
+    ];
+
+    it('renders one badge element per badge entry', () => {
+      const { container } = render(
+        <UserPicture user={makeUser()} noLink badges={badges} />,
+      );
+
+      expect(
+        container.querySelectorAll('[data-testid="user-picture-badge"]'),
+      ).toHaveLength(2);
+    });
+
+    it('exposes an accessible label derived from each badge name', () => {
+      render(<UserPicture user={makeUser()} noLink badges={badges} />);
+
+      expect(screen.getByLabelText('Top Contributor')).not.toBeNull();
+      expect(screen.getByLabelText('Champion')).not.toBeNull();
+    });
+
+    it('renders a Material Symbols span for icon-name badges', () => {
+      const { container } = render(
+        <UserPicture user={makeUser()} noLink badges={badges} />,
+      );
+
+      const materialIcon = container.querySelector(
+        '.material-symbols-outlined',
+      );
+      expect(materialIcon).not.toBeNull();
+      expect(materialIcon?.textContent).toBe('star');
+    });
+
+    it('renders emoji badges as plain text', () => {
+      render(<UserPicture user={makeUser()} noLink badges={badges} />);
+
+      expect(screen.getByLabelText('Champion').textContent).toContain('🏆');
+    });
+
+    it('keeps badges nested inside the root span', () => {
+      const { container } = render(
+        <UserPicture user={makeUser()} noLink badges={badges} />,
+      );
+
+      expect(container.children).toHaveLength(1);
+      const rootSpan = container.firstElementChild;
+      expect(
+        rootSpan?.querySelectorAll('[data-testid="user-picture-badge"]'),
+      ).toHaveLength(2);
     });
   });
 });

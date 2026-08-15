@@ -87,6 +87,21 @@ function makeGrantedBy(): IUserHasId {
 }
 
 /**
+ * Minimal `Crowi` test double for call sites that only exercise the
+ * grant+cache behavior and don't assert on Activity emission (that is
+ * covered separately by the "ACTION_USER_BADGE_GRANT Activity emission"
+ * describe block below, which builds its own crowi double wired to a real
+ * EventEmitter). `crowi` became a required parameter across this whole call
+ * chain at task 5.2 (previously optional with a silent no-op skip of the
+ * Activity/notification step) -- see tasks.md Implementation Notes. Every
+ * call site below that doesn't need to assert on notification behavior
+ * passes this shared double instead of omitting the argument.
+ */
+function makeTestCrowi(): Crowi {
+  return mock<Crowi>({});
+}
+
+/**
  * The real User model, registered once via its production factory (mirrors
  * `user.integ.ts`, whose own `User` binding is likewise untyped `any`: the
  * factory is a plain `.js` module with no exported TS type), so
@@ -214,7 +229,11 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(0);
       const stored = await UserBadge.find({ user: userId });
@@ -231,7 +250,11 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(1);
       expect(granted[0]).toMatchObject({
@@ -250,7 +273,11 @@ describe('BadgeGrantService', () => {
         Array.from({ length: 10 }, () => SupportedAction.ACTION_PAGE_CREATE),
       );
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(3);
       const grantedLevels = granted.map((g) => g.level).sort();
@@ -287,12 +314,18 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
 
-      const firstRun = await evaluateAndGrantForUser(userId);
+      const firstRun = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
       expect(firstRun).toHaveLength(1);
 
       // Second evaluation at the identical cumulative count must not throw
       // and must not create a second UserBadge for (user, badgeType, level).
-      await expect(evaluateAndGrantForUser(userId)).resolves.toEqual([]);
+      await expect(
+        evaluateAndGrantForUser(userId, undefined, makeTestCrowi()),
+      ).resolves.toEqual([]);
 
       const count = await UserBadge.countDocuments({ user: userId });
       expect(count).toBe(1);
@@ -306,7 +339,7 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
-      await evaluateAndGrantForUser(userId); // grants level 1
+      await evaluateAndGrantForUser(userId, undefined, makeTestCrowi()); // grants level 1
 
       // Two more activities push the cumulative count to 5, crossing level 2.
       await seedActivities(userId, [
@@ -314,7 +347,11 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_CREATE,
       ]);
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(1);
       expect(granted[0].level).toBe(2);
@@ -335,7 +372,11 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_COMMENT_CREATE,
       ]);
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(0);
       const count = await UserBadge.countDocuments({ user: userId });
@@ -357,6 +398,7 @@ describe('BadgeGrantService', () => {
       const granted = await evaluateAndGrantForUser(
         userId,
         badgeTypeA._id.toString(),
+        makeTestCrowi(),
       );
 
       expect(granted).toHaveLength(1);
@@ -381,7 +423,11 @@ describe('BadgeGrantService', () => {
       );
       await seedActivities(userId, [SupportedAction.ACTION_PAGE_CREATE]);
 
-      const granted = await evaluateAndGrantForUser(userId);
+      const granted = await evaluateAndGrantForUser(
+        userId,
+        undefined,
+        makeTestCrowi(),
+      );
 
       expect(granted).toHaveLength(0);
     });
@@ -402,7 +448,7 @@ describe('BadgeGrantService', () => {
         levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
       });
 
-      await resweepBadgeType(badgeType._id.toString());
+      await resweepBadgeType(badgeType._id.toString(), makeTestCrowi());
 
       const stored = await UserBadge.findOne({
         user: userId,
@@ -423,9 +469,9 @@ describe('BadgeGrantService', () => {
         levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
       });
 
-      await resweepBadgeType(badgeType._id.toString());
+      await resweepBadgeType(badgeType._id.toString(), makeTestCrowi());
       await expect(
-        resweepBadgeType(badgeType._id.toString()),
+        resweepBadgeType(badgeType._id.toString(), makeTestCrowi()),
       ).resolves.toBeUndefined();
 
       const count = await UserBadge.countDocuments({
@@ -451,7 +497,7 @@ describe('BadgeGrantService', () => {
         levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
       });
 
-      await resweepBadgeType(targetBadgeType._id.toString());
+      await resweepBadgeType(targetBadgeType._id.toString(), makeTestCrowi());
 
       const targetGrant = await UserBadge.findOne({
         user: userId,
@@ -483,7 +529,7 @@ describe('BadgeGrantService', () => {
         levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
       });
 
-      await resweepBadgeType(badgeType._id.toString());
+      await resweepBadgeType(badgeType._id.toString(), makeTestCrowi());
 
       const grantA = await UserBadge.findOne({
         user: userIdA,
@@ -504,7 +550,7 @@ describe('BadgeGrantService', () => {
         levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
       });
 
-      await resweepBadgeType(badgeType._id.toString());
+      await resweepBadgeType(badgeType._id.toString(), makeTestCrowi());
 
       const grant = await UserBadge.findOne({
         user: userId,
@@ -528,6 +574,7 @@ describe('BadgeGrantService', () => {
           note: 'Great community support',
         },
         grantedBy,
+        makeTestCrowi(),
       );
 
       expect(result.user.toString()).toBe(userId);
@@ -553,6 +600,7 @@ describe('BadgeGrantService', () => {
       const result = await grantManualBadge(
         { badgeTypeId: badgeType._id.toString(), userId },
         makeGrantedBy(),
+        makeTestCrowi(),
       );
 
       expect(result.note).toBeNull();
@@ -566,6 +614,7 @@ describe('BadgeGrantService', () => {
         grantManualBadge(
           { badgeTypeId: badgeType._id.toString(), userId },
           makeGrantedBy(),
+          makeTestCrowi(),
         ),
       ).rejects.toThrow(BadgeGrantManualCategoryMismatchError);
 
@@ -580,6 +629,7 @@ describe('BadgeGrantService', () => {
         grantManualBadge(
           { badgeTypeId: new Types.ObjectId().toString(), userId },
           makeGrantedBy(),
+          makeTestCrowi(),
         ),
       ).rejects.toThrow(BadgeTypeNotFoundError);
     });
@@ -596,6 +646,7 @@ describe('BadgeGrantService', () => {
         grantManualBadge(
           { badgeTypeId: badgeType._id.toString(), userId },
           makeGrantedBy(),
+          makeTestCrowi(),
         ),
       ).rejects.toThrow(BadgeTypeNotFoundError);
 
@@ -611,10 +662,12 @@ describe('BadgeGrantService', () => {
       await grantManualBadge(
         { badgeTypeId: badgeType._id.toString(), userId: userIdA },
         makeGrantedBy(),
+        makeTestCrowi(),
       );
       await grantManualBadge(
         { badgeTypeId: badgeType._id.toString(), userId: userIdB },
         makeGrantedBy(),
+        makeTestCrowi(),
       );
 
       const countA = await UserBadge.countDocuments({
@@ -635,12 +688,14 @@ describe('BadgeGrantService', () => {
       await grantManualBadge(
         { badgeTypeId: badgeType._id.toString(), userId },
         makeGrantedBy(),
+        makeTestCrowi(),
       );
 
       await expect(
         grantManualBadge(
           { badgeTypeId: badgeType._id.toString(), userId },
           makeGrantedBy(),
+          makeTestCrowi(),
         ),
       ).rejects.toThrow(BadgeAlreadyGrantedError);
 
@@ -662,7 +717,7 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
 
-      await evaluateAndGrantForUser(userId);
+      await evaluateAndGrantForUser(userId, undefined, makeTestCrowi());
 
       const User = await getUserModel();
       const stored = await User.findById(userId);
@@ -683,13 +738,13 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
-      await evaluateAndGrantForUser(userId); // grants level 1
+      await evaluateAndGrantForUser(userId, undefined, makeTestCrowi()); // grants level 1
 
       await seedActivities(userId, [
         SupportedAction.ACTION_PAGE_CREATE,
         SupportedAction.ACTION_PAGE_CREATE,
       ]);
-      await evaluateAndGrantForUser(userId); // grants level 2
+      await evaluateAndGrantForUser(userId, undefined, makeTestCrowi()); // grants level 2
 
       const User = await getUserModel();
       const stored = await User.findById(userId);
@@ -707,6 +762,7 @@ describe('BadgeGrantService', () => {
       await grantManualBadge(
         { badgeTypeId: badgeType._id.toString(), userId },
         makeGrantedBy(),
+        makeTestCrowi(),
       );
 
       const User = await getUserModel();
@@ -802,7 +858,7 @@ describe('BadgeGrantService', () => {
       expect(emitSpy).toHaveBeenCalled();
     });
 
-    it('does not throw when crowi is omitted, and still updates the cache (req 5.1 out-of-scope-context safety)', async () => {
+    it('does not throw when the crowi double has no real activity/notification wiring, and still updates the cache (req 5.1 out-of-scope-context safety)', async () => {
       const userId = await createUser();
       await createAutomaticBadgeType();
       await seedActivities(userId, [
@@ -811,7 +867,9 @@ describe('BadgeGrantService', () => {
         SupportedAction.ACTION_PAGE_UPDATE,
       ]);
 
-      await expect(evaluateAndGrantForUser(userId)).resolves.toHaveLength(1);
+      await expect(
+        evaluateAndGrantForUser(userId, undefined, makeTestCrowi()),
+      ).resolves.toHaveLength(1);
 
       const User = await getUserModel();
       const stored = await User.findById(userId);

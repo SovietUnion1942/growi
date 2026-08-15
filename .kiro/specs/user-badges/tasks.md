@@ -87,7 +87,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
   - _Boundary: badge-type apiv3 route_
   - _Depends: 2.1, 2.2_
-- [ ] 5.2 (P) ユーザーバッジ API ルート実装
+- [x] 5.2 (P) ユーザーバッジ API ルート実装
   - `GET /user-badges?targetUserId=` をログイン済み一般ユーザーに公開し、`POST /user-badges`(手動付与)は `adminRequired` にする
   - automatic 区分の `badgeTypeId` を指定して `POST` すると 422 になることを確認できる
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.3_

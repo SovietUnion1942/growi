@@ -36,6 +36,7 @@ import {
   evaluateAndGrantForUser,
   getCumulativeEditCount,
   grantManualBadge,
+  resweepBadgeType,
 } from './badge-grant-service';
 import {
   BadgeAlreadyGrantedError,
@@ -383,6 +384,133 @@ describe('BadgeGrantService', () => {
       const granted = await evaluateAndGrantForUser(userId);
 
       expect(granted).toHaveLength(0);
+    });
+  });
+
+  describe('resweepBadgeType', () => {
+    it('retroactively grants a badge to a user whose pre-existing activity already met the threshold before the BadgeType existed (req 2.5)', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      // Simulate edit history that accumulated BEFORE this BadgeType (or the
+      // feature) existed: seeded first, with no evaluateAndGrantForUser call
+      // in between, so nothing has been granted yet.
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+
+      await resweepBadgeType(badgeType._id.toString());
+
+      const stored = await UserBadge.findOne({
+        user: userId,
+        badgeType: badgeType._id,
+        level: 1,
+      });
+      expect(stored).not.toBeNull();
+    });
+
+    it('is idempotent: running resweep twice does not duplicate-grant or throw', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+
+      await resweepBadgeType(badgeType._id.toString());
+      await expect(
+        resweepBadgeType(badgeType._id.toString()),
+      ).resolves.toBeUndefined();
+
+      const count = await UserBadge.countDocuments({
+        user: userId,
+        badgeType: badgeType._id,
+      });
+      expect(count).toBe(1);
+    });
+
+    it('only evaluates the specified BadgeType, leaving other automatic BadgeTypes untouched', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      await seedActivities(userId, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const targetBadgeType = await createAutomaticBadgeType({
+        name: 'Target Editor',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+      const otherBadgeType = await createAutomaticBadgeType({
+        name: 'Other Editor',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+
+      await resweepBadgeType(targetBadgeType._id.toString());
+
+      const targetGrant = await UserBadge.findOne({
+        user: userId,
+        badgeType: targetBadgeType._id,
+      });
+      expect(targetGrant).not.toBeNull();
+
+      const otherGrant = await UserBadge.findOne({
+        user: userId,
+        badgeType: otherBadgeType._id,
+      });
+      expect(otherGrant).toBeNull();
+    });
+
+    it('evaluates every user with CREATE/UPDATE activity, not just one', async () => {
+      const userIdA = new Types.ObjectId().toHexString();
+      const userIdB = new Types.ObjectId().toHexString();
+      await seedActivities(userIdA, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      await seedActivities(userIdB, [
+        SupportedAction.ACTION_PAGE_CREATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+        SupportedAction.ACTION_PAGE_UPDATE,
+      ]);
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+
+      await resweepBadgeType(badgeType._id.toString());
+
+      const grantA = await UserBadge.findOne({
+        user: userIdA,
+        badgeType: badgeType._id,
+      });
+      const grantB = await UserBadge.findOne({
+        user: userIdB,
+        badgeType: badgeType._id,
+      });
+      expect(grantA).not.toBeNull();
+      expect(grantB).not.toBeNull();
+    });
+
+    it('does not grant a user whose activity is below the threshold', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      await seedActivities(userId, [SupportedAction.ACTION_PAGE_CREATE]);
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 3 }],
+      });
+
+      await resweepBadgeType(badgeType._id.toString());
+
+      const grant = await UserBadge.findOne({
+        user: userId,
+        badgeType: badgeType._id,
+      });
+      expect(grant).toBeNull();
     });
   });
 

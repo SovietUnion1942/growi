@@ -141,7 +141,7 @@
   - しきい値を下げる編集を行うと、既存ユーザーに遡及付与が行われることを確認できる
   - _Requirements: 2.5_
   - _Depends: 2.1, 3.5_
-- [ ] 9.3 apiv3 ルーターへのバッジ関連エンドポイント配線
+- [x] 9.3 apiv3 ルーターへのバッジ関連エンドポイント配線
   - `apps/app/src/server/routes/apiv3/index.js` に badge-type/user-badge ルートを登録する
   - `/api/v3/badge-types` 等に実際に HTTP リクエストが到達することを確認できる
   - _Requirements: 1.1, 3.1_

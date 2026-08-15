@@ -191,7 +191,7 @@
   - `apps/app/src/server/models/user/conts.ts` の `USER_FIELDS_EXCEPT_CONFIDENTIAL`(Mongoose `populate({select})` 用ホワイトリスト)に `badgeSummaryCached` を追加する
   - このホワイトリストは `page.populateDataToShowRevision`(12.2 が使う `page.creator`)と `Page.findRecentUpdatedPages` の `populateDataToList`(12.3 が使う `page.lastUpdateUser`)の両方から共有されているため、1箇所の修正で両方のサイトの前提条件を満たすことを確認できる
   - _Requirements: 4.1_
-- [ ] 12.2 `UserInfo.tsx`(プロフィールヘッダー)へのバッジ表示配線
+- [x] 12.2 `UserInfo.tsx`(プロフィールヘッダー)へのバッジ表示配線
   - `author.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
   - バッジを保有するユーザーのプロフィールページで、ユーザー名の隣にバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_

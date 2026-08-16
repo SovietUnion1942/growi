@@ -27,6 +27,8 @@ import { mock } from 'vitest-mock-extended';
 import { SupportedAction } from '~/interfaces/activity';
 import type Crowi from '~/server/crowi';
 import type UserEvent from '~/server/events/user';
+import { AttachmentType } from '~/server/interfaces/attachment';
+import { Attachment } from '~/server/models/attachment';
 import { prisma } from '~/utils/prisma';
 
 import type { IBadgeType } from '../../interfaces/badge';
@@ -135,18 +137,35 @@ async function createUser(): Promise<string> {
 }
 
 async function createManualBadgeType(
-  overrides: Partial<Pick<IBadgeType, 'name'>> = {},
+  overrides: Partial<
+    Pick<IBadgeType, 'name' | 'iconType' | 'iconAttachment'>
+  > = {},
 ): Promise<IBadgeType & { _id: Types.ObjectId }> {
   const createdBy = new Types.ObjectId();
   const created = await BadgeType.create({
     name: overrides.name ?? 'Community Helper',
     description: 'Awarded for community support',
     iconKey: 'heart',
+    iconType: overrides.iconType,
+    iconAttachment: overrides.iconAttachment,
     category: 'manual',
     levels: [],
     createdBy,
   });
   return created.toObject();
+}
+
+/** Creates a real `Attachment` document, so `iconUrl` resolution exercises the
+ * actual `Attachment.findById(...).filePathProxied` read path. */
+async function createTestAttachment(): Promise<Types.ObjectId> {
+  const attachment = await Attachment.create({
+    fileName: `badge-icon-${new Types.ObjectId().toString()}.png`,
+    fileFormat: 'image/png',
+    fileSize: 100,
+    originalName: 'icon.png',
+    attachmentType: AttachmentType.BADGE_ICON,
+  });
+  return attachment._id;
 }
 
 async function createAutomaticBadgeType(
@@ -181,6 +200,7 @@ describe('BadgeGrantService', () => {
   afterEach(async () => {
     await UserBadge.deleteMany({});
     await BadgeType.deleteMany({});
+    await Attachment.deleteMany({ attachmentType: AttachmentType.BADGE_ICON });
     await prisma.activities.deleteMany({ where: { ip: TEST_IP } });
     const User = await getUserModel();
     await User.deleteMany({ username: /^badge-test-user-/ });
@@ -791,7 +811,9 @@ describe('BadgeGrantService', () => {
       expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
         badgeType: badgeType._id,
         name: 'Bronze',
+        iconType: 'materialSymbol',
         iconKey: 'edit',
+        iconUrl: null,
         level: 1,
       });
     });
@@ -837,8 +859,61 @@ describe('BadgeGrantService', () => {
       expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
         badgeType: badgeType._id,
         name: badgeType.name,
+        iconType: 'materialSymbol',
         iconKey: badgeType.iconKey,
+        iconUrl: null,
         level: null,
+      });
+    });
+
+    it('caches the resolved Attachment.filePathProxied as iconUrl for a manual badge with an image icon (req 6.5)', async () => {
+      const userId = await createUser();
+      const attachmentId = await createTestAttachment();
+      const badgeType = await createManualBadgeType({
+        iconType: 'image',
+        iconAttachment: attachmentId,
+      });
+      const attachment = await Attachment.findById(attachmentId);
+
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached).toHaveLength(1);
+      expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
+        badgeType: badgeType._id,
+        name: badgeType.name,
+        iconType: 'image',
+        iconKey: '',
+        iconUrl: attachment?.filePathProxied,
+        level: null,
+      });
+      expect(stored?.badgeSummaryCached?.[0].iconUrl).toBe(
+        `/attachment/${attachmentId.toString()}`,
+      );
+    });
+
+    it('does not carry over a stale iconUrl once a badge series drops back to a non-image icon type BadgeType (regression guard for the image-icon branch)', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType({
+        iconType: 'materialSymbol',
+      });
+
+      await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+
+      const User = await getUserModel();
+      const stored = await User.findById(userId);
+      expect(stored?.badgeSummaryCached?.[0]).toMatchObject({
+        iconType: 'materialSymbol',
+        iconUrl: null,
       });
     });
   });

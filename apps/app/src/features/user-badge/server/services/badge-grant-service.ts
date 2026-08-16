@@ -3,6 +3,7 @@ import mongoose, { type Types } from 'mongoose';
 
 import { SupportedAction, SupportedTargetModel } from '~/interfaces/activity';
 import type Crowi from '~/server/crowi';
+import { Attachment } from '~/server/models/attachment';
 import { preNotifyService } from '~/server/service/pre-notify';
 import loggerFactory from '~/utils/logger';
 import { prisma } from '~/utils/prisma';
@@ -103,6 +104,19 @@ function isDuplicateKeyError(err: unknown): boolean {
  * an automatic grant, from that specific level's own `IBadgeLevel` fields
  * (each level carries its own name/icon, not the series-level ones); for a
  * manual grant, from the `BadgeType`'s own top-level fields.
+ *
+ * `iconType`/`iconUrl` are resolved per-entry from the owning `BadgeType`
+ * itself (task 13.1/13.4 -- per-level image icons are out of scope, only
+ * `category: 'manual'` BadgeTypes may have `iconType: 'image'`, enforced by
+ * `badge-type-model.ts`'s pre-validate hook). When `iconType === 'image'`,
+ * `iconAttachment` is resolved to its `Attachment` document and `filePathProxied`
+ * (a Mongoose virtual, not a stored field) is cached as `iconUrl` at grant time --
+ * same non-normalization tradeoff already accepted for `iconKey`, and the same
+ * `Attachment.findById(...).filePathProxied` pattern `User.generateImageUrlCached`
+ * already uses for `imageUrlCached` (`apps/app/src/server/models/user/index.js`).
+ * `badgeType.iconType` is optional/legacy-defaultable (task 13.1's remediation),
+ * so an absent value is treated as `'materialSymbol'`, matching the schema's own
+ * `default: 'materialSymbol'`.
  */
 async function updateBadgeSummaryCached(userId: string): Promise<void> {
   const User = mongoose.model<IUserHasId>('User');
@@ -138,6 +152,37 @@ async function updateBadgeSummaryCached(userId: string): Promise<void> {
     }
   }
 
+  // Resolve each involved BadgeType's `iconAttachment` -> `Attachment.filePathProxied`
+  // up front, once per BadgeType (not per summary entry), for every BadgeType with
+  // `iconType === 'image'`.
+  const imageBadgeTypes = badgeTypes.filter(
+    (badgeType) => badgeType.iconType === 'image',
+  );
+  const iconUrlByBadgeTypeId = new Map<string, string | null>();
+  if (imageBadgeTypes.length > 0) {
+    const attachmentIds = imageBadgeTypes
+      .map((badgeType) => badgeType.iconAttachment)
+      .filter((id): id is Types.ObjectId => id != null);
+    const attachments = await Attachment.find({
+      _id: { $in: attachmentIds },
+    });
+    const filePathProxiedByAttachmentId = new Map(
+      attachments.map((attachment) => [
+        attachment._id.toString(),
+        attachment.filePathProxied,
+      ]),
+    );
+    for (const badgeType of imageBadgeTypes) {
+      const attachmentId = badgeType.iconAttachment?.toString();
+      iconUrlByBadgeTypeId.set(
+        badgeType._id.toString(),
+        attachmentId != null
+          ? (filePathProxiedByAttachmentId.get(attachmentId) ?? null)
+          : null,
+      );
+    }
+  }
+
   const summary: IUserBadgeSummaryEntry[] = [];
   for (const userBadge of highestByBadgeType.values()) {
     const badgeType = badgeTypeById.get(userBadge.badgeType.toString());
@@ -147,10 +192,18 @@ async function updateBadgeSummaryCached(userId: string): Promise<void> {
       continue;
     }
 
+    const iconType = badgeType.iconType ?? 'materialSymbol';
+    const isImageIcon = iconType === 'image';
+    const iconUrl = isImageIcon
+      ? (iconUrlByBadgeTypeId.get(badgeType._id.toString()) ?? null)
+      : null;
+
     if (userBadge.level == null) {
       summary.push({
         badgeType: userBadge.badgeType,
-        iconKey: badgeType.iconKey,
+        iconType,
+        iconKey: isImageIcon ? '' : badgeType.iconKey,
+        iconUrl,
         name: badgeType.name,
         level: null,
       });
@@ -162,7 +215,9 @@ async function updateBadgeSummaryCached(userId: string): Promise<void> {
     );
     summary.push({
       badgeType: userBadge.badgeType,
-      iconKey: levelDef?.iconKey ?? badgeType.iconKey,
+      iconType,
+      iconKey: isImageIcon ? '' : (levelDef?.iconKey ?? badgeType.iconKey),
+      iconUrl,
       name: levelDef?.name ?? badgeType.name,
       level: userBadge.level,
     });

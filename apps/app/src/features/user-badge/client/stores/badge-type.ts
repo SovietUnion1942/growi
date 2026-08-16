@@ -9,11 +9,19 @@ import type { IBadgeType } from '../../interfaces/badge';
  * `IBadgeType` as returned to the client, i.e. with Mongo `_id`/refs
  * serialized to their JSON (string) form rather than the server-side
  * `Types.ObjectId` used by `IBadgeTypeHasId` in
- * `server/services/badge-type-service.ts`.
+ * `server/services/badge-type-service.ts`. `iconAttachment` is likewise
+ * serialized to a plain string id (not a `Types.ObjectId`), which
+ * `BadgeTypeTable`/`BadgeShelf` use directly to build an `/attachment/:id`
+ * image URL (task 13.7, requirement 6.5) -- the same URL shape
+ * `Attachment.filePathProxied` produces server-side
+ * (`apps/app/src/server/models/attachment.ts`), reconstructed client-side
+ * rather than fetched, since the id alone is enough to derive it.
  */
-export interface IBadgeTypeHasId extends Omit<IBadgeType, 'createdBy'> {
+export interface IBadgeTypeHasId
+  extends Omit<IBadgeType, 'createdBy' | 'iconAttachment'> {
   _id: string;
   createdBy: string;
+  iconAttachment?: string | null;
 }
 
 type BadgeTypeListResult = {

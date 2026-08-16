@@ -32,6 +32,20 @@ const badgeTypeB: IBadgeTypeHasId = {
   createdBy: 'user-1',
 };
 
+const badgeTypeImage: IBadgeTypeHasId = {
+  _id: 'badge-type-3',
+  name: 'Mentor',
+  description: 'Mentored a newcomer',
+  iconType: 'image',
+  iconKey: '',
+  iconAttachment: 'attachment-1',
+  category: 'manual',
+  levels: [],
+  isDeleted: false,
+  deletedAt: null,
+  createdBy: 'user-1',
+};
+
 describe('BadgeTypeTable', () => {
   it('renders a row per badge type with its name, description, and category', () => {
     render(
@@ -48,6 +62,25 @@ describe('BadgeTypeTable', () => {
     expect(
       screen.getByText('badge_management.category_manual'),
     ).toBeInTheDocument();
+  });
+
+  it('renders the raw iconKey as text for materialSymbol/emoji badge types', () => {
+    render(
+      <BadgeTypeTable badgeTypes={[badgeTypeA, badgeTypeB]} headerLabel="x" />,
+    );
+
+    expect(screen.getByText('edit')).toBeInTheDocument();
+    expect(screen.getByText('rate_review')).toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('renders an <img> thumbnail for an image-type badge type, instead of raw iconKey text', () => {
+    render(<BadgeTypeTable badgeTypes={[badgeTypeImage]} headerLabel="x" />);
+
+    const row = screen.getByText('Mentor').closest('tr');
+    if (row == null) throw new Error('row not found');
+    const img = within(row).getByRole('presentation');
+    expect(img).toHaveAttribute('src', '/attachment/attachment-1');
   });
 
   it('shows the empty-state message when there are no badge types', () => {

@@ -57,7 +57,23 @@ export const BadgeTypeTable: FC<Props> = ({
             <tr key={badgeType._id}>
               <td>{badgeType.name}</td>
               <td>{badgeType.description}</td>
-              <td>{badgeType.iconKey}</td>
+              <td>
+                {badgeType.iconType === 'image' ? (
+                  // biome-ignore lint/performance/noImgElement: plain admin table thumbnail, not a Next.js page image.
+                  <img
+                    src={
+                      badgeType.iconAttachment != null
+                        ? `/attachment/${badgeType.iconAttachment}`
+                        : undefined
+                    }
+                    alt=""
+                    width={24}
+                    height={24}
+                  />
+                ) : (
+                  badgeType.iconKey
+                )}
+              </td>
               <td>{t(`badge_management.category_${badgeType.category}`)}</td>
               <td>{badgeType.levels.length}</td>
               <td>

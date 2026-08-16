@@ -311,7 +311,7 @@
   - `useCurrentUser()` で取得する自分自身のユーザー情報の `badgeSummaryCached` を配線する。`CommentEditor`/`CommentEditorPre` の両方に適用する
   - コメント入力中に自分のバッジがアバター横に表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 15.5 `SeenUserInfo.tsx`(閲覧済みユーザー一覧)への配線
+- [x] 15.5 `SeenUserInfo.tsx`(閲覧済みユーザー一覧)への配線
   - `Common/UserPictureList.jsx`(複数ユーザーをループ描画する共有コンポーネント)がバッジも受け取れるよう拡張し、`SeenUserInfo.tsx` から渡す `seenUsers` それぞれの `badgeSummaryCached` を配線する
   - `UserPictureList.jsx` の他の呼び出し元(バッジを渡さない場合)の見た目が変化しないことを確認できる(既存呼び出し元は後方互換)
   - ページの閲覧済みユーザー一覧で、バッジを保有するユーザーにバッジアイコンが表示されることを確認できる

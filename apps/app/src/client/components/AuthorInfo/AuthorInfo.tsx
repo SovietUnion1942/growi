@@ -1,4 +1,4 @@
-import React, { type JSX } from 'react';
+import React, { type JSX, useMemo } from 'react';
 import Link from 'next/link';
 import type { IUserHasId } from '@growi/core';
 import { type IUser, isPopulated, type Ref } from '@growi/core';
@@ -6,6 +6,11 @@ import { pagePathUtils } from '@growi/core/dist/utils';
 import { UserPicture } from '@growi/ui/dist/components';
 import { format } from 'date-fns/format';
 import { useTranslation } from 'next-i18next';
+
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 
 import styles from './AuthorInfo.module.scss';
 
@@ -50,20 +55,43 @@ export const AuthorInfo = (props: AuthorInfoProps): JSX.Element => {
       : t('author_info.last_revision_posted_at');
   const userLabel = user != null ? <UserLabel user={user} /> : <i>Unknown</i>;
 
+  // `user` (`creator`/`lastUpdateUser`) is typed as `Ref<IUser>` and may be
+  // an unpopulated ObjectId/string; narrow with `isPopulated` before reading
+  // `badgeSummaryCached`, mirroring `RecentChangesSubstance.tsx` (task 12.3).
+  // `badgeType` is normalized to `string` to match `UserPictureBadgeSource`
+  // (see the same normalization in `UserInfo.tsx`, task 12.2).
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    if (user == null || !isPopulated(user)) {
+      return undefined;
+    }
+    return user.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [user]);
+
+  const badges = useUserPictureBadges(badgeSummary);
+
   if (locate === 'footer') {
     try {
       return (
         <p>
           {infoLabelForFooter} {format(new Date(date), formatType)} by{' '}
-          <UserPicture user={user} size="sm" /> {userLabel}
+          <UserPicture user={user} size="sm" badges={badges} /> {userLabel}
         </p>
       );
     } catch (err) {
       if (err instanceof RangeError) {
         return (
           <p>
-            {nullinfoLabelForFooter} <UserPicture user={user} size="sm" />{' '}
-            {userLabel}
+            {nullinfoLabelForFooter}{' '}
+            <UserPicture user={user} size="sm" badges={badges} /> {userLabel}
           </p>
         );
       }
@@ -84,7 +112,7 @@ export const AuthorInfo = (props: AuthorInfoProps): JSX.Element => {
       className={`grw-author-info ${styles['grw-author-info']} d-flex align-items-center mb-2`}
     >
       <div className="me-2 d-none d-lg-block">
-        <UserPicture user={user} size="sm" />
+        <UserPicture user={user} size="sm" badges={badges} />
       </div>
       <div>
         <div className="text-secondary mb-1">

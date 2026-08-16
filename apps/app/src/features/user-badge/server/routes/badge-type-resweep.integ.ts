@@ -180,6 +180,10 @@ function buildApp() {
 
   const crowi: BadgeTypeRouteCrowi = {
     events: { activity: { emit: vi.fn() } },
+    // Unused by this suite: every request here is JSON, so multer's
+    // uploads.single('file') (task 13.3) never touches the filesystem —
+    // only present to satisfy BadgeTypeRouteCrowi's type.
+    tmpDir: '/tmp/',
   };
   const router = setup(crowi);
   app.use('/_api/v3/badge-types', router);

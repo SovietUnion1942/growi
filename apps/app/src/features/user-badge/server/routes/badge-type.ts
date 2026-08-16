@@ -3,6 +3,7 @@ import { ErrorV3 } from '@growi/core/dist/models';
 import type { Request } from 'express';
 import { Router } from 'express';
 import { body, param } from 'express-validator';
+import multer from 'multer';
 
 import { SupportedAction } from '~/interfaces/activity';
 import type Crowi from '~/server/crowi';
@@ -11,6 +12,7 @@ import adminRequiredFactory from '~/server/middlewares/admin-required';
 import { apiV3FormValidator } from '~/server/middlewares/apiv3-form-validator';
 import loginRequiredFactory from '~/server/middlewares/login-required';
 import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-response';
+import { validateImageContentType } from '~/server/routes/attachment/image-content-type-validator';
 import loggerFactory from '~/utils/logger';
 
 import {
@@ -45,10 +47,50 @@ export interface BadgeTypeRouteCrowi {
       emit: (event: 'update', id: unknown, parameters: unknown) => void;
     };
   };
+  /**
+   * Base temp-file directory, mirroring the shared multer wiring already
+   * used across apiv3 routes (e.g. `customize-setting.js`'s
+   * `/upload-brand-logo`: `multer({ dest: `${crowi.tmpDir}uploads` })`).
+   * This route builds its own `multer` instance from it rather than reusing
+   * a central singleton, since `crowi.tmpDir` is the only piece those routes
+   * actually share (there is no shared `uploads` middleware export).
+   */
+  tmpDir: string;
 }
 
 interface AuthorizedRequest extends Request {
   user?: IUserHasId;
+}
+
+/**
+ * Rejects a request carrying a disallowed image MIME type (requirement
+ * 6.3), before any BadgeTypeService call. Reuses the same
+ * `validateImageContentType` helper as the profile-picture upload route
+ * (`attachments.uploadProfileImage`) rather than reimplementing MIME
+ * checking. A request with no file at all (JSON-only create/update) passes
+ * through untouched — the image upload is optional.
+ */
+function validateUploadedImageOrRespond(
+  req: AuthorizedRequest,
+  res: ApiV3Response,
+): boolean {
+  if (req.file == null) {
+    return true;
+  }
+
+  const { isValid, error } = validateImageContentType(req.file.mimetype);
+  if (!isValid) {
+    res.apiv3Err(
+      new ErrorV3(
+        error ?? 'Invalid file type.',
+        'badge-type-invalid-image-type',
+      ),
+      400,
+    );
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -78,6 +120,17 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
   const addActivity = generateAddActivityMiddleware();
 
   const activityEvent = crowi.events.activity;
+
+  /**
+   * Same multer config shape as `upload-brand-logo`
+   * (`apps/app/src/server/routes/apiv3/customize-setting.js`): a disk-backed
+   * temp store under `crowi.tmpDir`, expecting a single `file` field. Placed
+   * AFTER `adminRequired` in both routes below (not before, unlike
+   * `upload-brand-logo`, which needs the body parsed early for its
+   * access-token check) — a non-admin caller is rejected before any
+   * multipart body is parsed or written to disk.
+   */
+  const uploads = multer({ dest: `${crowi.tmpDir}uploads` });
 
   const levelValidator = (field: string) => [
     body(`${field}.*.level`, 'level is required and must be an integer')
@@ -195,12 +248,21 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
     '/',
     loginRequiredStrictly,
     adminRequired,
+    // multer parses the optional multipart image upload (requirement 6.2)
+    // and populates req.body from the form's other fields; placed before
+    // addActivity/validators so both see a normalized req.body regardless of
+    // whether the request was JSON or multipart/form-data.
+    uploads.single('file'),
     // addActivity before the validators: validation failures are audited as
     // ACTION_UNSETTLED (see apps/app/.claude/rules/activity-recording.md).
     addActivity,
     validator.create,
     apiV3FormValidator,
     async (req: AuthorizedRequest, res: ApiV3Response) => {
+      if (!validateUploadedImageOrRespond(req, res)) {
+        return;
+      }
+
       const {
         name,
         description,
@@ -211,7 +273,14 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
 
       try {
         const badgeType = await createBadgeType(
-          { name, description, iconKey, category, levels },
+          {
+            name,
+            description,
+            iconKey,
+            category,
+            levels,
+            ...(req.file != null && { iconImageFile: req.file }),
+          },
           req.user as IUserHasId,
           crowi as unknown as Crowi,
         );
@@ -240,12 +309,19 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
     '/:id',
     loginRequiredStrictly,
     adminRequired,
+    // multer parses the optional multipart image upload (requirement 6.2),
+    // same placement rationale as POST / above.
+    uploads.single('file'),
     // addActivity before the validators: validation failures are audited as
     // ACTION_UNSETTLED (see apps/app/.claude/rules/activity-recording.md).
     addActivity,
     validator.update,
     apiV3FormValidator,
     async (req: AuthorizedRequest, res: ApiV3Response) => {
+      if (!validateUploadedImageOrRespond(req, res)) {
+        return;
+      }
+
       const { id } = req.params as { id: string };
       const { name, description, iconKey, levels } =
         req.body as UpdateBadgeTypeInput;
@@ -255,14 +331,22 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
         ...(description !== undefined && { description }),
         ...(iconKey !== undefined && { iconKey }),
         ...(levels !== undefined && { levels }),
+        ...(req.file != null && { iconImageFile: req.file }),
       };
 
       try {
-        const badgeType = await updateBadgeType(
-          id,
-          input,
-          crowi as unknown as Crowi,
-        );
+        // uploadedBy (req.user) is only passed when an image file is being
+        // replaced (requirement 6.4) — updateBadgeType requires it in that
+        // case, and every other call site omits it (see badge-type-service.ts).
+        const badgeType =
+          req.file != null
+            ? await updateBadgeType(
+                id,
+                input,
+                crowi as unknown as Crowi,
+                req.user as IUserHasId,
+              )
+            : await updateBadgeType(id, input, crowi as unknown as Crowi);
 
         const parameters = {
           action: SupportedAction.ACTION_ADMIN_BADGE_TYPE_UPDATE,

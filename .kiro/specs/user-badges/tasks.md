@@ -228,7 +228,7 @@
   - _Boundary: BadgeTypeService_
   - _Depends: 13.1_
 
-- [ ] 13.3 badge-type apiv3 route への画像アップロードエンドポイント追加
+- [x] 13.3 badge-type apiv3 route への画像アップロードエンドポイント追加
   - バッジ種類の作成・編集リクエストで画像ファイル(multipart/form-data)を受け取れるようにする(`apiv3/customize-setting.js` の `upload-brand-logo` ルートと同様の multer 設定を再利用する)
   - 許可されていない MIME 種別のファイルをアップロードすると拒否されることを確認できる(既存の `validateImageContentType` を使用)
   - 管理者以外がこのエンドポイントを呼ぶと拒否されることを確認できる

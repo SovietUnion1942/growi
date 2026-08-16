@@ -192,7 +192,13 @@ describe('HTTP reachability at the exact index.js mount paths (task 9.3)', () =>
       withApiV3Helpers(app);
       app.use(
         '/badge-types',
-        setupBadgeType({ events: { activity: { emit: vi.fn() } } }),
+        setupBadgeType({
+          events: { activity: { emit: vi.fn() } },
+          // Unused by this suite: every request here is JSON, so multer's
+          // uploads.single('file') (task 13.3) never touches the
+          // filesystem — only present to satisfy BadgeTypeRouteCrowi's type.
+          tmpDir: '/tmp/',
+        }),
       );
       return app;
     }

@@ -14,6 +14,9 @@
  * mapping.
  */
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { NextFunction, Request, Response } from 'express';
 import express from 'express';
 import request from 'supertest';
@@ -118,6 +121,11 @@ const createBadgeTypeMock = vi.mocked(createBadgeType);
 const updateBadgeTypeMock = vi.mocked(updateBadgeType);
 const deleteBadgeTypeMock = vi.mocked(deleteBadgeType);
 
+// Real multer, same as the actual route (task 13.3): needs a genuine,
+// already-existing destination directory (multer does not create it).
+const tmpDir = `${fs.mkdtempSync(path.join(os.tmpdir(), 'badge-type-route-'))}${path.sep}`;
+fs.mkdirSync(`${tmpDir}uploads`, { recursive: true });
+
 function withApiV3Helpers(app: express.Express) {
   app.use((_req, res, next) => {
     (res as unknown as ApiV3Response).apiv3 = (body: unknown, status = 200) =>
@@ -141,6 +149,7 @@ function buildApp() {
   const activityEmit = vi.fn();
   const crowi: BadgeTypeRouteCrowi = {
     events: { activity: { emit: activityEmit } },
+    tmpDir,
   };
   const router = setup(crowi);
   app.use('/_api/v3/badge-types', router);
@@ -349,6 +358,76 @@ describe('/badge-types route', () => {
 
       expect(res.status).toBe(500);
     });
+
+    // Task 13.3 (requirement 6.2): accept an optional multipart image
+    // upload, reusing the `upload-brand-logo` multer pattern.
+    describe('multipart image upload (task 13.3, requirement 6.2/6.3)', () => {
+      it('accepts a valid image file and forwards it to the service as iconImageFile', async () => {
+        createBadgeTypeMock.mockResolvedValueOnce(automaticBadgeType as never);
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .post('/_api/v3/badge-types')
+          .field('name', validBody.name)
+          .field('description', validBody.description)
+          .field('iconKey', validBody.iconKey)
+          .field('category', 'manual')
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(201);
+        expect(createBadgeTypeMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: validBody.name,
+            description: validBody.description,
+            iconKey: validBody.iconKey,
+            category: 'manual',
+            iconImageFile: expect.objectContaining({
+              mimetype: 'image/png',
+              originalname: 'icon.png',
+            }),
+          }),
+          adminUser,
+          expect.anything(),
+        );
+      });
+
+      it('rejects a disallowed MIME type before calling the service (requirement 6.3)', async () => {
+        const { app } = buildApp();
+        const res = await request(app)
+          .post('/_api/v3/badge-types')
+          .field('name', validBody.name)
+          .field('description', validBody.description)
+          .field('iconKey', validBody.iconKey)
+          .field('category', 'manual')
+          .attach('file', Buffer.from('not an image'), {
+            filename: 'notes.txt',
+            contentType: 'text/plain',
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.errors).toBeDefined();
+        expect(createBadgeTypeMock).not.toHaveBeenCalled();
+      });
+
+      it('returns 403 (not a redirect) when a non-admin attempts an image upload (requirement 1.6)', async () => {
+        currentUser = nonAdminUser;
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .post('/_api/v3/badge-types')
+          .field('name', validBody.name)
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(403);
+        expect(createBadgeTypeMock).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('PUT /:id', () => {
@@ -436,6 +515,69 @@ describe('/badge-types route', () => {
         .send({ levels: [] });
 
       expect(res.status).toBe(400);
+    });
+
+    // Task 13.3 (requirement 6.2/6.4): accept an optional multipart image
+    // upload on update too, reusing the same multer pattern as POST /.
+    describe('multipart image upload (task 13.3, requirement 6.2/6.3)', () => {
+      it('accepts a valid image file, forwards it as iconImageFile, and passes the caller as uploadedBy', async () => {
+        const updated = { ...automaticBadgeType, name: 'Editor Pro' };
+        updateBadgeTypeMock.mockResolvedValueOnce(updated as never);
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .put('/_api/v3/badge-types/bt-1')
+          .field('name', 'Editor Pro')
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(200);
+        expect(updateBadgeTypeMock).toHaveBeenCalledWith(
+          'bt-1',
+          expect.objectContaining({
+            name: 'Editor Pro',
+            iconImageFile: expect.objectContaining({
+              mimetype: 'image/png',
+              originalname: 'icon.png',
+            }),
+          }),
+          expect.anything(),
+          adminUser,
+        );
+      });
+
+      it('rejects a disallowed MIME type before calling the service (requirement 6.3)', async () => {
+        const { app } = buildApp();
+        const res = await request(app)
+          .put('/_api/v3/badge-types/bt-1')
+          .field('name', 'Editor Pro')
+          .attach('file', Buffer.from('not an image'), {
+            filename: 'notes.txt',
+            contentType: 'text/plain',
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.errors).toBeDefined();
+        expect(updateBadgeTypeMock).not.toHaveBeenCalled();
+      });
+
+      it('returns 403 (not a redirect) when a non-admin attempts an image upload (requirement 1.6)', async () => {
+        currentUser = nonAdminUser;
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .put('/_api/v3/badge-types/bt-1')
+          .field('name', 'Editor Pro')
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(403);
+        expect(updateBadgeTypeMock).not.toHaveBeenCalled();
+      });
     });
   });
 

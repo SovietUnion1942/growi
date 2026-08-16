@@ -23,6 +23,10 @@ import { TabContent, TabPane } from 'reactstrap';
 import { uploadAttachments } from '~/client/services/upload-attachments';
 import { apiv3Get } from '~/client/util/apiv3-client';
 import { toastError } from '~/client/util/toastr';
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import { useCurrentUser } from '~/states/global';
 import { useCurrentPagePath } from '~/states/page';
 import {
@@ -88,6 +92,24 @@ export const CommentEditor = (props: CommentEditorProps): JSX.Element => {
   } = props;
 
   const currentUser = useCurrentUser();
+  // `useCurrentUser()` returns `IUserHasId | undefined` (the logged-in
+  // viewer's own, already-populated user object) -- unlike every other
+  // `UserPicture` call site wired in this task group (`lastUpdateUser`,
+  // `creator`, `author`, all typed `Ref<IUser>`), no `isPopulated()` guard
+  // is needed here.
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    return currentUser?.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [currentUser]);
+  const badges = useUserPictureBadges(badgeSummary);
   const currentPagePath = useCurrentPagePath();
   const { update: updateComment, post: postComment } =
     useSWRxPageComment(pageId);
@@ -317,7 +339,7 @@ export const CommentEditor = (props: CommentEditorProps): JSX.Element => {
       <div className="px-4 pt-3 pb-1">
         <div className="d-flex justify-content-between align-items-center mb-2">
           <div className="d-flex">
-            <UserPicture user={currentUser} noLink noTooltip />
+            <UserPicture user={currentUser} noLink noTooltip badges={badges} />
             <p className="ms-2 mb-0">{t('page_comment.add_a_comment')}</p>
           </div>
           <SwitchingButtonGroup
@@ -387,6 +409,22 @@ export const CommentEditorPre = (props: CommentEditorProps): JSX.Element => {
   const { onCommented, onCanceled, ...rest } = props;
 
   const currentUser = useCurrentUser();
+  // See the matching comment in `CommentEditor` above: `useCurrentUser()` is
+  // already a populated `IUserHasId`, so no `isPopulated()` narrowing is
+  // needed here either.
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    return currentUser?.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [currentUser]);
+  const badges = useUserPictureBadges(badgeSummary);
   const setResolvedTheme = useSetResolvedTheme();
   const { resolvedTheme } = useNextThemes();
   useEffect(() => {
@@ -413,6 +451,7 @@ export const CommentEditorPre = (props: CommentEditorProps): JSX.Element => {
                 noLink
                 noTooltip
                 className="me-3"
+                badges={badges}
               />
               <span className="material-symbols-outlined me-1 fs-5">
                 add_comment
@@ -423,7 +462,7 @@ export const CommentEditorPre = (props: CommentEditorProps): JSX.Element => {
         </NotAvailableForGuest>
       </CommentEditorLayout>
     );
-  }, [currentUser, t]);
+  }, [currentUser, badges, t]);
 
   return isReadyToUse ? (
     <CommentEditor

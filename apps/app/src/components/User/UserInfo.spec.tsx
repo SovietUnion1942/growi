@@ -26,7 +26,10 @@ vi.mock('~/features/user-badge/client/stores/badge-type-catalog', () => ({
     useSWRxBadgeTypeCatalog(...args),
 }));
 
-import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+import {
+  makeBadgeSummaryFixture,
+  makeImageBadgeSummaryFixture,
+} from '~/features/user-badge/test-utils/badge-summary-fixture';
 
 import { UserInfo } from './UserInfo';
 
@@ -59,5 +62,18 @@ describe('UserInfo', () => {
     render(<UserInfo author={baseAuthor} />);
 
     expect(screen.queryByTestId('user-picture-badge')).not.toBeInTheDocument();
+  });
+
+  it('renders an <img> icon (task 13.8, requirement 6.5) when author has an image-icon badge in badgeSummaryCached', () => {
+    const author = {
+      ...baseAuthor,
+      badgeSummaryCached: makeImageBadgeSummaryFixture(),
+    } as unknown as IUserHasId;
+
+    render(<UserInfo author={author} />);
+
+    const badge = screen.getByTestId('user-picture-badge');
+    const img = badge.querySelector('img');
+    expect(img).toHaveAttribute('src', '/attachment/badge-icon-attachment-1');
   });
 });

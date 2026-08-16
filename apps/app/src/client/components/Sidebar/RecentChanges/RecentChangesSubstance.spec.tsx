@@ -29,7 +29,10 @@ vi.mock('~/components/Common/PagePathHierarchicalLink', () => ({
   PagePathHierarchicalLink: () => <span data-testid="mock-page-path" />,
 }));
 
-import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+import {
+  makeBadgeSummaryFixture,
+  makeImageBadgeSummaryFixture,
+} from '~/features/user-badge/test-utils/badge-summary-fixture';
 
 import { PageItem } from './RecentChangesSubstance';
 
@@ -86,5 +89,23 @@ describe('PageItem', () => {
     render(<PageItem page={page} isSmall={false} />);
 
     expect(screen.queryByTestId('user-picture-badge')).not.toBeInTheDocument();
+  });
+
+  it('renders an <img> icon (task 13.8, requirement 6.5) when lastUpdateUser has an image-icon badge', () => {
+    const page = {
+      ...basePage,
+      lastUpdateUser: {
+        _id: 'user1',
+        name: 'Alice',
+        username: 'alice',
+        badgeSummaryCached: makeImageBadgeSummaryFixture(),
+      },
+    } as unknown as IPageHasId;
+
+    render(<PageItem page={page} isSmall={false} />);
+
+    const badge = screen.getByTestId('user-picture-badge');
+    const img = badge.querySelector('img');
+    expect(img).toHaveAttribute('src', '/attachment/badge-icon-attachment-1');
   });
 });

@@ -69,9 +69,11 @@ export const Comment = (props: CommentProps): JSX.Element => {
   // / RecentChangesSubstance.tsx, task 12.2/12.3).
   const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
     return creator?.badgeSummaryCached?.map(
-      ({ badgeType, iconKey, name, level }) => ({
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
         badgeType: String(badgeType),
         iconKey,
+        iconType,
+        iconUrl,
         name,
         level,
       }),

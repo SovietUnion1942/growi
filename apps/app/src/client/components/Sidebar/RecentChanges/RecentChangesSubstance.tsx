@@ -104,9 +104,11 @@ export const PageItem = memo(
         return undefined;
       }
       return lastUpdateUser.badgeSummaryCached?.map(
-        ({ badgeType, iconKey, name, level }) => ({
+        ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
           badgeType: String(badgeType),
           iconKey,
+          iconType,
+          iconUrl,
           name,
           level,
         }),

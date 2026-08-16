@@ -20,7 +20,9 @@ import type { Lang } from './lang.js';
  */
 export type IUserBadgeSummaryEntry = {
   badgeType: Types.ObjectId;
-  iconKey: string;
+  iconType: 'materialSymbol' | 'emoji' | 'image';
+  iconKey: string; // when iconType === 'image', this is unused and left as ''
+  iconUrl: string | null; // resolved from Attachment.filePathProxied when iconType === 'image', otherwise null
   name: string;
   level: number | null;
 };

@@ -35,7 +35,9 @@ export interface IUserBadge {
 
 export interface IUserBadgeSummaryEntry {
   badgeType: Types.ObjectId;
-  iconKey: string;
+  iconType: BadgeIconType;
+  iconKey: string; // when iconType === 'image', this is unused and left as ''
+  iconUrl: string | null; // resolved from Attachment.filePathProxied when iconType === 'image', otherwise null
   name: string;
   level: number | null;
 }

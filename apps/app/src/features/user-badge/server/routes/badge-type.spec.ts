@@ -427,6 +427,38 @@ describe('/badge-types route', () => {
         expect(res.status).toBe(403);
         expect(createBadgeTypeMock).not.toHaveBeenCalled();
       });
+
+      it('accepts an empty iconKey when iconType is "image" (regression: BadgeTypeForm sends iconType + an image file with iconKey left blank, exactly as the admin UI does)', async () => {
+        createBadgeTypeMock.mockResolvedValueOnce(automaticBadgeType as never);
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .post('/_api/v3/badge-types')
+          .field('name', validBody.name)
+          .field('description', validBody.description)
+          .field('iconKey', '')
+          .field('iconType', 'image')
+          .field('category', 'manual')
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(201);
+        expect(createBadgeTypeMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: validBody.name,
+            description: validBody.description,
+            category: 'manual',
+            iconImageFile: expect.objectContaining({
+              mimetype: 'image/png',
+              originalname: 'icon.png',
+            }),
+          }),
+          adminUser,
+          expect.anything(),
+        );
+      });
     });
   });
 
@@ -561,6 +593,35 @@ describe('/badge-types route', () => {
         expect(res.status).toBe(400);
         expect(res.body.errors).toBeDefined();
         expect(updateBadgeTypeMock).not.toHaveBeenCalled();
+      });
+
+      it('accepts an explicitly empty iconKey field alongside an image file (regression: BadgeManagement always appends iconKey to FormData, even when blank for an image-type badge)', async () => {
+        const updated = { ...automaticBadgeType, name: 'Editor Pro' };
+        updateBadgeTypeMock.mockResolvedValueOnce(updated as never);
+
+        const { app } = buildApp();
+        const res = await request(app)
+          .put('/_api/v3/badge-types/bt-1')
+          .field('name', 'Editor Pro')
+          .field('iconKey', '')
+          .attach('file', Buffer.from('fake-png-bytes'), {
+            filename: 'icon.png',
+            contentType: 'image/png',
+          });
+
+        expect(res.status).toBe(200);
+        expect(updateBadgeTypeMock).toHaveBeenCalledWith(
+          'bt-1',
+          expect.objectContaining({
+            name: 'Editor Pro',
+            iconImageFile: expect.objectContaining({
+              mimetype: 'image/png',
+              originalname: 'icon.png',
+            }),
+          }),
+          expect.anything(),
+          adminUser,
+        );
       });
 
       it('returns 403 (not a redirect) when a non-admin attempts an image upload (requirement 1.6)', async () => {

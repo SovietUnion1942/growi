@@ -1,10 +1,16 @@
-import React, { type JSX } from 'react';
+import React, { type JSX, useMemo } from 'react';
 import Link from 'next/link';
 import type { IRevisionHasId } from '@growi/core';
+import { isPopulated } from '@growi/core';
 import { returnPathForURL } from '@growi/core/dist/utils/path-utils';
 import { UserPicture } from '@growi/ui/dist/components';
 import { useTranslation } from 'next-i18next';
 import urljoin from 'url-join';
+
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 
 import UserDate from '../../../components/User/UserDate';
 import { Username } from '../../../components/User/Username';
@@ -32,12 +38,37 @@ export const Revision = (props: RevisionProps): JSX.Element => {
     currentPagePath,
   } = props;
 
+  // `revision.author` is typed as `Ref<IUser>` and may be an unpopulated
+  // ObjectId/string; narrow with `isPopulated` before reading
+  // `badgeSummaryCached`, mirroring `AuthorInfo.tsx` (task 15.2).
+  // `badgeType` is normalized to `string` to match `UserPictureBadgeSource`.
+  // Both `renderSimplifiedNodiff` and `renderFull` share this single
+  // computed value since they read the same `revision.author` source.
+  const { author } = revision;
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    if (author == null || !isPopulated(author)) {
+      return undefined;
+    }
+    return author.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [author]);
+
+  const badges = useUserPictureBadges(badgeSummary);
+
   const renderSimplifiedNodiff = (revision: IRevisionHasId) => {
     const author = revision.author;
 
     const pic =
       typeof author === 'object' ? (
-        <UserPicture user={author} size="sm" />
+        <UserPicture user={author} size="sm" badges={badges} />
       ) : (
         <></>
       );
@@ -67,7 +98,7 @@ export const Revision = (props: RevisionProps): JSX.Element => {
 
     const pic =
       typeof author === 'object' ? (
-        <UserPicture user={author} size="lg" />
+        <UserPicture user={author} size="lg" badges={badges} />
       ) : (
         <></>
       );

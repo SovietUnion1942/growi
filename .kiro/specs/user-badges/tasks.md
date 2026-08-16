@@ -303,7 +303,7 @@
   - `pageData.lastUpdateUser`/`page.lastUpdateUser` の `badgeSummaryCached` を配線する(既存の `RecentChangesSubstance.tsx` の配線パターンと同一)
   - ページ一覧(検索結果・一覧表示)の各行でバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 15.3 `Revision.tsx`(編集履歴の投稿者)への配線
+- [x] 15.3 `Revision.tsx`(編集履歴の投稿者)への配線
   - `revision.author` の `badgeSummaryCached` を配線する。`renderSimplifiedNodiff`/`renderFull` の両方の描画分岐に適用する
   - 編集履歴一覧で各リビジョンの投稿者アバター横にバッジが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_

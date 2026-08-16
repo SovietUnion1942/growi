@@ -220,7 +220,7 @@
   - _Requirements: 6.1, 6.1a_
   - _Depends: 1.2_
 
-- [ ] 13.2 BadgeTypeService への画像アイコン保存・置換ロジック追加
+- [x] 13.2 BadgeTypeService への画像アイコン保存・置換ロジック追加
   - `createBadgeType`/`updateBadgeType` が画像アップロードを受け取った場合、既存の `AttachmentService.createAttachment`(`AttachmentType.BADGE_ICON`)を呼び出して保存する
   - 既に画像アイコンを持つバッジ種類を再アップロードで更新する場合、そのバッジ種類自身が直前に保持していた `iconAttachment` の `Attachment` のみを削除する(`attachmentType` だけでの絞り込み削除は行わない — ブランドロゴの「サイト全体で1枚」パターンをそのまま流用しない)
   - 複数のバッジ種類がそれぞれ独立した画像アイコンを持てる(あるバッジ種類への再アップロードが他のバッジ種類の画像に影響しない)ことをテストで確認できる

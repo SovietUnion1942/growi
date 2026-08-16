@@ -330,6 +330,44 @@ describe('UserPicture — Task 13.5 (image badge icon rendering, req 6.5)', () =
       'A badge with a custom uploaded icon',
     );
   });
+
+  it('production regression: the badge element id never contains a colon, so it stays a valid CSS selector for UncontrolledTooltip', () => {
+    // React's useId() returns ids like ":r1g:" -- valid as a plain HTML `id`
+    // attribute, but INVALID as a CSS selector (`:` has special meaning in
+    // CSS). reactstrap's UncontrolledTooltip resolves its `target` prop via
+    // a selector-based DOM lookup, so a raw useId()-derived id crashes with
+    // `SyntaxError: '...' is not a valid selector` -- but only once a real
+    // Tooltip/Popper actually mounts in a browser; the mocked
+    // UncontrolledTooltip used elsewhere in this file never exercises that
+    // lookup, which is exactly why this went undetected in every other test
+    // here despite badge tooltips existing since task 4/10.3. This is a
+    // real bug reported live by a user once real multi-badge pages started
+    // rendering (task 12/13) -- assert directly on the DOM id shape instead
+    // of relying on a real Popper lookup, which this test environment
+    // cannot exercise.
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Badge One', level: null },
+      { iconKey: 'trophy', name: 'Badge Two', level: null },
+      { iconKey: 'medal', name: 'Badge Three', level: null },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEls = container.querySelectorAll(
+      '[data-testid="user-picture-badge"]',
+    );
+    expect(badgeEls).toHaveLength(3);
+    for (const el of Array.from(badgeEls)) {
+      const id = el.getAttribute('id');
+      expect(id).not.toBeNull();
+      expect(id).not.toMatch(/:/);
+      // The id must also remain usable as a real CSS selector (the actual
+      // failure mode in production) -- this throws SyntaxError if the id
+      // still contains an unescaped colon.
+      expect(() => document.querySelectorAll(`#${id}`)).not.toThrow();
+    }
+  });
 });
 
 describe('UserPicture — Task 10.3 (badge tooltip catalog resolution, req 4.5)', () => {

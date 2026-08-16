@@ -249,7 +249,19 @@ export const UserPicture = memo((userProps: Props): JSX.Element => {
   // multiple `UserPicture`s rendering the same user's badges on one page
   // (e.g. a search results list) never collide on `id` (unlike the badge's
   // own `key`, `id` must be globally unique in the DOM).
-  const badgeIdPrefix = useId();
+  //
+  // React's `useId()` deliberately returns ids containing `:` (e.g. `:r1g:`)
+  // specifically so they can never collide with author-chosen ids -- but
+  // that same colon makes the id an INVALID CSS selector (`:` has special
+  // meaning in CSS). `UncontrolledTooltip`'s `target` prop, when given a
+  // plain id string, is resolved internally via a selector-based DOM lookup
+  // (reactstrap/Popper), so passing a raw `useId()`-derived id crashes with
+  // `SyntaxError: '...' is not a valid selector` the moment a badge tooltip
+  // actually mounts in a real browser (jsdom-based tests never hit this,
+  // since they don't exercise Popper's real positioning lookup -- this went
+  // undetected until real badge data reached a real browser). Stripping the
+  // colons keeps the id collision-safe while making it selector-safe too.
+  const badgeIdPrefix = useId().replace(/:/g, '');
 
   const badgeElements =
     badges != null && badges.length > 0 ? (

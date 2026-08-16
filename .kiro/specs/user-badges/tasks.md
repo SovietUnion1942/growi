@@ -299,7 +299,7 @@
   - `apps/app/src/client/components/AuthorInfo/AuthorInfo.tsx` 内の `UserLabel` サブコンポーネントが受け取る `user`(`lastUpdateUser`/`creator`)の `badgeSummaryCached` を `useUserPictureBadges` に渡し、`<UserPicture badges={...} />` に渡す
   - footer(`PageContentFooter.tsx` 経由)・pageSide(`PageSideContents.tsx` 経由)の両方の呼び出し箇所で表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 15.2 `PageListItemL.tsx`/`PageListItemS.tsx`(ページ一覧の更新者)への配線
+- [x] 15.2 `PageListItemL.tsx`/`PageListItemS.tsx`(ページ一覧の更新者)への配線
   - `pageData.lastUpdateUser`/`page.lastUpdateUser` の `badgeSummaryCached` を配線する(既存の `RecentChangesSubstance.tsx` の配線パターンと同一)
   - ページ一覧(検索結果・一覧表示)の各行でバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
@@ -327,3 +327,4 @@
   - _Depends: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6_
 
 **Note**: `EditingUserList.tsx`(共同編集中ユーザー一覧、Yjsのリアルタイムプレゼンスデータ由来で `badgeSummaryCached` への経路が存在しない)は、ユーザーとの相談の結果、今回のスコープから明示的に除外した。将来対応する場合は、プレゼンスブロードキャストのペイロード/型(`packages/editor/src/interfaces/editing-client.ts`)を拡張し、`userId` 経由でバッジデータを引く新規の配線が必要になる。
+- Task 15.2 discovered that `packages/ui`'s BUILT `dist/` output was stale in this local working copy -- it predated the production hotfix (`useId().replace(/:/g, '')` in `UserPicture.tsx`) that had already been committed and deployed, causing new tests exercising the real badge tooltip to crash with `DOMException: Invalid selector: '#:r3:-badge-0'` plus a cascading React scheduler corruption in whichever spec file ran after the failing one. This is the SAME class of gotcha already documented above for `@growi/core` (task 13.4's dist-rebuild note) but for `@growi/ui`: **any edit to `packages/ui/src/**` requires `pnpm run build` in `packages/ui` before `apps/app`'s tests will see the change**, and forgetting this doesn't just hide new behavior (as with `@growi/core`) -- for a component like `UserPicture` that real tests actually render, it can produce a confusing crash that looks like a bug in the NEW code under test rather than a stale-build issue in an unrelated already-fixed file. Fixed by rebuilding `packages/ui`'s dist once (unblocking all sites, not just 15.2's). Lesson: after ANY production hotfix lands in `packages/ui`/`packages/core`, immediately rebuild that package's dist locally, even if the working copy "looks done" -- don't wait for the next task that happens to touch it to discover the staleness.

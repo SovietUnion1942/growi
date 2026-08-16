@@ -1,12 +1,18 @@
-import React, { type JSX } from 'react';
+import React, { type JSX, useMemo } from 'react';
 import Link from 'next/link';
 import type { IPageHasId } from '@growi/core';
+import { isPopulated } from '@growi/core';
 import {
   PageListMeta,
   PagePathLabel,
   UserPicture,
 } from '@growi/ui/dist/components';
 import Clamp from 'react-multiline-clamp';
+
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 
 import styles from './PageListItemS.module.scss';
 
@@ -22,6 +28,30 @@ export const PageListItemS = (props: PageListItemSProps): JSX.Element => {
 
   const path = pageTitle != null ? pageTitle : page.path;
 
+  // `page.lastUpdateUser` is typed as `Ref<IUser>` (string | ObjectId |
+  // populated user); narrow with `isPopulated` before reading
+  // `badgeSummaryCached` (same pattern as `RecentChangesSubstance.tsx`,
+  // task 12.3). `badgeType` is normalized to `string` to match
+  // `UserPictureBadgeSource`.
+  const { lastUpdateUser } = page;
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    if (lastUpdateUser == null || !isPopulated(lastUpdateUser)) {
+      return undefined;
+    }
+    return lastUpdateUser.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [lastUpdateUser]);
+
+  const badges = useUserPictureBadges(badgeSummary);
+
   let pagePathElement = (
     <PagePathLabel path={path} additionalClassNames={['mx-1']} />
   );
@@ -35,7 +65,7 @@ export const PageListItemS = (props: PageListItemSProps): JSX.Element => {
 
   return (
     <>
-      <UserPicture user={page.lastUpdateUser} noLink={noLink} />
+      <UserPicture user={page.lastUpdateUser} noLink={noLink} badges={badges} />
       {isNarrowView ? (
         <Clamp lines={2}>
           <div

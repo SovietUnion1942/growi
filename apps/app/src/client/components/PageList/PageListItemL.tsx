@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -14,7 +15,11 @@ import type {
   IPageInfoForListing,
   IPageWithMeta,
 } from '@growi/core';
-import { isIPageInfoForEntity, isIPageInfoForListing } from '@growi/core';
+import {
+  isIPageInfoForEntity,
+  isIPageInfoForListing,
+  isPopulated,
+} from '@growi/core';
 import { DevidedPagePath } from '@growi/core/dist/models';
 import { pathUtils } from '@growi/core/dist/utils';
 import { PageListMeta, UserPicture } from '@growi/ui/dist/components';
@@ -26,6 +31,10 @@ import { Input } from 'reactstrap';
 import type { ISelectable } from '~/client/interfaces/selectable-all';
 import { bookmark, unbookmark, unlink } from '~/client/services/page-operation';
 import { toastError } from '~/client/util/toastr';
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import type { IPageSearchMeta, IPageWithSearchMeta } from '~/interfaces/search';
 import { isIPageSearchMeta } from '~/interfaces/search';
 import type {
@@ -148,6 +157,30 @@ const PageListItemLSubstance: ForwardRefRenderFunction<ISelectable, Props> = (
     new Date(pageData.updatedAt),
     'yyyy/MM/dd HH:mm:ss',
   );
+
+  // `pageData.lastUpdateUser` is typed as `Ref<IUser>` (string | ObjectId |
+  // populated user); narrow with `isPopulated` before reading
+  // `badgeSummaryCached` (same pattern as `RecentChangesSubstance.tsx`,
+  // task 12.3). `badgeType` is normalized to `string` to match
+  // `UserPictureBadgeSource`.
+  const { lastUpdateUser } = pageData;
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    if (lastUpdateUser == null || !isPopulated(lastUpdateUser)) {
+      return undefined;
+    }
+    return lastUpdateUser.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [lastUpdateUser]);
+
+  const badges = useUserPictureBadges(badgeSummary);
 
   useEffect(() => {
     if (isIPageInfoForEntity(pageInfo)) {
@@ -288,7 +321,11 @@ const PageListItemLSubstance: ForwardRefRenderFunction<ISelectable, Props> = (
               <div className="d-flex align-items-center mb-1">
                 {/* Picture */}
                 <span className="me-2 d-none d-md-block">
-                  <UserPicture user={pageData.lastUpdateUser} size="md" />
+                  <UserPicture
+                    user={pageData.lastUpdateUser}
+                    size="md"
+                    badges={badges}
+                  />
                 </span>
                 {/* page title */}
                 <Clamp lines={1}>

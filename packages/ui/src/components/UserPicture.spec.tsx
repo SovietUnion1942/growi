@@ -244,6 +244,94 @@ describe('UserPicture — Task 11.5 (display-pattern boundary audit, req 4.4)', 
   });
 });
 
+describe('UserPicture — Task 13.5 (image badge icon rendering, req 6.5)', () => {
+  it('renders an <img> for a badge with iconType "image", not the emoji/Material Symbols branch', () => {
+    const badges: UserPictureBadge[] = [
+      {
+        iconKey: '',
+        iconType: 'image',
+        iconUrl: 'https://example.com/icon.png',
+        name: 'Custom Icon Badge',
+        level: 1,
+      },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    const img = badgeEl?.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute('src')).toBe('https://example.com/icon.png');
+    expect(badgeEl?.querySelector('.material-symbols-outlined')).toBeNull();
+  });
+
+  it('does not render an <img> and preserves the Material Symbols branch when iconType is "materialSymbol"', () => {
+    const badges: UserPictureBadge[] = [
+      {
+        iconKey: 'star',
+        iconType: 'materialSymbol',
+        name: 'Top Contributor',
+        level: 3,
+      },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    expect(badgeEl?.querySelector('img')).toBeNull();
+    const materialIcon = badgeEl?.querySelector('.material-symbols-outlined');
+    expect(materialIcon).not.toBeNull();
+    expect(materialIcon?.textContent).toBe('star');
+  });
+
+  it('does not render an <img> and preserves existing behavior when iconType/iconUrl are absent (regression guard)', () => {
+    const badges: UserPictureBadge[] = [
+      { iconKey: 'star', name: 'Top Contributor', level: 3 },
+      { iconKey: '🏆', name: 'Champion', level: null },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    expect(container.querySelectorAll('img')).toHaveLength(1); // only the avatar
+    const materialIcon = container.querySelector('.material-symbols-outlined');
+    expect(materialIcon?.textContent).toBe('star');
+    expect(screen.getByLabelText('Champion').textContent).toContain('🏆');
+  });
+
+  it('still attaches a tooltip (targeting the outer badge span) for an image-icon badge', () => {
+    const badges: UserPictureBadge[] = [
+      {
+        iconKey: '',
+        iconType: 'image',
+        iconUrl: 'https://example.com/icon.png',
+        name: 'Custom Icon Badge',
+        description: 'A badge with a custom uploaded icon',
+        level: 1,
+      },
+    ];
+    const { container } = render(
+      <UserPicture user={makeUser()} noLink badges={badges} />,
+    );
+
+    const badgeEl = container.querySelector(
+      '[data-testid="user-picture-badge"]',
+    );
+    const tooltip = badgeEl?.querySelector('[data-testid="mock-tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('Custom Icon Badge');
+    expect(tooltip?.textContent).toContain(
+      'A badge with a custom uploaded icon',
+    );
+  });
+});
+
 describe('UserPicture — Task 10.3 (badge tooltip catalog resolution, req 4.5)', () => {
   it('shows the badge name in its own tooltip when hovered/focused, even without a description', () => {
     const badges: UserPictureBadge[] = [

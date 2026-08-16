@@ -243,7 +243,7 @@
   - _Requirements: 6.5_
   - _Depends: 13.1_
 
-- [ ] 13.5 `UserPicture` への画像アイコン描画対応
+- [x] 13.5 `UserPicture` への画像アイコン描画対応
   - `packages/ui/src/components/UserPicture.tsx` の `UserPictureBadge` 型に `iconType`/`iconUrl` を追加する
   - 既存の `isEmojiIconKey` 判定(絵文字 vs Material Symbols)より先に `iconType === 'image'` を判定し、該当する場合は `<img src={iconUrl}>` で描画する分岐を追加する(既存の絵文字/Material Symbols描画・ツールチップ挙動は変更しない)
   - 画像アイコンを持つバッジが渡されたとき、アバター横に `<img>` タグでアイコン画像が表示されることを確認できる

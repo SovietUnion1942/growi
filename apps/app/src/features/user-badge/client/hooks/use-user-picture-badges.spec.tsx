@@ -103,6 +103,38 @@ describe('useUserPictureBadges', () => {
     });
   });
 
+  it('passes iconType and iconUrl through unchanged when present on the source entry', async () => {
+    apiv3Get.mockResolvedValue({ data: { badgeTypes: [] } });
+
+    const imageBadgeSummary: UserPictureBadgeSource[] = [
+      {
+        badgeType: 'badge-type-2',
+        iconKey: '',
+        iconType: 'image',
+        iconUrl: 'https://example.com/icon.png',
+        name: 'Custom Icon Badge',
+        level: 1,
+      },
+    ];
+
+    const { result } = renderHook(
+      () => useUserPictureBadges(imageBadgeSummary),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        {
+          iconKey: '',
+          iconType: 'image',
+          iconUrl: 'https://example.com/icon.png',
+          name: 'Custom Icon Badge',
+          level: 1,
+        },
+      ]);
+    });
+  });
+
   it('uses a translated placeholder description while the catalog is still loading', () => {
     // Never resolves within this test, so the hook observes isLoading: true.
     apiv3Get.mockReturnValue(new Promise(() => {}));

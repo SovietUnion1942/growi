@@ -200,4 +200,122 @@ describe('BadgeType model validation', () => {
       expect(doc.deletedAt).toBeNull();
     });
   });
+
+  describe('iconType / iconAttachment', () => {
+    it('defaults iconType to materialSymbol and iconAttachment to null', () => {
+      const doc = new BadgeType({
+        name: 'Community Helper',
+        description: 'Awarded manually by admins',
+        iconKey: 'star',
+        category: 'manual',
+        levels: [],
+        createdBy,
+      });
+
+      expect(doc.iconType).toBe('materialSymbol');
+      expect(doc.iconAttachment).toBeNull();
+    });
+
+    it('fails validation when iconType is image but iconAttachment is not set', async () => {
+      const doc = new BadgeType({
+        name: 'Community Helper',
+        description: 'Awarded manually by admins',
+        iconKey: 'star',
+        category: 'manual',
+        levels: [],
+        iconType: 'image',
+        createdBy,
+      });
+
+      await expect(doc.validate()).rejects.toThrow();
+    });
+
+    it('passes validation when iconType is image and iconAttachment is set', async () => {
+      const iconAttachment = new Types.ObjectId();
+      const doc = new BadgeType({
+        name: 'Community Helper',
+        description: 'Awarded manually by admins',
+        iconKey: 'star',
+        category: 'manual',
+        levels: [],
+        iconType: 'image',
+        iconAttachment,
+        createdBy,
+      });
+
+      await expect(doc.validate()).resolves.toBeUndefined();
+      expect(doc.iconAttachment).toEqual(iconAttachment);
+    });
+
+    it('forces iconAttachment to null when iconType is materialSymbol, even if set', async () => {
+      const doc = new BadgeType({
+        name: 'Community Helper',
+        description: 'Awarded manually by admins',
+        iconKey: 'star',
+        category: 'manual',
+        levels: [],
+        iconType: 'materialSymbol',
+        iconAttachment: new Types.ObjectId(),
+        createdBy,
+      });
+
+      await expect(doc.validate()).resolves.toBeUndefined();
+      expect(doc.iconAttachment).toBeNull();
+    });
+
+    it('forces iconAttachment to null when iconType is emoji, even if set', async () => {
+      const doc = new BadgeType({
+        name: 'Community Helper',
+        description: 'Awarded manually by admins',
+        iconKey: 'star',
+        category: 'manual',
+        levels: [],
+        iconType: 'emoji',
+        iconAttachment: new Types.ObjectId(),
+        createdBy,
+      });
+
+      await expect(doc.validate()).resolves.toBeUndefined();
+      expect(doc.iconAttachment).toBeNull();
+    });
+
+    it('fails validation when category is automatic and iconType is image, even with a valid iconAttachment', async () => {
+      const doc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 }],
+        iconType: 'image',
+        iconAttachment: new Types.ObjectId(),
+        createdBy,
+      });
+
+      await expect(doc.validate()).rejects.toThrow();
+    });
+
+    it('passes validation when category is automatic and iconType is materialSymbol or emoji', async () => {
+      const materialSymbolDoc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 }],
+        iconType: 'materialSymbol',
+        createdBy,
+      });
+      const emojiDoc = new BadgeType({
+        name: 'Editor',
+        description: 'Awarded for editing pages',
+        iconKey: 'edit',
+        category: 'automatic',
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 }],
+        iconType: 'emoji',
+        createdBy,
+      });
+
+      await expect(materialSymbolDoc.validate()).resolves.toBeUndefined();
+      await expect(emojiDoc.validate()).resolves.toBeUndefined();
+    });
+  });
 });

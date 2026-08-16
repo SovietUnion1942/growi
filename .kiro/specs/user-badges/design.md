@@ -30,6 +30,7 @@
 - 新規 apiv3 エンドポイント(`/badge-types/*`, `/user-badges/*`)とその管理者限定の認可
 - バッジ付与に伴う新規 `SupportedAction`/`SupportedTargetModel` エントリと、対応する InAppNotification スナップショット生成ロジック
 - `UserPicture` への `badges` 表示オプションの追加、ユーザーページのバッジ一覧セクション、管理画面のバッジ管理 UI
+- `BadgeType` のアイコンとして画像ファイルをアップロードする経路(`AttachmentType` への `BADGE_ICON` 値の追加を含む)、および画像アイコンの表示解決ロジック
 
 ### Out of Boundary
 - バッジの取り消し(剥奪) — 将来の拡張として据え置き
@@ -44,6 +45,7 @@
 - 既存の InAppNotification パイプライン(`SupportedAction`/`EssentialActionGroup`/スナップショット生成の拡張)
 - 既存の admin 認可ミドルウェア(`loginRequiredFactory`, `adminRequiredFactory`, `apiV3FormValidator`, `generateAddActivityMiddleware`)
 - 既存の `UserPicture` コンポーネント(拡張、置き換えではない)
+- 既存の添付ファイル基盤(`AttachmentService.createAttachment`, `fileUploadService`, `validateImageContentType`, `createContentHeaders`/`/attachment/:id` 配信経路)を読み取り専用の呼び出し元として利用する。基盤自体のロジック(ストレージ抽象化・MIME 検証・SVG の `Content-Disposition: attachment` 強制・CSP 付与)は変更しない
 
 ### Revalidation Triggers
 - `crowi.events.activity` の `'updated'` イベントのペイロード形状、または `shouldGenerateUpdate` の抑制条件が変わった場合
@@ -161,6 +163,15 @@ apps/app/src/features/user-badge/
 - `apps/app/src/components/Admin/Common/AdminNavigation.tsx` — `MenuLabel` に `'badges'` ケース、`section_users` ブロックに `MenuLink menu="badges"` を追加(モバイルドロップダウン側にも対応行を追加)
 - `apps/app/src/pages/admin/badges.page.tsx` — 新規 admin ページルート(`getServerSideAdminCommonProps` + `dynamic(..., { ssr: false })` で `BadgeManagement` を読み込み)
 - `apps/app/public/static/locales/{en_US,ja_JP,ko_KR,fr_FR,zh_CN}/admin.json` / `commons.json` — バッジ管理・バッジ表示関連キーを追加
+- `apps/app/src/server/interfaces/attachment.ts` — `AttachmentType` に `BADGE_ICON` を追加(既存の `PROFILE_IMAGE`/`BRAND_LOGO` と同列)
+- `apps/app/src/features/user-badge/server/models/badge-type-model.ts` — `iconType`/`iconAttachment` フィールドと条件付き必須のスキーマ検証を追加
+- `apps/app/src/features/user-badge/server/services/badge-type-service.ts` — `updateBadgeType`/`createBadgeType` に画像アイコンの保存・置換(既存 `AttachmentService.createAttachment` 呼び出し、対象 `BadgeType` 自身の旧 `iconAttachment` ID が指す `Attachment` のみを削除)ロジックを追加。**注意**: `apiv3/customize-setting.js` の `upload-brand-logo` ルートは `attachmentType: BRAND_LOGO` で検索して該当する添付ファイルを一括削除するが、これはブランドロゴがサイト全体で1枚のみという前提に基づく実装であり、バッジ種類は複数存在し種類ごとに個別の画像を持つため、その削除パターンをそのまま流用してはならない。削除対象は必ず「更新対象の `BadgeType` ドキューメントが編集前に保持していた `iconAttachment` ID」に限定し、`attachmentType` だけでの絞り込み削除は行わない
+- `apps/app/src/features/user-badge/server/routes/badge-type.ts` — アイコン画像アップロード用の multipart ハンドリングを追加(`apiv3/customize-setting.js` の `upload-brand-logo` ルートと同パターン)
+- `apps/app/src/features/user-badge/client/components/Admin/BadgeTypeForm.tsx` — アイコン指定方法の切り替え UI(Material Symbols / 絵文字 / 画像アップロード)を追加。「画像アップロード」の選択肢は `category === 'manual'` のときのみ表示し、`category === 'automatic'` では非表示にする(既存の Material Symbols / 絵文字トグルのみ表示)
+- `apps/app/src/features/user-badge/client/components/Admin/BadgeTypeTable.tsx` — `{badgeType.iconKey}` の素朴なテキスト描画(`BadgeTypeTable.tsx:60`)に `iconType === 'image'` 判定を追加し、画像の場合は `<img>` サムネイルを描画する分岐を追加
+- `packages/ui/src/components/UserPicture.tsx` — `UserPictureBadge` 型に `iconType`/`iconUrl` を追加し、既存の `isEmojiIconKey` による絵文字/Material-Symbols判定(`UserPicture.tsx:171,258-264`)に先立って `iconType === 'image'` を判定し `<img>` で描画する分岐を追加。3種類の判定順は「`iconType === 'image'` → `<img>` / それ以外 → 従来通り `isEmojiIconKey` 判定」とする
+- `apps/app/src/features/user-badge/client/components/BadgeShelf.tsx` — `resolveEntryDisplay`(`BadgeShelf.tsx:50-62`)が解決した `iconKey` を最終描画する箇所(`BadgeShelf.tsx:108-112`)に、`UserPicture.tsx` と同じ `iconType === 'image'` 判定を追加。`category: 'manual'` の場合 `levelDef` が存在しないため既存の `?? badgeType.iconKey` フォールバックがそのまま `badgeType` の `iconType`/`iconAttachment` を素通しする(解決ロジック自体の変更は不要、最終描画の分岐追加のみ)
+- `apps/app/src/features/user-badge/server/services/badge-grant-service.ts` — `updateBadgeSummaryCached`(`badge-grant-service.ts:141-169`)が `IUserBadgeSummaryEntry` を構築する際、`iconType`/`iconUrl`(`Attachment.filePathProxied` を解決した値)を含めるよう拡張する
 
 ## System Flows
 
@@ -225,18 +236,24 @@ sequenceDiagram
 | 4.4 | 同系統は最高レベルのみ併記、全レベルはページ側 | BadgeGrantService(cached 生成ロジック), BadgeShelf | `User.badgeSummaryCached` vs `useSWRxUserBadges` | - |
 | 4.5 | ホバー/フォーカスで名前・説明を表示 | UserPicture, badge-type client store | `useSWRxBadgeTypeList`(ローカルカタログ参照) | - |
 | 5.1 | 付与時にアプリ内通知 | BadgeGrantService, InAppNotificationService(既存) | `ACTION_USER_BADGE_GRANT` | 自動付与フロー / 手動付与 |
+| 6.1 | 手動区分にアイコン指定方法として画像アップロードを追加 | BadgeTypeForm(admin UI), BadgeType model | `IBadgeType.iconType` | - |
+| 6.1a | 自動区分では画像アップロードを選択肢として提供しない | BadgeTypeForm(admin UI), BadgeType model(スキーマ検証) | `IBadgeType.iconType`(`category==='automatic'` で `'image'` 拒否) | - |
+| 6.2 | 既存添付ファイル基盤での保存(サイズ・MIME 検証) | badge-type apiv3 route, AttachmentService(既存) | `AttachmentService.createAttachment`(`AttachmentType.BADGE_ICON`) | 画像アイコンアップロードフロー |
+| 6.3 | 非画像 MIME のアップロード拒否 | AttachmentService(既存), `validateImageContentType`(既存) | - | 画像アイコンアップロードフロー |
+| 6.4 | 再アップロード時に旧ファイルを置き換え(同一 BadgeType 内に限定、他のバッジ種類の画像には影響しない) | badge-type apiv3 route | `BadgeTypeService.updateBadgeType`(対象 BadgeType 自身の旧 `iconAttachment` ID のみ削除) | 画像アイコンアップロードフロー |
+| 6.5 | 画像アイコンの表示 | UserPicture(拡張), UserPictureBadge | `IUserBadgeSummaryEntry.iconType`/`iconUrl` | - |
 
 ## Components and Interfaces
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
 |-----------|--------------|--------|---------------|---------------------------|-----------|
-| BadgeType model | Data | バッジ種類の永続化 | 1.1-1.6 | getOrCreateModel (P0) | State |
+| BadgeType model | Data | バッジ種類の永続化(`iconType`/`iconAttachment` を含む) | 1.1-1.6, 6.1-6.4 | getOrCreateModel (P0) | State |
 | UserBadge model | Data | 付与記録の永続化・重複防止 | 2.4, 3.1-3.5 | getOrCreateModel (P0) | State |
-| BadgeTypeService | Server logic | バッジ種類 CRUD・ソフトデリート | 1.1-1.6 | BadgeType model (P0) | Service |
+| BadgeTypeService | Server logic | バッジ種類 CRUD・ソフトデリート・アイコン画像の保存/置換 | 1.1-1.6, 6.1-6.4 | BadgeType model (P0), AttachmentService(既存) (P0) | Service |
 | BadgeGrantService | Server logic | 自動評価・手動付与・通知発火・User キャッシュ更新の単一窓口 | 2.1-2.6, 3.1-3.5, 4.4, 5.1 | UserBadge/BadgeType model (P0), crowi.events.activity (P0), User model (P0), InAppNotificationService (P1) | Service, Event |
 | badge-type apiv3 route | API | バッジ種類 CRUD の HTTP 境界 | 1.1-1.6 | BadgeTypeService (P0) | API |
 | user-badge apiv3 route | API | 手動付与・一覧取得の HTTP 境界 | 3.1-3.5, 4.3 | BadgeGrantService (P0) | API |
-| UserPicture(拡張) | UI(共有) | アバター併記のバッジ表示 | 4.1, 4.2, 4.5 | User.badgeSummaryCached (P0) | - |
+| UserPicture(拡張) | UI(共有) | アバター併記のバッジ表示(画像アイコンの表示を含む) | 4.1, 4.2, 4.5, 6.5 | User.badgeSummaryCached (P0) | - |
 | BadgeShelf | UI | ユーザーページの全バッジ一覧 | 4.3, 4.4 | user-badge route (P0) | - |
 | Badge admin screens | UI(admin) | バッジ種類 CRUD・手動付与フォーム | 1.1-1.6, 3.1-3.5 | badge-type/user-badge route (P0) | - |
 
@@ -275,10 +292,14 @@ export interface IBadgeLevel {
   threshold: number;    // 累積編集回数のしきい値(1以上)
 }
 
+export type BadgeIconType = 'materialSymbol' | 'emoji' | 'image';
+
 export interface IBadgeType {
   name: string;
   description: string;
-  iconKey: string;      // manual: バッジ本体のアイコン / automatic: 系列の既定アイコン
+  iconType: BadgeIconType; // 'image' のとき iconKey は無視され iconAttachment を参照する
+  iconKey: string;      // manual: バッジ本体のアイコン / automatic: 系列の既定アイコン(iconType が 'image' の場合は未使用)
+  iconAttachment: Types.ObjectId | null; // ref Attachment、iconType === 'image' のときのみ設定
   category: BadgeCategory;
   levels: IBadgeLevel[]; // category: 'manual' の場合は常に []
   isDeleted: boolean;
@@ -287,10 +308,18 @@ export interface IBadgeType {
 }
 ```
 
+**Icon の粒度・区分に関する決定**: 画像アイコンは `category: 'manual'` のバッジ種類にのみ許可する(`category: 'automatic'` では `iconType: 'image'` を選択できず、常に `materialSymbol`/`emoji` のみとする)。理由は2つ:
+1. 自動区分は `IBadgeLevel.iconKey` によってレベル毎に個別のアイコン(例: 🥉→🥈→🥇)を持てる既存の仕様があるが、`IBadgeLevel` には `iconType`/`iconAttachment` を追加しない(レベル毎に別画像をアップロードさせる UI/検証コストを避けるため)。画像アイコンをレベル毎の概念がない `manual` 区分に限定することで、この非対称性(自動区分でレベルが上がっても画像が変わらない、というエミュートとの機能差)自体を発生させない
+2. `manual` 区分は `levels` を持たない単一バッジなので、`BadgeShelf`/`badge-grant-service` の既存フォールバック(`levelDef?.iconKey ?? badgeType.iconKey`)は `levelDef` が存在しないため常に `badgeType.iconKey`(= `iconType`/`iconAttachment` 込みの型レベル情報)を参照する。つまり **これらの参照解決ロジック自体には変更が不要**で、各表示箇所の最終レンダリング分岐(後述)に `iconType === 'image'` の3番目の枝を追加するだけで済む
+
+`BadgeType` スキーマは `category === 'automatic'` のとき `iconType !== 'image'` をバリデーションで強制する(`pre('validate')` に追加)。
+
 **Implementation Notes**
 - Integration: `getOrCreateModel<IBadgeTypeDocument, IBadgeTypeModel>('BadgeType', schema)` パターンに従う
 - Validation: `category === 'automatic'` のとき `levels.length >= 1` かつ `threshold` 必須、`category === 'manual'` のとき `levels.length === 0` をスキーマの `pre('validate')` で強制
-- Risks: なし
+- Validation: `iconType === 'image'` のとき `iconAttachment` が必須、それ以外(`materialSymbol`/`emoji`)のとき `iconAttachment` は `null` を強制する
+- Validation: `category === 'automatic'` のとき `iconType === 'image'` を拒否する(自動区分は `materialSymbol`/`emoji` のみ許可)
+- Risks: `iconAttachment` が参照する `Attachment` ドキュメントが何らかの理由で削除された場合、表示側は画像が解決できない(欠損アイコン)。本 spec では `Attachment` の物理削除経路(BadgeTypeService 経由の再アップロード置換のみ)を自ら管理するため、通常運用では発生しない
 
 #### UserBadge model
 
@@ -454,11 +483,15 @@ interface BadgeGrantService {
 ```typescript
 export interface IUserBadgeSummaryEntry {
   badgeType: Types.ObjectId;
-  iconKey: string;
+  iconType: BadgeIconType;
+  iconKey: string;       // iconType === 'image' の場合は空文字(未使用)
+  iconUrl: string | null; // iconType === 'image' の場合のみ filePathProxied を解決してキャッシュ、それ以外は null
   name: string;
   level: number | null;
 }
 ```
+
+`iconUrl` は付与/更新時点で `Attachment.filePathProxied` を解決してキャッシュする(表示のたびに `Attachment` を参照しに行かない、既存の `badgeSummaryCached` 非正規化方針に合わせる)。
 
 ## Error Handling
 
@@ -477,22 +510,28 @@ GROWI の既存 apiv3 規約(`ErrorV3` + `res.apiv3Err`)に従い、型付きの
 - `BadgeGrantService.getCumulativeEditCount`: `ACTION_PAGE_CREATE`/`ACTION_PAGE_UPDATE` のみをカウントし、`ACTION_COMMENT_CREATE` 等を含めないこと(2.6)
 - `BadgeGrantService.evaluateAndGrantForUser`: しきい値未到達では付与しないこと、複数レベルを一度に跨いだ場合に全レベルが付与されること(2.2, 2.3)、同一 `(user, badgeType, level)` への2回目の呼び出しが冪等であること(2.4)
 - `BadgeGrantService.grantManualBadge`: `category === 'automatic'` の `BadgeType` に対して呼び出すとエラーになること(3.4)
+- `BadgeType` スキーマ検証: `iconType === 'image'` のとき `iconAttachment` が必須であること、`iconType !== 'image'` のとき `iconAttachment` が `null` に強制されること、`category === 'automatic'` の場合に `iconType: 'image'` を指定すると検証エラーになること(6.1, 6.1a)
 
 ### Integration Tests
 - ページ更新 API を叩いた際、しきい値を跨いだユーザーに `UserBadge` が作成され `User.badgeSummaryCached` が更新されること(自動付与フロー全体、2.1-2.3)
 - バッジ種類のしきい値を引き下げる更新を行った際、既存ユーザーへの resweep が既存貢献実績に基づいて遡及付与を行うこと(2.5)
 - 管理者以外のユーザーで `POST /badge-types` を呼ぶと 403 になること(1.6)、`POST /user-badges` で自動区分バッジを指定すると 422 になること(3.4)
 - バッジ付与後、対象ユーザーの InAppNotification に `ACTION_USER_BADGE_GRANT` の通知が生成されること(5.1)
+- バッジ種類の画像アイコンをアップロードすると `AttachmentType.BADGE_ICON` の `Attachment` が作成され `BadgeType.iconAttachment` に反映されること、非画像 MIME のファイルをアップロードすると拒否されること(6.2, 6.3)
+- 既に画像アイコンを持つバッジ種類へ再アップロードすると、その `BadgeType` 自身の旧 `Attachment` のみが削除され新しい `Attachment` に置き換わること、かつ**他の `BadgeType` が保持する画像アイコンには一切影響しないこと**(複数バッジ種類が同時に独立した画像アイコンを持てることを証明する、6.4)
 
 ### E2E/UI Tests
 - 管理者がバッジ種類を作成し、対象ユーザーがページを規定回数編集すると、コメント欄・サイドバー・ユーザーページのアバターにバッジが表示されること(1.1, 2.2, 4.1, 4.3)
 - 管理者が手動区分バッジをユーザーへ付与し、そのユーザーがバッジ通知を受け取ること(3.1, 5.1)
 - 同一バッジ系列で複数レベルを保有するユーザーについて、アバター併記箇所は最高レベルのみ、ユーザーページは全レベルが表示されること(4.4)
+- 管理画面でバッジ種類のアイコンとして「画像アップロード」を選び画像を保存すると、そのバッジを保有するユーザーのアバター横に画像アイコンが表示されること(6.1, 6.5)
 
 ## Security Considerations
 
 - バッジ種類の作成・編集・削除・手動付与はすべて既存の `adminRequiredFactory` による管理者限定操作とする(新規権限モデルは導入しない)
-- `iconKey` は許可された表現(Material Symbols アイコン名の正規表現、または単一絵文字)のみを受理し、任意の URL・HTML・SVG を受け付けない(格納型 XSS 対策、`research.md` の Decision 参照)
+- `iconKey` は許可された表現(Material Symbols アイコン名の正規表現、または単一絵文字)のみを受理し、任意の URL・HTML・SVG を受け付けない(格納型 XSS 対策、`research.md` の Decision 参照)。この制約は `iconType !== 'image'` の場合にのみ適用される
+- `iconType === 'image'` の画像アップロードは新規のアップロード/検証ロジックを実装せず、既存の `AttachmentService.createAttachment` + `validateImageContentType` にそのまま委譲する。SVG(`image/svg+xml`)も既存の許可 MIME に含まれるが、既存の配信経路(`createContentHeaders`)が SVG に対して `Content-Disposition: attachment` を強制しインライン表示させないこと、および添付ファイル応答に個別の `Content-Security-Policy`(`script-src` 実質封鎖・`object-src: none`)が付与されることにより、悪意ある SVG の格納型 XSS は既存基盤側で緩和されている。本 spec はこの既存の緩和策に依存し、`respond`/配信ロジックを独自実装・迂回しない
+- アップロード可能なのは管理者のみ(badge-type apiv3 route は既存の `adminRequiredFactory` 配下)であるため、画像アップロード経路の攻撃面は「管理者アカウントが侵害された場合」に限定される
 - 手動付与の `note` は自由入力テキストとして保存されるが、表示時は既存の React エスケープに委ねる(生 HTML レンダリングは行わない)
 
 ## Open Questions / Risks

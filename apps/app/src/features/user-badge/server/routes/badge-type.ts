@@ -158,9 +158,22 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
       body('description', 'description is required and must be a string')
         .exists()
         .isString(),
+      // `iconKey` is only meaningful for the `materialSymbol`/`emoji` icon
+      // types; when the admin form's icon-type toggle is set to `'image'`
+      // (task 13.6), it submits `iconKey` as an empty string alongside the
+      // uploaded file rather than omitting the field, so this rule must not
+      // fire in that case (regression: previously unconditional, rejecting
+      // every real image-icon creation with "iconKey is required").
       body('iconKey', 'iconKey is required and must be a non-empty string')
+        .if((_value, { req }) => req.body.iconType !== 'image')
         .exists({ checkFalsy: true })
         .isString(),
+      body(
+        'iconType',
+        "iconType must be one of 'materialSymbol', 'emoji', 'image'",
+      )
+        .optional()
+        .isIn(['materialSymbol', 'emoji', 'image']),
       body(
         'category',
         "category is required and must be 'automatic' or 'manual'",
@@ -177,7 +190,14 @@ export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
         .isString()
         .notEmpty(),
       body('description', 'description must be a string').optional().isString(),
+      // Same `iconKey` exemption as `create` above, but keyed off `req.file`
+      // instead of a plain `iconType` body field: the update route never
+      // accepts `iconType` as JSON (it's only ever derived from an uploaded
+      // `file`, see `saveIconImage`), so an admin re-uploading a replacement
+      // image for an existing image-type badge submits `iconKey` as an empty
+      // string alongside the file, same as on create.
       body('iconKey', 'iconKey must be a non-empty string')
+        .if((_value, { req }) => req.file == null)
         .optional()
         .isString()
         .notEmpty(),

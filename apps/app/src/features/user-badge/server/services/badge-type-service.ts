@@ -2,6 +2,7 @@ import type { IUserHasId } from '@growi/core';
 import type { Types } from 'mongoose';
 
 import type Crowi from '~/server/crowi';
+import { AttachmentType } from '~/server/interfaces/attachment';
 import loggerFactory from '~/utils/logger';
 
 import type {
@@ -23,16 +24,27 @@ export type IBadgeTypeHasId = IBadgeType & { _id: Types.ObjectId };
 
 export type CreateBadgeTypeInput = Pick<
   IBadgeType,
-  'name' | 'description' | 'iconKey' | 'category' | 'levels'
->;
+  'name' | 'description' | 'iconKey' | 'category' | 'levels' | 'iconType'
+> & {
+  /**
+   * An admin-uploaded image for the BadgeType icon (requirement 6.1/6.2).
+   * When present, this always wins over `iconType`: the created BadgeType
+   * is persisted with `iconType: 'image'` and `iconAttachment` set to the
+   * newly-created `Attachment`'s id, regardless of what `iconType` says.
+   */
+  iconImageFile?: Express.Multer.File;
+};
 
 // `category` is intentionally excluded: requirement 1.4 only allows editing
 // name/icon/description/levels(thresholds), and changing category after
 // creation would violate the automatic/manual levels invariant that the
 // rest of the system (grant evaluation, resweep) relies on.
 export type UpdateBadgeTypeInput = Partial<
-  Pick<IBadgeType, 'name' | 'description' | 'iconKey' | 'levels'>
->;
+  Pick<IBadgeType, 'name' | 'description' | 'iconKey' | 'levels' | 'iconType'>
+> & {
+  /** Same semantics as `CreateBadgeTypeInput.iconImageFile` (see above). */
+  iconImageFile?: Express.Multer.File;
+};
 
 /**
  * Re-checks the category/levels shape that `BadgeType`'s `pre('validate')`
@@ -96,12 +108,46 @@ function fireResweep(badgeTypeId: Types.ObjectId, crowi: Crowi): void {
   });
 }
 
+/**
+ * Uploads `iconImageFile` via the existing `AttachmentService.createAttachment`
+ * (requirement 6.2), tagged `AttachmentType.BADGE_ICON`, and returns the
+ * fields to persist on the BadgeType document.
+ *
+ * This function only ever CREATES a new Attachment — it never deletes one.
+ * Deletion of a previous icon Attachment (requirement 6.4) is the caller's
+ * responsibility (see `updateBadgeType`), and must be scoped to that
+ * specific BadgeType's own previous `iconAttachment` id, never to a query by
+ * `attachmentType` alone (that pattern belongs to the BRAND_LOGO
+ * site-wide-singleton route and would delete every other BadgeType's image
+ * too — see design.md).
+ */
+async function saveIconImage(
+  iconImageFile: Express.Multer.File,
+  uploadedBy: IUserHasId,
+  crowi: Crowi,
+): Promise<Pick<IBadgeType, 'iconType' | 'iconAttachment'>> {
+  const attachment = await crowi.attachmentService.createAttachment(
+    iconImageFile,
+    uploadedBy,
+    null,
+    AttachmentType.BADGE_ICON,
+    undefined,
+  );
+
+  return { iconType: 'image', iconAttachment: attachment._id };
+}
+
 export const createBadgeType = async (
   input: CreateBadgeTypeInput,
   createdBy: IUserHasId,
   crowi: Crowi,
 ): Promise<IBadgeTypeHasId> => {
   assertValidLevelsForCategory(input.category, input.levels);
+
+  const iconFields =
+    input.iconImageFile != null
+      ? await saveIconImage(input.iconImageFile, createdBy, crowi)
+      : { iconType: input.iconType, iconAttachment: null };
 
   const created = await BadgeType.create({
     name: input.name,
@@ -110,6 +156,7 @@ export const createBadgeType = async (
     category: input.category,
     levels: input.levels,
     createdBy: createdBy._id,
+    ...iconFields,
   });
 
   // Requirement 2.5: a newly-created automatic BadgeType may already match
@@ -126,6 +173,13 @@ export const updateBadgeType = async (
   id: string,
   input: UpdateBadgeTypeInput,
   crowi: Crowi,
+  /**
+   * The admin performing the update. Only required when `input.iconImageFile`
+   * is set (it becomes the uploaded Attachment's `creator`) — omitted by
+   * every non-image-upload call site, so this stays optional rather than
+   * forcing every existing caller to thread an actor through.
+   */
+  uploadedBy?: IUserHasId,
 ): Promise<IBadgeTypeHasId> => {
   // Runtime guard against `category` changes: the type signature already
   // excludes `category`, but callers at the HTTP boundary work with
@@ -145,9 +199,32 @@ export const updateBadgeType = async (
   const nextLevels = input.levels ?? existing.levels;
   assertValidLevelsForCategory(existing.category, nextLevels);
 
+  const { iconImageFile, ...rest } = input;
+
+  let iconFields: Partial<Pick<IBadgeType, 'iconType' | 'iconAttachment'>> = {};
+  if (iconImageFile != null) {
+    if (uploadedBy == null) {
+      throw new BadgeTypeValidationError(
+        'uploadedBy is required when replacing a BadgeType icon image.',
+      );
+    }
+
+    // Read this BadgeType's OWN previous iconAttachment id before it gets
+    // overwritten below. Create the new Attachment first, then delete the
+    // old one by that exact id — never by an `attachmentType`-only query,
+    // which would also match (and delete) every other BadgeType's
+    // BADGE_ICON attachment (requirement 6.4; see design.md's warning about
+    // the BRAND_LOGO route's site-wide-singleton delete pattern).
+    const previousIconAttachment = existing.iconAttachment;
+    iconFields = await saveIconImage(iconImageFile, uploadedBy, crowi);
+    if (previousIconAttachment != null) {
+      await crowi.attachmentService.removeAttachment(previousIconAttachment);
+    }
+  }
+
   const updated = await BadgeType.findByIdAndUpdate(
     id,
-    { $set: input },
+    { $set: { ...rest, ...iconFields } },
     { new: true, runValidators: true },
   );
   if (updated == null) {

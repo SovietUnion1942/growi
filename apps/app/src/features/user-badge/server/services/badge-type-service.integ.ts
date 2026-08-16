@@ -34,6 +34,9 @@ import { mock } from 'vitest-mock-extended';
 
 import { SupportedAction } from '~/interfaces/activity';
 import type Crowi from '~/server/crowi';
+import { AttachmentType } from '~/server/interfaces/attachment';
+import type { IAttachmentDocument } from '~/server/models/attachment';
+import type { AttachmentService } from '~/server/service/attachment';
 import { prisma } from '~/utils/prisma';
 
 import type { IBadgeType } from '../../interfaces/badge';
@@ -69,9 +72,64 @@ const createdBy = mock<IUserHasId>({ _id: new Types.ObjectId().toString() });
  * Minimal `Crowi` test double. `resweepBadgeType`/`evaluateAndGrantForUser`
  * require a real `Crowi` (task 5.2), but these tests don't assert on
  * Activity emission, so an empty mock is sufficient here.
+ *
+ * `attachmentService` is optional: only the icon-image-upload tests below
+ * need one, so other describe blocks keep getting the bare mock they always
+ * had.
  */
-function makeTestCrowi(): Crowi {
-  return mock<Crowi>({});
+function makeTestCrowi(attachmentService?: AttachmentService): Crowi {
+  return mock<Crowi>(attachmentService != null ? { attachmentService } : {});
+}
+
+/**
+ * A type-safe `AttachmentService` double whose `createAttachment` hands back
+ * a fresh `Attachment`-shaped doc (unique `_id`) on every call, and whose
+ * `removeAttachment` just records which ids it was asked to delete. Using a
+ * mock (rather than real GridFS-backed `AttachmentService`) keeps these
+ * tests focused on BadgeTypeService's own responsibility: which Attachment
+ * id it asks to create/delete, not the storage plumbing underneath.
+ */
+function makeMockAttachmentService(): {
+  attachmentService: AttachmentService;
+  createAttachment: ReturnType<typeof vi.fn>;
+  removeAttachment: ReturnType<typeof vi.fn>;
+} {
+  const createAttachment = vi.fn(
+    async (
+      _file: Express.Multer.File,
+      _user: IUserHasId,
+      _pageId: string | null,
+      attachmentType: AttachmentType,
+    ): Promise<IAttachmentDocument> => {
+      // Deliberately NOT passing `_id` inside the `mock<T>({...})` override:
+      // vitest-mock-extended deep-clones override values, which reconstructs
+      // the ObjectId using a bson prototype Mongoose's own driver instance
+      // doesn't recognize as its own — `findByIdAndUpdate` then silently
+      // casts it to `null` instead of throwing. Assigning `_id` directly on
+      // the already-constructed mock keeps the exact `Types.ObjectId`
+      // instance untouched.
+      const attachment = mock<IAttachmentDocument>({ attachmentType });
+      attachment._id = new Types.ObjectId();
+      return attachment;
+    },
+  );
+  const removeAttachment = vi.fn(async () => undefined);
+
+  const attachmentService = mock<AttachmentService>({
+    createAttachment,
+    removeAttachment,
+  });
+
+  return { attachmentService, createAttachment, removeAttachment };
+}
+
+function makeFakeUploadFile(name = 'icon.png'): Express.Multer.File {
+  return mock<Express.Multer.File>({
+    path: `/tmp/${name}`,
+    originalname: name,
+    mimetype: 'image/png',
+    size: 100,
+  });
 }
 
 const automaticInput = {
@@ -529,6 +587,166 @@ describe('BadgeTypeService', () => {
       );
 
       expect(resweepBadgeTypeMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('icon image upload/replace (task 13.2, requirements 6.2, 6.4)', () => {
+    it('creates a manual BadgeType with an uploaded image icon via AttachmentService.createAttachment(BADGE_ICON)', async () => {
+      const { attachmentService, createAttachment } =
+        makeMockAttachmentService();
+      const iconImageFile = makeFakeUploadFile('new-icon.png');
+
+      const created = await createBadgeType(
+        { ...manualInput, iconImageFile },
+        createdBy,
+        makeTestCrowi(attachmentService),
+      );
+
+      expect(createAttachment).toHaveBeenCalledTimes(1);
+      expect(createAttachment).toHaveBeenCalledWith(
+        iconImageFile,
+        createdBy,
+        null,
+        AttachmentType.BADGE_ICON,
+        undefined,
+      );
+
+      expect(created.iconType).toBe('image');
+      expect(created.iconAttachment).not.toBeNull();
+
+      const persisted = await BadgeType.findById(created._id);
+      expect(persisted?.iconType).toBe('image');
+      expect(persisted?.iconAttachment?.toString()).toBe(
+        created.iconAttachment?.toString(),
+      );
+    });
+
+    it('sets a first image icon on update (no previous iconAttachment) and does not attempt any delete', async () => {
+      const { attachmentService, createAttachment, removeAttachment } =
+        makeMockAttachmentService();
+      const created = await createBadgeType(
+        manualInput,
+        createdBy,
+        makeTestCrowi(),
+      );
+
+      const iconImageFile = makeFakeUploadFile('first-icon.png');
+      const updated = await updateBadgeType(
+        created._id.toString(),
+        { iconImageFile },
+        makeTestCrowi(attachmentService),
+        createdBy,
+      );
+
+      expect(createAttachment).toHaveBeenCalledTimes(1);
+      expect(removeAttachment).not.toHaveBeenCalled();
+      expect(updated.iconType).toBe('image');
+      expect(updated.iconAttachment).not.toBeNull();
+    });
+
+    it('replacing an existing image icon deletes only that BadgeType own previous Attachment id, not a query by attachmentType', async () => {
+      const { attachmentService, createAttachment, removeAttachment } =
+        makeMockAttachmentService();
+
+      const created = await createBadgeType(
+        { ...manualInput, iconImageFile: makeFakeUploadFile('old-icon.png') },
+        createdBy,
+        makeTestCrowi(attachmentService),
+      );
+      const previousAttachmentId = created.iconAttachment;
+      expect(previousAttachmentId).not.toBeNull();
+
+      createAttachment.mockClear();
+
+      const updated = await updateBadgeType(
+        created._id.toString(),
+        { iconImageFile: makeFakeUploadFile('replacement-icon.png') },
+        makeTestCrowi(attachmentService),
+        createdBy,
+      );
+
+      expect(createAttachment).toHaveBeenCalledTimes(1);
+      // Deletion must be scoped to the ID this BadgeType itself previously
+      // held — never a broader `attachmentType`-only query (that pattern
+      // belongs to the BRAND_LOGO singleton, not to BadgeType).
+      expect(removeAttachment).toHaveBeenCalledTimes(1);
+      expect(removeAttachment).toHaveBeenCalledWith(previousAttachmentId);
+
+      expect(updated.iconAttachment?.toString()).not.toBe(
+        previousAttachmentId?.toString(),
+      );
+
+      const persisted = await BadgeType.findById(created._id);
+      expect(persisted?.iconAttachment?.toString()).toBe(
+        updated.iconAttachment?.toString(),
+      );
+    });
+
+    it('re-uploading an image for one BadgeType does not affect another BadgeType own independent image icon (critical regression: no delete-by-attachmentType)', async () => {
+      const { attachmentService, removeAttachment } =
+        makeMockAttachmentService();
+
+      const first = await createBadgeType(
+        {
+          ...manualInput,
+          name: 'First Badge',
+          iconImageFile: makeFakeUploadFile('first-original.png'),
+        },
+        createdBy,
+        makeTestCrowi(attachmentService),
+      );
+      const second = await createBadgeType(
+        {
+          ...manualInput,
+          name: 'Second Badge',
+          iconImageFile: makeFakeUploadFile('second-original.png'),
+        },
+        createdBy,
+        makeTestCrowi(attachmentService),
+      );
+      const secondAttachmentIdBeforeReupload = second.iconAttachment;
+
+      // Re-upload a new image for the FIRST BadgeType only.
+      await updateBadgeType(
+        first._id.toString(),
+        { iconImageFile: makeFakeUploadFile('first-replacement.png') },
+        makeTestCrowi(attachmentService),
+        createdBy,
+      );
+
+      // The second BadgeType's own attachment id must never have been
+      // passed to removeAttachment.
+      expect(removeAttachment).not.toHaveBeenCalledWith(
+        secondAttachmentIdBeforeReupload,
+      );
+
+      // And its DB-persisted iconAttachment must be completely untouched.
+      const persistedSecond = await BadgeType.findById(second._id);
+      expect(persistedSecond?.iconAttachment?.toString()).toBe(
+        secondAttachmentIdBeforeReupload?.toString(),
+      );
+      expect(persistedSecond?.iconType).toBe('image');
+    });
+
+    it('rejects an update with iconImageFile when no uploadedBy actor is supplied', async () => {
+      const { attachmentService, createAttachment } =
+        makeMockAttachmentService();
+      const created = await createBadgeType(
+        manualInput,
+        createdBy,
+        makeTestCrowi(),
+      );
+
+      await expect(
+        updateBadgeType(
+          created._id.toString(),
+          { iconImageFile: makeFakeUploadFile() },
+          makeTestCrowi(attachmentService),
+          // uploadedBy intentionally omitted
+        ),
+      ).rejects.toThrow(BadgeTypeValidationError);
+
+      expect(createAttachment).not.toHaveBeenCalled();
     });
   });
 });

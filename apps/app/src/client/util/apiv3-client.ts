@@ -70,6 +70,13 @@ export async function apiv3Put<T = any>(
   return apiv3Request('put', path, params);
 }
 
+export async function apiv3PutForm<T = any>(
+  path: string,
+  formData: FormData,
+): Promise<AxiosResponse<T>> {
+  return apiv3Request('putForm', path, formData);
+}
+
 export async function apiv3Delete<T = any>(
   path: string,
   params: unknown = {},

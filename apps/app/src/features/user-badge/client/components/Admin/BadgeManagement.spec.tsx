@@ -8,11 +8,15 @@ import { BadgeManagement } from './BadgeManagement';
 // --- module mocks ------------------------------------------------------------
 
 const apiv3Post = vi.hoisted(() => vi.fn());
+const apiv3PostForm = vi.hoisted(() => vi.fn());
 const apiv3Put = vi.hoisted(() => vi.fn());
+const apiv3PutForm = vi.hoisted(() => vi.fn());
 const apiv3Delete = vi.hoisted(() => vi.fn());
 vi.mock('~/client/util/apiv3-client', () => ({
   apiv3Post,
+  apiv3PostForm,
   apiv3Put,
+  apiv3PutForm,
   apiv3Delete,
 }));
 
@@ -96,7 +100,9 @@ const badgeTypeB: IBadgeTypeHasId = {
 
 beforeEach(() => {
   apiv3Post.mockReset();
+  apiv3PostForm.mockReset();
   apiv3Put.mockReset();
+  apiv3PutForm.mockReset();
   apiv3Delete.mockReset();
   toastSuccess.mockReset();
   toastError.mockReset();
@@ -156,10 +162,63 @@ describe('BadgeManagement', () => {
         name: 'New Badge',
         description: 'A brand new badge',
         iconKey: 'star',
+        iconType: 'materialSymbol',
         category: 'manual',
         levels: [],
       });
     });
+
+    expect(mutateBadgeTypes).toHaveBeenCalled();
+  });
+
+  it('creates a badge type with an image icon: selecting image upload and choosing a file submits multipart/form-data to the badge-types endpoint (task 13.3)', async () => {
+    const user = userEvent.setup();
+    apiv3PostForm.mockResolvedValue({
+      data: { badgeType: { ...badgeTypeB, _id: 'badge-type-3' } },
+    });
+
+    render(<BadgeManagement />);
+
+    await user.click(screen.getByText('badge_management.create_badge_type'));
+    const dialog = await screen.findByRole('dialog');
+
+    await user.type(
+      within(dialog).getByLabelText('badge_management.name'),
+      'Image Badge',
+    );
+    await user.type(
+      within(dialog).getByLabelText('Description'),
+      'Has an image icon',
+    );
+    await user.selectOptions(
+      within(dialog).getByLabelText('badge_management.category'),
+      'manual',
+    );
+    await user.click(
+      within(dialog).getByLabelText('badge_management.icon_type_image'),
+    );
+
+    const file = new File(['icon-bytes'], 'icon.png', { type: 'image/png' });
+    await user.upload(
+      within(dialog).getByLabelText('badge_management.icon_image_file'),
+      file,
+    );
+
+    await user.click(within(dialog).getByText('Create'));
+
+    await waitFor(() => {
+      expect(apiv3PostForm).toHaveBeenCalledTimes(1);
+    });
+    expect(apiv3Post).not.toHaveBeenCalled();
+
+    const [path, formData] = apiv3PostForm.mock.calls[0];
+    expect(path).toBe('/badge-types');
+    expect(formData).toBeInstanceOf(FormData);
+    expect(formData.get('name')).toBe('Image Badge');
+    expect(formData.get('description')).toBe('Has an image icon');
+    expect(formData.get('iconType')).toBe('image');
+    expect(formData.get('category')).toBe('manual');
+    expect(formData.get('file')).toBe(file);
 
     expect(mutateBadgeTypes).toHaveBeenCalled();
   });

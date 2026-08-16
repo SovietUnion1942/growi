@@ -2,7 +2,11 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'next-i18next';
 
-import type { BadgeCategory, IBadgeLevel } from '../../../interfaces/badge';
+import type {
+  BadgeCategory,
+  BadgeIconType,
+  IBadgeLevel,
+} from '../../../interfaces/badge';
 import type { IBadgeTypeHasId } from '../../stores/badge-type';
 
 /**
@@ -11,11 +15,20 @@ import type { IBadgeTypeHasId } from '../../stores/badge-type';
  * `BadgeManagement.tsx`'s `updateBadgeType` handler, which drops it before
  * calling `PUT /badge-types/:id`, matching the route's validator which does
  * not accept `category` on update).
+ *
+ * `iconType` selects how `iconKey` is interpreted (Material Symbols name /
+ * emoji) or, when `'image'`, that an uploaded file should be used instead
+ * (requirement 6.1). `iconImageFile` is only populated when `iconType`
+ * is `'image'` and a file has been selected; callers (`BadgeManagement.tsx`)
+ * use its presence to decide whether to submit as multipart/form-data to
+ * the task-13.3 upload endpoint instead of a JSON body.
  */
 export type BadgeTypeFormValues = {
   name: string;
   description: string;
   iconKey: string;
+  iconType: BadgeIconType;
+  iconImageFile?: File;
   category: BadgeCategory;
   levels: IBadgeLevel[];
 };
@@ -53,6 +66,10 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
   const descriptionId = `${formId}-description`;
   const iconKeyId = `${formId}-icon-key`;
   const categoryId = `${formId}-category`;
+  const iconTypeMaterialSymbolId = `${formId}-icon-type-material-symbol`;
+  const iconTypeEmojiId = `${formId}-icon-type-emoji`;
+  const iconTypeImageId = `${formId}-icon-type-image`;
+  const iconImageFileId = `${formId}-icon-image-file`;
 
   /*
    * State
@@ -63,6 +80,12 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
   );
   const [currentIconKey, setIconKey] = useState<string>(
     badgeType?.iconKey ?? '',
+  );
+  const [currentIconType, setIconType] = useState<BadgeIconType>(
+    badgeType?.iconType ?? 'materialSymbol',
+  );
+  const [currentIconImageFile, setIconImageFile] = useState<File | undefined>(
+    undefined,
   );
   const [currentCategory, setCategory] = useState<BadgeCategory>(
     badgeType?.category ?? 'automatic',
@@ -77,6 +100,8 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
       setName(badgeType.name);
       setDescription(badgeType.description);
       setIconKey(badgeType.iconKey);
+      setIconType(badgeType.iconType ?? 'materialSymbol');
+      setIconImageFile(undefined);
       setCategory(badgeType.category);
       setLevels(toLevelRows(badgeType.levels));
     }
@@ -97,8 +122,33 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
     setIconKey(e.target.value);
   }, []);
 
+  const onChangeIconTypeHandler = useCallback((e) => {
+    const nextIconType = e.target.value as BadgeIconType;
+    setIconType(nextIconType);
+    // The file input and the iconKey text input are mutually-exclusive
+    // representations (see design constraints) — dropping a previously
+    // selected file when switching away from 'image' keeps the discarded
+    // input from silently resurfacing on a later re-selection of 'image'.
+    if (nextIconType !== 'image') {
+      setIconImageFile(undefined);
+    }
+  }, []);
+
+  const onChangeIconImageFileHandler = useCallback((e) => {
+    setIconImageFile(e.target.files?.[0]);
+  }, []);
+
   const onChangeCategoryHandler = useCallback((e) => {
-    setCategory(e.target.value as BadgeCategory);
+    const nextCategory = e.target.value as BadgeCategory;
+    setCategory(nextCategory);
+    // Requirement 6.1a: 'image' is only a valid iconType for manual badges.
+    // Proactively reset to a non-image default when switching to
+    // 'automatic' so an invalid combination is never submitted, rather than
+    // relying on the server's 400 (task 13.1's schema validation).
+    if (nextCategory === 'automatic') {
+      setIconType((prev) => (prev === 'image' ? 'materialSymbol' : prev));
+      setIconImageFile(undefined);
+    }
   }, []);
 
   const onAddLevelHandler = useCallback(() => {
@@ -129,6 +179,22 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
     [],
   );
 
+  // Guards a known gap in the update path (task 13.3's PUT /badge-types/:id
+  // route only ever derives `iconType` from an uploaded `file` — it never
+  // reads a plain `iconType` field from the JSON body, unlike
+  // BadgeTypeService.updateBadgeType, which WOULD honor it if the route
+  // forwarded it). Concretely: switching an existing image-icon badge type's
+  // radio to Material Symbols/Emoji and submitting without a new file would
+  // report success while the server silently keeps `iconType: 'image'` and
+  // the old attachment untouched. Block that specific transition client-side
+  // rather than let the admin see a false-success toast; replacing the image
+  // (staying on 'image' with a newly selected file) is unaffected and still
+  // goes through the multipart route, which DOES apply correctly.
+  const isUnsupportedImageTransition =
+    isEditMode &&
+    badgeType?.iconType === 'image' &&
+    currentIconType !== 'image';
+
   const onSubmitHandler = useCallback(
     (e) => {
       e.preventDefault(); // no reload
@@ -139,10 +205,23 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
       }
       setLevelsError(null);
 
+      // Defense in depth: the submit button is already disabled for this
+      // case (see `isUnsupportedImageTransition`), but native Enter-key
+      // submission from a text input can bypass a disabled submit button in
+      // some browsers, so re-check here too.
+      if (isUnsupportedImageTransition) {
+        return;
+      }
+
       onSubmit({
         name: currentName,
         description: currentDescription,
         iconKey: currentIconKey,
+        iconType: currentIconType,
+        ...(currentIconType === 'image' &&
+          currentIconImageFile != null && {
+            iconImageFile: currentIconImageFile,
+          }),
         category: currentCategory,
         levels: currentLevels.map(({ clientId, ...level }) => level),
       });
@@ -153,6 +232,9 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
       currentName,
       currentDescription,
       currentIconKey,
+      currentIconType,
+      currentIconImageFile,
+      isUnsupportedImageTransition,
       onSubmit,
       t,
     ],
@@ -192,20 +274,99 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
       </div>
 
       <div className="mb-3">
-        <label htmlFor={iconKeyId} className="form-label">
-          {t('badge_management.icon_key')}
-        </label>
-        <input
-          id={iconKeyId}
-          className="form-control"
-          type="text"
-          name="iconKey"
-          placeholder={t('badge_management.icon_key_placeholder')}
-          value={currentIconKey}
-          onChange={onChangeIconKeyHandler}
-          required
-        />
+        <span className="form-label d-block">
+          {t('badge_management.icon_type')}
+        </span>
+        <div className="form-check form-check-inline">
+          <input
+            id={iconTypeMaterialSymbolId}
+            className="form-check-input"
+            type="radio"
+            name="iconType"
+            value="materialSymbol"
+            checked={currentIconType === 'materialSymbol'}
+            onChange={onChangeIconTypeHandler}
+          />
+          <label
+            className="form-check-label"
+            htmlFor={iconTypeMaterialSymbolId}
+          >
+            {t('badge_management.icon_type_material_symbol')}
+          </label>
+        </div>
+        <div className="form-check form-check-inline">
+          <input
+            id={iconTypeEmojiId}
+            className="form-check-input"
+            type="radio"
+            name="iconType"
+            value="emoji"
+            checked={currentIconType === 'emoji'}
+            onChange={onChangeIconTypeHandler}
+          />
+          <label className="form-check-label" htmlFor={iconTypeEmojiId}>
+            {t('badge_management.icon_type_emoji')}
+          </label>
+        </div>
+        {/* Requirement 6.1a: the image-upload option only makes sense for
+            manual badges — automatic badges resolve their icon per-level
+            via the level rows' own iconKey inputs below. */}
+        {!isAutomatic && (
+          <div className="form-check form-check-inline">
+            <input
+              id={iconTypeImageId}
+              className="form-check-input"
+              type="radio"
+              name="iconType"
+              value="image"
+              checked={currentIconType === 'image'}
+              onChange={onChangeIconTypeHandler}
+            />
+            <label className="form-check-label" htmlFor={iconTypeImageId}>
+              {t('badge_management.icon_type_image')}
+            </label>
+          </div>
+        )}
+        {isUnsupportedImageTransition && (
+          <p className="text-danger mt-2 mb-0">
+            <small>
+              {t('badge_management.icon_type_image_transition_unsupported')}
+            </small>
+          </p>
+        )}
       </div>
+
+      {currentIconType === 'image' ? (
+        <div className="mb-3" key="icon-image-file">
+          <label htmlFor={iconImageFileId} className="form-label">
+            {t('badge_management.icon_image_file')}
+          </label>
+          <input
+            id={iconImageFileId}
+            className="form-control"
+            type="file"
+            name="file"
+            accept="image/*"
+            onChange={onChangeIconImageFileHandler}
+          />
+        </div>
+      ) : (
+        <div className="mb-3" key="icon-key-text">
+          <label htmlFor={iconKeyId} className="form-label">
+            {t('badge_management.icon_key')}
+          </label>
+          <input
+            id={iconKeyId}
+            className="form-control"
+            type="text"
+            name="iconKey"
+            placeholder={t('badge_management.icon_key_placeholder')}
+            value={currentIconKey}
+            onChange={onChangeIconKeyHandler}
+            required
+          />
+        </div>
+      )}
 
       <div className="mb-3">
         <label htmlFor={categoryId} className="form-label">
@@ -344,7 +505,11 @@ export const BadgeTypeForm: FC<Props> = (props: Props) => {
       )}
 
       <div className="mt-4">
-        <button type="submit" className="btn btn-primary">
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={isUnsupportedImageTransition}
+        >
           {submitButtonLabel}
         </button>
       </div>

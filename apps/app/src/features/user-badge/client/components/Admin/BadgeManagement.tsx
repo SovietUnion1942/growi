@@ -3,7 +3,13 @@ import { useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 
-import { apiv3Delete, apiv3Post, apiv3Put } from '~/client/util/apiv3-client';
+import {
+  apiv3Delete,
+  apiv3Post,
+  apiv3PostForm,
+  apiv3Put,
+  apiv3PutForm,
+} from '~/client/util/apiv3-client';
 import { toastError, toastSuccess } from '~/client/util/toastr';
 
 import type { IBadgeTypeHasId } from '../../stores/badge-type';
@@ -95,13 +101,36 @@ export const BadgeManagement: FC = () => {
   const createBadgeType = useCallback(
     async (values: BadgeTypeFormValues) => {
       try {
-        await apiv3Post('/badge-types', {
-          name: values.name,
-          description: values.description,
-          iconKey: values.iconKey,
-          category: values.category,
-          levels: values.levels,
-        });
+        // When an image icon file is attached (requirement 6.1, task 13.3's
+        // multipart endpoint), submit as multipart/form-data so the
+        // server's `multer` middleware (`uploads.single('file')`) can parse
+        // it; otherwise submit the usual JSON body.
+        if (values.iconImageFile != null) {
+          // `levels` is intentionally omitted here: an image iconType is
+          // only reachable for manual badges (BadgeTypeForm resets it back
+          // on switching to automatic), and manual badges always have an
+          // empty `levels` array, which the create route already defaults
+          // to when the field is absent (`levels = []` in badge-type.ts).
+          // A JSON-stringified array wouldn't survive multipart/form-data
+          // as a real array for the route's `isArray()` validator anyway.
+          const formData = new FormData();
+          formData.append('name', values.name);
+          formData.append('description', values.description);
+          formData.append('iconKey', values.iconKey);
+          formData.append('iconType', values.iconType);
+          formData.append('category', values.category);
+          formData.append('file', values.iconImageFile);
+          await apiv3PostForm('/badge-types', formData);
+        } else {
+          await apiv3Post('/badge-types', {
+            name: values.name,
+            description: values.description,
+            iconKey: values.iconKey,
+            iconType: values.iconType,
+            category: values.category,
+            levels: values.levels,
+          });
+        }
 
         toastSuccess(
           t('toaster.update_successed', {
@@ -130,13 +159,26 @@ export const BadgeManagement: FC = () => {
       try {
         // `category` is intentionally omitted: it is immutable after
         // creation (see BadgeTypeForm's disabled select in edit mode) and
-        // the `PUT /badge-types/:id` route does not accept it.
-        await apiv3Put(`/badge-types/${selectedBadgeType._id}`, {
-          name: values.name,
-          description: values.description,
-          iconKey: values.iconKey,
-          levels: values.levels,
-        });
+        // the `PUT /badge-types/:id` route does not accept it. Likewise
+        // `iconType` is not sent as a plain field: the update route only
+        // ever derives it from an uploaded `file` (task 13.3's
+        // `saveIconImage`) and otherwise leaves the existing `iconType`
+        // untouched, so a non-image selection here has nothing new to send.
+        if (values.iconImageFile != null) {
+          const formData = new FormData();
+          formData.append('name', values.name);
+          formData.append('description', values.description);
+          formData.append('iconKey', values.iconKey);
+          formData.append('file', values.iconImageFile);
+          await apiv3PutForm(`/badge-types/${selectedBadgeType._id}`, formData);
+        } else {
+          await apiv3Put(`/badge-types/${selectedBadgeType._id}`, {
+            name: values.name,
+            description: values.description,
+            iconKey: values.iconKey,
+            levels: values.levels,
+          });
+        }
 
         toastSuccess(
           t('toaster.update_successed', {

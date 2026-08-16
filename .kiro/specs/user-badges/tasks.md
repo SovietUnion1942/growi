@@ -307,7 +307,7 @@
   - `revision.author` の `badgeSummaryCached` を配線する。`renderSimplifiedNodiff`/`renderFull` の両方の描画分岐に適用する
   - 編集履歴一覧で各リビジョンの投稿者アバター横にバッジが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 15.4 `CommentEditor.tsx`(コメント投稿者自身のアバター)への配線
+- [x] 15.4 `CommentEditor.tsx`(コメント投稿者自身のアバター)への配線
   - `useCurrentUser()` で取得する自分自身のユーザー情報の `badgeSummaryCached` を配線する。`CommentEditor`/`CommentEditorPre` の両方に適用する
   - コメント入力中に自分のバッジがアバター横に表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_

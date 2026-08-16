@@ -26,6 +26,14 @@
   }
 }
 
+.user-picture-badge-icon-image {
+  width: 1em;
+  height: 1em;
+  object-fit: cover;
+  vertical-align: middle;
+  border-radius: 50%;
+}
+
 .user-picture-tooltip {
   --bs-tooltip-margin: 12px 0 0 0;
 

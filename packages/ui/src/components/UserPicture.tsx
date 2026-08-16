@@ -18,6 +18,7 @@ import styles from './UserPicture.module.scss';
 
 const moduleClass = styles['user-picture'];
 const moduleTooltipClass = styles['user-picture-tooltip'];
+const moduleBadgeIconImageClass = styles['user-picture-badge-icon-image'];
 
 const UncontrolledTooltip = dynamic<UncontrolledTooltipProps>(
   () => import('reactstrap').then((mod) => mod.UncontrolledTooltip),
@@ -154,6 +155,20 @@ const hasProfileImage = (
  */
 export type UserPictureBadge = {
   iconKey: string;
+  /**
+   * Discriminates how to render the badge's icon. When `'image'`, the icon
+   * is rendered as an `<img src={iconUrl}>` instead of via `iconKey`
+   * (requirement 6.5). Optional -- and defaults to the pre-existing
+   * emoji/Material-Symbols rendering derived from `iconKey` -- because many
+   * existing call sites and tests still construct `UserPictureBadge`
+   * objects without it.
+   */
+  iconType?: 'materialSymbol' | 'emoji' | 'image';
+  /**
+   * The image URL to render when `iconType === 'image'`. Optional/nullable
+   * since it is only meaningful for image-type badges.
+   */
+  iconUrl?: string | null;
   name: string;
   level: number | null;
   /**
@@ -255,7 +270,14 @@ export const UserPicture = memo((userProps: Props): JSX.Element => {
               // biome-ignore lint/a11y/noNoninteractiveTabindex: role="img" is correct here (this is content, not a control); tabIndex only makes the badge keyboard-focusable so its tooltip's "focus" trigger (requirement 4.5) is actually reachable without a mouse.
               tabIndex={0}
             >
-              {isEmojiIconKey(badge.iconKey) ? (
+              {badge.iconType === 'image' ? (
+                // biome-ignore lint/performance/noImgElement: ignore
+                <img
+                  src={badge.iconUrl ?? undefined}
+                  alt=""
+                  className={moduleBadgeIconImageClass}
+                />
+              ) : isEmojiIconKey(badge.iconKey) ? (
                 badge.iconKey
               ) : (
                 <span className="material-symbols-outlined">

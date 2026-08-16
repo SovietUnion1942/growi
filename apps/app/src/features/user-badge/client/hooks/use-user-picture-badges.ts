@@ -17,6 +17,17 @@ import { useSWRxBadgeTypeCatalog } from '../stores/badge-type-catalog';
 export type UserPictureBadgeSource = {
   badgeType: string;
   iconKey: string;
+  /**
+   * Mirrors `IUserBadgeSummaryEntry.iconType` (`packages/core`, added by
+   * task 13.4). Optional so existing callers/tests that predate image-icon
+   * badges (task 13) keep constructing sources without it.
+   */
+  iconType?: 'materialSymbol' | 'emoji' | 'image';
+  /**
+   * Mirrors `IUserBadgeSummaryEntry.iconUrl`. Only meaningful when
+   * `iconType === 'image'`.
+   */
+  iconUrl?: string | null;
   name: string;
   level: number | null;
 };
@@ -55,18 +66,22 @@ export const useUserPictureBadges = (
       (catalog ?? []).map((entry) => [entry._id, entry.description]),
     );
 
-    return badgeSummary.map(({ badgeType, iconKey, name, level }) => {
-      const description = descriptionByBadgeTypeId.get(badgeType);
-      return {
-        iconKey,
-        name,
-        level,
-        ...(description != null
-          ? { description }
-          : isLoading
-            ? { description: t('badge.description_loading') }
-            : {}),
-      };
-    });
+    return badgeSummary.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => {
+        const description = descriptionByBadgeTypeId.get(badgeType);
+        return {
+          iconKey,
+          ...(iconType != null ? { iconType } : {}),
+          ...(iconUrl !== undefined ? { iconUrl } : {}),
+          name,
+          level,
+          ...(description != null
+            ? { description }
+            : isLoading
+              ? { description: t('badge.description_loading') }
+              : {}),
+        };
+      },
+    );
   }, [badgeSummary, catalog, isLoading, t]);
 };

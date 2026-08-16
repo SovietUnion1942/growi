@@ -52,7 +52,10 @@ vi.mock('./CommentEditor', () => ({
   CommentEditor: () => <div data-testid="mock-comment-editor" />,
 }));
 
-import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
+import {
+  makeBadgeSummaryFixture,
+  makeImageBadgeSummaryFixture,
+} from '~/features/user-badge/test-utils/badge-summary-fixture';
 
 import { Comment } from './Comment';
 
@@ -114,5 +117,21 @@ describe('Comment', () => {
     renderComment(baseComment);
 
     expect(screen.queryByTestId('user-picture-badge')).not.toBeInTheDocument();
+  });
+
+  it('renders an <img> icon (task 13.8, requirement 6.5) when the creator has an image-icon badge', () => {
+    const comment = {
+      ...baseComment,
+      creator: {
+        ...baseCreator,
+        badgeSummaryCached: makeImageBadgeSummaryFixture(),
+      },
+    } as unknown as ICommentHasId;
+
+    renderComment(comment);
+
+    const badge = screen.getByTestId('user-picture-badge');
+    const img = badge.querySelector('img');
+    expect(img).toHaveAttribute('src', '/attachment/badge-icon-attachment-1');
   });
 });

@@ -26,9 +26,11 @@ export const UserInfo = (props: UserInfoProps): JSX.Element => {
   // match `UserPictureBadgeSource.badgeType: string`.
   const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
     return author?.badgeSummaryCached?.map(
-      ({ badgeType, iconKey, name, level }) => ({
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
         badgeType: String(badgeType),
         iconKey,
+        iconType,
+        iconUrl,
         name,
         level,
       }),

@@ -210,7 +210,7 @@
   - _Requirements: 4.1, 4.4, 4.5_
   - _Depends: 12.2, 12.3, 12.4_
 
-- [ ] 13. Feature: バッジアイコンの画像アップロード対応(手動区分バッジのみ)
+- [x] 13. Feature: バッジアイコンの画像アップロード対応(手動区分バッジのみ)
 - [x] 13.1 `AttachmentType.BADGE_ICON` の追加と `BadgeType` モデルの拡張
   - `apps/app/src/server/interfaces/attachment.ts` の `AttachmentType` に `BADGE_ICON` を追加する
   - `BadgeType` スキーマに `iconType: 'materialSymbol' | 'emoji' | 'image'`(デフォルト `'materialSymbol'`)と `iconAttachment: ObjectId | null`(ref Attachment, デフォルト `null`)を追加する
@@ -265,7 +265,7 @@
   - _Requirements: 6.5_
   - _Depends: 13.4_
 
-- [ ] 13.8 画像アイコン機能に関する統合テスト
+- [x] 13.8 画像アイコン機能に関する統合テスト
   - 管理画面で手動区分バッジ種類に画像をアップロードして作成 → そのバッジをユーザーへ手動付与 → プロフィールヘッダー/サイドバー/コメント投稿者(タスク12で配線済みの3箇所)・ユーザーページのバッジ一覧のいずれでも画像アイコンが表示されることを一気通貫で確認する
   - 自動区分のバッジ種類作成時に画像アップロードを試みると拒否されることを確認する
   - _Requirements: 6.1, 6.1a, 6.2, 6.3, 6.4, 6.5_
@@ -289,3 +289,4 @@
 - Mongoose silently strips any field not declared in a subdocument (embedded array) schema on save -- adding a field to a TypeScript interface (`IUserBadgeSummaryEntry`) does NOT make it persist if the corresponding Mongoose subdocument schema (`apps/app/src/server/models/user/index.js`'s `badgeSummaryCached` array schema) doesn't also declare it. Discovered in task 13.4 when `iconType`/`iconUrl` were added to the interface but silently vanished from the persisted document until the subdocument schema itself was updated to declare them. Any future field addition to `IUserBadgeSummaryEntry` must be mirrored in that Mongoose schema, and the only way to catch a missed mirror is to assert on DB-refetched state (`User.findById(...)`), never on the in-memory object passed into the save call.
 - `@growi/core`'s TypeScript changes are invisible to `apps/app` until `packages/core` is rebuilt (`apps/app` resolves `@growi/core` via its published `exports`/`dist/` output, not `src/`) -- editing `packages/core/src/interfaces/*.ts` requires an explicit `pnpm run build` in `packages/core` (or a `turbo run build --filter @growi/core`) before `apps/app`'s typecheck will see the new fields.
 - **KNOWN GAP (client-side blocked, not server-fixed)**: `PUT /badge-types/:id` (task 13.3) never reads a plain `iconType` field from the JSON request body -- it only ever derives `iconType`/`iconAttachment` from an uploaded `file` (multipart). `BadgeTypeService.updateBadgeType` (task 13.2) WOULD honor a plain `iconType` field if the route forwarded it (it spreads the rest of the input into `$set`), so this is a route-layer gap, not a service-layer one. Task 13.6 discovered and blocked the resulting UX bug client-side (`isUnsupportedImageTransition` in `BadgeTypeForm.tsx` disables submission when an admin tries to switch an existing image-icon badge away from `'image'` without attaching a replacement image) rather than fixing the route, since the route was outside 13.6's declared boundary. If a future task needs to let admins switch an existing badge FROM an image icon BACK TO Material Symbols/emoji without also uploading a new image, the route must be updated to forward a plain `iconType` field on update, and the client-side block in `BadgeTypeForm.tsx` should be removed at that point.
+- Task 13.8 (writing the final end-to-end integration test for the whole task-13 group) found a real, previously-undetected production bug in already-shipped task-12 code: `UserInfo.tsx`/`Comment.tsx`/`RecentChangesSubstance.tsx` (all task 12) destructured only `{ badgeType, iconKey, name, level }` when mapping `badgeSummaryCached` entries into `useUserPictureBadges`'s input, permanently dropping the `iconType`/`iconUrl` fields task 13.4/13.5 added to `IUserBadgeSummaryEntry`/the hook. Task 12's own tests never caught this because they only ever exercised non-image (materialSymbol/emoji) badge fixtures -- there was no image-icon test data in existence yet at the time task 12 was reviewed and shipped. Fixed via a 2-field addition to each of the 3 existing destructure/mapping expressions (surgical, zero behavior change for non-image badges, verified via RED->GREEN mutation testing during 13.8's review). Lesson: when a later task adds new fields to a shared data-shape (`IUserBadgeSummaryEntry` here), grep for EVERY existing consumer that maps/destructures that shape, not just the ones in the current task's own file list -- an old consumer written before the new field existed will silently drop it forever if nobody goes back and checks.

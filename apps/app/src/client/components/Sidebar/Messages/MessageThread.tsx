@@ -1,12 +1,18 @@
-import { type JSX, useCallback, useEffect, useState } from 'react';
+import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
+import { UserPicture } from '@growi/ui/dist/components';
 import { mutate as mutateGlobal } from 'swr';
 
+import {
+  type UserPictureBadgeSource,
+  useUserPictureBadges,
+} from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import { SocketEventName } from '~/interfaces/websocket';
 import { useCurrentUser } from '~/states/global';
 import { useGlobalSocket } from '~/states/socket-io';
 import {
   CONVERSATIONS_SWR_KEY,
   type IConversation,
+  type IMessage,
   markConversationAsRead,
   sendMessage,
   useSWRxMessages,
@@ -14,6 +20,80 @@ import {
 
 type Props = {
   conversation: IConversation;
+};
+
+type MessageItemProps = {
+  message: IMessage;
+  isMine: boolean;
+  isFirstOfRun: boolean;
+};
+
+/**
+ * Renders a single message bubble, including the sender's avatar/name (shown
+ * only at the start of a run of consecutive messages from the same person).
+ *
+ * `useUserPictureBadges` is a hook, so it cannot be called directly inside
+ * `MessageThread`'s `.map()` callback over `messages` (that would call a
+ * hook a variable number of times per render, violating the Rules of
+ * Hooks -- same reasoning as `UserPictureListItem.jsx`). Extracting one
+ * message bubble into its own component makes each call site a proper
+ * component instance.
+ */
+const MessageItem = ({
+  message,
+  isMine,
+  isFirstOfRun,
+}: MessageItemProps): JSX.Element => {
+  // `IUserBadgeSummaryEntry.badgeType` (packages/core) is typed as
+  // `Types.ObjectId` for the server-side Mongoose model, but by the time it
+  // reaches this client component (via API JSON serialization) it is
+  // actually a string; normalize explicitly to match
+  // `UserPictureBadgeSource.badgeType: string`.
+  const badgeSummary = useMemo<UserPictureBadgeSource[] | undefined>(() => {
+    return message.sender.badgeSummaryCached?.map(
+      ({ badgeType, iconKey, iconType, iconUrl, name, level }) => ({
+        badgeType: String(badgeType),
+        iconKey,
+        iconType,
+        iconUrl,
+        name,
+        level,
+      }),
+    );
+  }, [message.sender.badgeSummaryCached]);
+
+  const badges = useUserPictureBadges(badgeSummary);
+
+  return (
+    <li className="mb-2">
+      {!isMine && isFirstOfRun && (
+        <div className="d-flex align-items-center mb-1">
+          <UserPicture user={message.sender} size="sm" badges={badges} />
+          <span className="small text-muted ms-2">
+            {message.sender.name ?? message.sender.username}
+          </span>
+        </div>
+      )}
+      <div
+        className={`d-flex ${isMine ? 'justify-content-end' : 'justify-content-start'}`}
+      >
+        <div
+          className={
+            isMine ? 'bg-primary text-white' : 'bg-body-tertiary border'
+          }
+          style={{
+            maxWidth: '75%',
+            padding: '0.5rem 0.75rem',
+            wordBreak: 'break-word',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+            borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          }}
+        >
+          {message.body}
+        </div>
+      </div>
+    </li>
+  );
 };
 
 export const MessageThread = (props: Props): JSX.Element => {
@@ -119,47 +199,12 @@ export const MessageThread = (props: Props): JSX.Element => {
               messages[index - 1].sender._id !== message.sender._id;
 
             return (
-              <li key={message._id} className="mb-2">
-                {!isMine && isFirstOfRun && (
-                  <div className="d-flex align-items-center mb-1">
-                    <img
-                      src={
-                        message.sender.imageUrlCached ??
-                        '/images/icons/user.svg'
-                      }
-                      alt={message.sender.name}
-                      className="rounded-circle me-2"
-                      width={20}
-                      height={20}
-                    />
-                    <span className="small text-muted">
-                      {message.sender.name ?? message.sender.username}
-                    </span>
-                  </div>
-                )}
-                <div
-                  className={`d-flex ${isMine ? 'justify-content-end' : 'justify-content-start'}`}
-                >
-                  <div
-                    className={
-                      isMine
-                        ? 'bg-primary text-white'
-                        : 'bg-body-tertiary border'
-                    }
-                    style={{
-                      maxWidth: '75%',
-                      padding: '0.5rem 0.75rem',
-                      wordBreak: 'break-word',
-                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-                      borderRadius: isMine
-                        ? '16px 16px 4px 16px'
-                        : '16px 16px 16px 4px',
-                    }}
-                  >
-                    {message.body}
-                  </div>
-                </div>
-              </li>
+              <MessageItem
+                key={message._id}
+                message={message}
+                isMine={isMine}
+                isFirstOfRun={isFirstOfRun}
+              />
             );
           })}
         </ul>

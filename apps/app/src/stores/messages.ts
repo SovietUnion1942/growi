@@ -1,3 +1,4 @@
+import type { IUserBadgeSummaryEntry } from '@growi/core';
 import useSWR, { type SWRResponse } from 'swr';
 import useSWRInfinite, { type SWRInfiniteResponse } from 'swr/infinite';
 
@@ -10,6 +11,15 @@ export type IConversationParticipant = {
   username: string;
   name: string;
   imageUrlCached?: string;
+  /**
+   * Sole writer: features/user-badge's `BadgeGrantService` (see
+   * `IUser.badgeSummaryCached`, `packages/core`). The backend already
+   * returns this via `serializeUserSecurely` (a blocklist that only strips
+   * `password`/`apiToken`/`email`), so no server-side change is needed --
+   * this is purely closing a type-definition gap so `MessageThread.tsx` can
+   * read it off `message.sender`.
+   */
+  badgeSummaryCached?: IUserBadgeSummaryEntry[];
 };
 
 export type ConversationType = 'direct' | 'group' | 'broadcast';

@@ -316,7 +316,7 @@
   - `UserPictureList.jsx` の他の呼び出し元(バッジを渡さない場合)の見た目が変化しないことを確認できる(既存呼び出し元は後方互換)
   - ページの閲覧済みユーザー一覧で、バッジを保有するユーザーにバッジアイコンが表示されることを確認できる
   - _Requirements: 4.1, 4.4, 4.5_
-- [ ] 15.6 `MessageThread.tsx`(DMチャットの発言者)への配線
+- [x] 15.6 `MessageThread.tsx`(DMチャットの発言者)への配線
   - `apps/app/src/stores/messages.ts` の `IConversationParticipant` に `badgeSummaryCached` を追加する(バックエンドは既に `serializeUserSecurely` 経由で値を返しているため、追加のサーバー側変更は不要 -- 型定義のみのギャップ)
   - `MessageThread.tsx` の手書きの `<img>`/`<span>` によるアバター・名前描画を `UserPicture`(`badges` prop込み)に置き換える
   - チャットのメッセージ一覧で、発言者がバッジを保有している場合にバッジアイコンが表示されることを確認できる

@@ -41,24 +41,50 @@ const groupByBadgeType = (userBadges: IUserBadgeHasId[]): BadgeGroup[] => {
   return Array.from(groups.values());
 };
 
+type EntryDisplay = {
+  name: string;
+  iconKey: string;
+  // Per-level image icons are out of scope (design.md/task 13.1): only
+  // `category: 'manual'` BadgeTypes may have `iconType: 'image'`, so this is
+  // always resolved from `badgeType` itself, regardless of `level`.
+  iconType: IBadgeTypeHasId['iconType'];
+  iconUrl?: string;
+};
+
 /**
  * Resolves the display name/icon for a single grant. For an automatic
  * badge (`level` set), the level's own name/icon is used when found in
  * `badgeType.levels`; for a manual badge (`level: null`), the badge type's
- * own name/icon is used.
+ * own name/icon is used. `iconType`/`iconUrl` are always resolved from the
+ * `badgeType` itself: manual badges have no `levelDef`, so the existing
+ * `?? badgeType.iconKey` fallback already routes through the type-level
+ * fields naturally -- no extra resolution logic is needed here.
  */
-const resolveEntryDisplay = (
-  userBadge: IUserBadgeHasId,
-): { name: string; iconKey: string } => {
+const resolveEntryDisplay = (userBadge: IUserBadgeHasId): EntryDisplay => {
   const { badgeType, level } = userBadge;
+  // Same `/attachment/:id` URL shape `Attachment.filePathProxied` produces
+  // server-side (`apps/app/src/server/models/attachment.ts`), reconstructed
+  // client-side from the passed-through `iconAttachment` id.
+  const iconUrl =
+    badgeType.iconType === 'image' && badgeType.iconAttachment != null
+      ? `/attachment/${badgeType.iconAttachment}`
+      : undefined;
+
   if (level != null) {
     const levelDef = badgeType.levels.find((l) => l.level === level);
     return {
       name: levelDef?.name ?? badgeType.name,
       iconKey: levelDef?.iconKey ?? badgeType.iconKey,
+      iconType: badgeType.iconType,
+      iconUrl,
     };
   }
-  return { name: badgeType.name, iconKey: badgeType.iconKey };
+  return {
+    name: badgeType.name,
+    iconKey: badgeType.iconKey,
+    iconType: badgeType.iconType,
+    iconUrl,
+  };
 };
 
 // Same heuristic as `packages/ui/src/components/UserPicture.tsx`'s
@@ -97,7 +123,8 @@ export const BadgeShelf: FC<Props> = ({ userId }: Props) => {
           className="grw-badge-shelf-group"
         >
           {group.entries.map((userBadge) => {
-            const { name, iconKey } = resolveEntryDisplay(userBadge);
+            const { name, iconKey, iconType, iconUrl } =
+              resolveEntryDisplay(userBadge);
             return (
               <div
                 key={userBadge._id}
@@ -105,7 +132,10 @@ export const BadgeShelf: FC<Props> = ({ userId }: Props) => {
                 className="grw-badge-shelf-entry d-flex align-items-center"
               >
                 <span className="grw-badge-shelf-entry-icon">
-                  {isEmojiIconKey(iconKey) ? (
+                  {iconType === 'image' ? (
+                    // biome-ignore lint/performance/noImgElement: plain profile-page thumbnail, not a Next.js page image.
+                    <img src={iconUrl} alt="" />
+                  ) : isEmojiIconKey(iconKey) ? (
                     iconKey
                   ) : (
                     <span className="material-symbols-outlined">{iconKey}</span>

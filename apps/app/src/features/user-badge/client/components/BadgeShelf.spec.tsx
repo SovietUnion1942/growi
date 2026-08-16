@@ -81,6 +81,30 @@ const manualGrant: IUserBadgeHasId = {
   note: 'Great work',
 };
 
+const imageBadgeType: IBadgeTypeHasId = {
+  _id: 'badge-type-image',
+  name: 'Mentor',
+  description: 'Mentored a newcomer',
+  iconType: 'image',
+  iconKey: '',
+  iconAttachment: 'attachment-9',
+  category: 'manual',
+  levels: [],
+  isDeleted: false,
+  deletedAt: null,
+  createdBy: 'admin-1',
+};
+
+const imageGrant: IUserBadgeHasId = {
+  _id: 'user-badge-4',
+  user: 'user-1',
+  badgeType: imageBadgeType,
+  level: null,
+  grantedAt: '2026-04-01T00:00:00.000Z',
+  grantedBy: 'admin-1',
+  note: null,
+};
+
 beforeEach(() => {
   useSWRxUserBadges.mockReset();
 });
@@ -167,5 +191,29 @@ describe('BadgeShelf', () => {
     expect(manualEntry?.textContent).toContain(
       new Date(manualGrant.grantedAt).toLocaleDateString(),
     );
+  });
+
+  it('renders an <img> thumbnail for a manual badge with an image icon', () => {
+    useSWRxUserBadges.mockReturnValue({
+      data: [manualGrant, imageGrant],
+      isLoading: false,
+      error: undefined,
+    });
+
+    render(<BadgeShelf userId="user-1" />);
+
+    const imageEntry = screen
+      .getByText('Mentor')
+      .closest('[data-testid="grw-badge-shelf-entry"]');
+    expect(imageEntry).not.toBeNull();
+    const img = imageEntry?.querySelector('img');
+    expect(img).toHaveAttribute('src', '/attachment/attachment-9');
+    expect(imageEntry?.querySelector('.material-symbols-outlined')).toBeNull();
+
+    // Unrelated emoji-icon entries render unchanged.
+    const manualEntry = screen
+      .getByText('Community Helper')
+      .closest('[data-testid="grw-badge-shelf-entry"]');
+    expect(manualEntry?.querySelector('img')).toBeNull();
   });
 });

@@ -1,13 +1,12 @@
 import React from 'react';
-import { UserPicture } from '@growi/ui/dist/components';
 import PropTypes from 'prop-types';
+
+import UserPictureListItem from './UserPictureListItem';
 
 export default class UserPictureList extends React.Component {
   render() {
     return this.props.users.map((user) => (
-      <span key={user._id}>
-        <UserPicture user={user} size="xs" />
-      </span>
+      <UserPictureListItem key={user._id} user={user} />
     ));
   }
 }

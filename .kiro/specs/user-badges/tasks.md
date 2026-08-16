@@ -210,6 +210,67 @@
   - _Requirements: 4.1, 4.4, 4.5_
   - _Depends: 12.2, 12.3, 12.4_
 
+- [ ] 13. Feature: バッジアイコンの画像アップロード対応(手動区分バッジのみ)
+- [x] 13.1 `AttachmentType.BADGE_ICON` の追加と `BadgeType` モデルの拡張
+  - `apps/app/src/server/interfaces/attachment.ts` の `AttachmentType` に `BADGE_ICON` を追加する
+  - `BadgeType` スキーマに `iconType: 'materialSymbol' | 'emoji' | 'image'`(デフォルト `'materialSymbol'`)と `iconAttachment: ObjectId | null`(ref Attachment, デフォルト `null`)を追加する
+  - `iconType === 'image'` のとき `iconAttachment` を必須にし、それ以外のとき `null` を強制するスキーマ検証を追加する
+  - `category === 'automatic'` のとき `iconType === 'image'` を拒否するスキーマ検証を追加する(自動区分は画像アイコン非対応)
+  - 不正な組み合わせ(自動区分での画像指定、画像指定なのに `iconAttachment` 未設定)で保存しようとするとバリデーションエラーになることをテストで確認できる
+  - _Requirements: 6.1, 6.1a_
+  - _Depends: 1.2_
+
+- [ ] 13.2 BadgeTypeService への画像アイコン保存・置換ロジック追加
+  - `createBadgeType`/`updateBadgeType` が画像アップロードを受け取った場合、既存の `AttachmentService.createAttachment`(`AttachmentType.BADGE_ICON`)を呼び出して保存する
+  - 既に画像アイコンを持つバッジ種類を再アップロードで更新する場合、そのバッジ種類自身が直前に保持していた `iconAttachment` の `Attachment` のみを削除する(`attachmentType` だけでの絞り込み削除は行わない — ブランドロゴの「サイト全体で1枚」パターンをそのまま流用しない)
+  - 複数のバッジ種類がそれぞれ独立した画像アイコンを持てる(あるバッジ種類への再アップロードが他のバッジ種類の画像に影響しない)ことをテストで確認できる
+  - _Requirements: 6.2, 6.4_
+  - _Boundary: BadgeTypeService_
+  - _Depends: 13.1_
+
+- [ ] 13.3 badge-type apiv3 route への画像アップロードエンドポイント追加
+  - バッジ種類の作成・編集リクエストで画像ファイル(multipart/form-data)を受け取れるようにする(`apiv3/customize-setting.js` の `upload-brand-logo` ルートと同様の multer 設定を再利用する)
+  - 許可されていない MIME 種別のファイルをアップロードすると拒否されることを確認できる(既存の `validateImageContentType` を使用)
+  - 管理者以外がこのエンドポイントを呼ぶと拒否されることを確認できる
+  - _Requirements: 6.2, 6.3, 1.6_
+  - _Boundary: badge-type apiv3 route_
+  - _Depends: 13.2_
+
+- [ ] 13.4 `IUserBadgeSummaryEntry` の拡張と表示用画像URLのキャッシュ
+  - `IUserBadgeSummaryEntry`(`packages/core/src/interfaces/user.ts` と `apps/app/src/features/user-badge/interfaces/badge.ts` の両方、既存の重複を維持)に `iconType`/`iconUrl` を追加する
+  - `badge-grant-service.ts` の `updateBadgeSummaryCached` が、`iconType === 'image'` のバッジについて `Attachment.filePathProxied` を解決し `iconUrl` としてキャッシュするよう拡張する(`iconType !== 'image'` のときは `iconUrl: null`)
+  - 画像アイコンを持つ手動バッジが付与された際、対象ユーザーの `User.badgeSummaryCached` に正しい `iconUrl` が含まれることをテストで確認できる
+  - _Requirements: 6.5_
+  - _Depends: 13.1_
+
+- [ ] 13.5 `UserPicture` への画像アイコン描画対応
+  - `packages/ui/src/components/UserPicture.tsx` の `UserPictureBadge` 型に `iconType`/`iconUrl` を追加する
+  - 既存の `isEmojiIconKey` 判定(絵文字 vs Material Symbols)より先に `iconType === 'image'` を判定し、該当する場合は `<img src={iconUrl}>` で描画する分岐を追加する(既存の絵文字/Material Symbols描画・ツールチップ挙動は変更しない)
+  - 画像アイコンを持つバッジが渡されたとき、アバター横に `<img>` タグでアイコン画像が表示されることを確認できる
+  - _Requirements: 6.5_
+  - _Boundary: UserPicture_
+  - _Depends: 13.4_
+
+- [ ] 13.6 管理画面フォームへのアイコン指定方法切り替えUI追加
+  - `BadgeTypeForm.tsx` に「Material Symbols / 絵文字 / 画像アップロード」の切り替えUIを追加する
+  - 「画像アップロード」の選択肢は `category === 'manual'` のときのみ表示し、`category === 'automatic'` のときは非表示にする(既存の Material Symbols / 絵文字入力のみ表示)
+  - 手動区分を選んだ状態で「画像アップロード」を選択しファイルを選ぶと、フォーム送信時に 13.3 のエンドポイントへ画像が送られることを確認できる
+  - _Requirements: 6.1, 6.1a_
+  - _Depends: 13.3_
+
+- [ ] 13.7 管理画面一覧・ユーザーページ全バッジ一覧への画像アイコン表示対応
+  - `BadgeTypeTable.tsx` の `{badgeType.iconKey}` の素朴なテキスト描画に `iconType === 'image'` 判定を追加し、画像の場合は `<img>` サムネイルを描画する
+  - `BadgeShelf.tsx` の最終描画箇所に、`UserPicture.tsx` と同じ `iconType === 'image'` 判定を追加する(`resolveEntryDisplay` の解決ロジック自体は変更不要 — 手動区分は `levelDef` を持たないため既存の `?? badgeType.iconKey` フォールバックが自然に型レベルの `iconType`/`iconAttachment` を素通しする)
+  - 画像アイコンを持つ手動バッジについて、管理画面のバッジ種類一覧とユーザーページのバッジ一覧の両方で画像が表示されることを確認できる
+  - _Requirements: 6.5_
+  - _Depends: 13.4_
+
+- [ ] 13.8 画像アイコン機能に関する統合テスト
+  - 管理画面で手動区分バッジ種類に画像をアップロードして作成 → そのバッジをユーザーへ手動付与 → プロフィールヘッダー/サイドバー/コメント投稿者(タスク12で配線済みの3箇所)・ユーザーページのバッジ一覧のいずれでも画像アイコンが表示されることを一気通貫で確認する
+  - 自動区分のバッジ種類作成時に画像アップロードを試みると拒否されることを確認する
+  - _Requirements: 6.1, 6.1a, 6.2, 6.3, 6.4, 6.5_
+  - _Depends: 13.5, 13.6, 13.7_
+
 ## Implementation Notes
 - Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).
 - Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).

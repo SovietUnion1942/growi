@@ -32,6 +32,11 @@ const badgeTypeSchema = new Schema<BadgeTypeDocument, BadgeTypeModel>({
     type: String,
     required: true,
   },
+  iconType: {
+    type: String,
+    enum: ['materialSymbol', 'emoji', 'image'],
+    default: 'materialSymbol',
+  },
   category: {
     type: String,
     required: true,
@@ -40,6 +45,11 @@ const badgeTypeSchema = new Schema<BadgeTypeDocument, BadgeTypeModel>({
   levels: {
     type: [badgeLevelSchema],
     default: [],
+  },
+  iconAttachment: {
+    type: Schema.Types.ObjectId,
+    ref: 'Attachment',
+    default: null,
   },
   isDeleted: {
     type: Boolean,
@@ -95,6 +105,38 @@ badgeTypeSchema.pre('validate', function (this: BadgeTypeDocument, next) {
   } else if (this.category === 'manual' && this.levels?.length > 0) {
     next(new Error('A manual BadgeType must not have any levels.'));
     return;
+  }
+
+  next();
+});
+
+// Enforce the iconType-dependent shape of `iconAttachment`, and forbid image
+// icons for the automatic category:
+// - iconType === 'image': iconAttachment is required
+// - iconType !== 'image': iconAttachment is forced to null (normalized, not rejected)
+// - category === 'automatic': iconType must not be 'image' (automatic badges only
+//   support materialSymbol/emoji icons; per-level image icons are out of scope)
+badgeTypeSchema.pre('validate', function (this: BadgeTypeDocument, next) {
+  if (this.iconType === 'image') {
+    if (this.category === 'automatic') {
+      next(
+        new Error(
+          'An automatic BadgeType cannot use an image icon (iconType: "image" is only allowed for the manual category).',
+        ),
+      );
+      return;
+    }
+
+    if (this.iconAttachment == null) {
+      next(
+        new Error(
+          'A BadgeType with iconType "image" must have an iconAttachment set.',
+        ),
+      );
+      return;
+    }
+  } else {
+    this.iconAttachment = null;
   }
 
   next();

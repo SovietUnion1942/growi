@@ -69,3 +69,14 @@ GROWI にユーザーの貢献を可視化する「バッジ(勲章)」機能を
 
 #### Acceptance Criteria
 1. When ユーザーへバッジが付与された場合(自動・手動を問わず), the System shall 既存のアプリ内通知の仕組みを通じて、獲得したバッジ名を含む通知をそのユーザーへ送る
+
+### Requirement 6: バッジアイコンの画像アップロード
+**Objective:** As GROWI 管理者, I want バッジ種類のアイコンとして任意の画像ファイルをアップロードしたい, so that Material Symbols や絵文字にない独自デザインのバッジを用意できる
+
+#### Acceptance Criteria
+1. When 管理者が「手動」区分のバッジ種類を新規作成または編集する場合, the Badge Management System shall アイコンの指定方法として「Material Symbols」「絵文字」に加えて「画像アップロード」を選択できるようにする
+1a. Where バッジ種類の区分が「自動」である場合, the Badge Management System shall 画像アップロードを選択肢として提供しない(引き続き「Material Symbols」「絵文字」のみとする)。自動区分はレベル毎に個別のアイコンを持てる既存の仕様があり、画像アイコンをレベル毎に用意する対応は本 spec のスコープ外とする
+2. When 管理者がバッジ種類のアイコンとして画像ファイルをアップロードする場合, the Badge Management System shall 既存の添付ファイル基盤(ファイルサイズ上限・MIME 種別許可リストによる検証を含む)を用いてファイルを保存する
+3. If アップロードされたファイルが画像として許可された MIME 種別でない場合, then the Badge Management System shall アップロードを拒否する
+4. When あるバッジ種類のアイコン画像が再アップロードされた場合, the Badge Management System shall そのバッジ種類自身に直前に保存されていたアイコン画像のみを新しい画像に置き換える(旧ファイルは孤立させない)。他のバッジ種類が保持する画像アイコンには影響しない
+5. When 画像アップロード方式のバッジがユーザー名/アバール表示箇所やユーザーページに表示される場合, the Badge Management System shall Material Symbols/絵文字方式のバッジと同様にアイコン画像を表示する

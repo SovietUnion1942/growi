@@ -24,6 +24,7 @@ import {
   BadgeAlreadyGrantedError,
   BadgeGrantManualCategoryMismatchError,
   BadgeTypeNotFoundError,
+  UserBadgeNotFoundError,
 } from '../services/badge-type-errors';
 import type { UserBadgeRouteCrowi } from './user-badge';
 
@@ -102,16 +103,19 @@ vi.mock('~/server/middlewares/add-activity', () => ({
 vi.mock('../services/badge-grant-service', () => ({
   listUserBadges: vi.fn(),
   grantManualBadge: vi.fn(),
+  revokeManualBadge: vi.fn(),
 }));
 
 import {
   grantManualBadge,
   listUserBadges,
+  revokeManualBadge,
 } from '../services/badge-grant-service';
 import { setup } from './user-badge';
 
 const listUserBadgesMock = vi.mocked(listUserBadges);
 const grantManualBadgeMock = vi.mocked(grantManualBadge);
+const revokeManualBadgeMock = vi.mocked(revokeManualBadge);
 
 function withApiV3Helpers(app: express.Express) {
   app.use((_req, res, next) => {
@@ -160,6 +164,13 @@ const grantedUserBadge = {
   grantedAt: '2026-08-15T00:00:00.000Z',
   grantedBy: 'admin-1',
   note: 'Great community support',
+};
+
+const revokedUserBadge = {
+  ...grantedUserBadge,
+  _id: 'ub-2',
+  revokedAt: '2026-08-16T00:00:00.000Z',
+  revokedBy: 'admin-1',
 };
 
 describe('/user-badges route', () => {
@@ -214,6 +225,117 @@ describe('/user-badges route', () => {
 
       expect(res.status).toBe(400);
       expect(listUserBadgesMock).not.toHaveBeenCalled();
+    });
+
+    it('includes revoked records when includeRevoked=true and the caller is an admin (req 7.7)', async () => {
+      currentUser = adminUser;
+      listUserBadgesMock.mockResolvedValueOnce([
+        grantedUserBadge,
+        revokedUserBadge,
+      ] as never);
+
+      const { app } = buildApp();
+      const res = await request(app)
+        .get('/_api/v3/user-badges')
+        .query({ targetUserId: 'user-2', includeRevoked: 'true' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        userBadges: [grantedUserBadge, revokedUserBadge],
+      });
+    });
+
+    it('ignores includeRevoked=true and excludes revoked records when the caller is a logged-in non-admin', async () => {
+      currentUser = nonAdminUser;
+      listUserBadgesMock.mockResolvedValueOnce([
+        grantedUserBadge,
+        revokedUserBadge,
+      ] as never);
+
+      const { app } = buildApp();
+      const res = await request(app)
+        .get('/_api/v3/user-badges')
+        .query({ targetUserId: 'user-2', includeRevoked: 'true' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ userBadges: [grantedUserBadge] });
+    });
+
+    it('excludes revoked records by default for an admin caller (no includeRevoked param)', async () => {
+      currentUser = adminUser;
+      listUserBadgesMock.mockResolvedValueOnce([
+        grantedUserBadge,
+        revokedUserBadge,
+      ] as never);
+
+      const { app } = buildApp();
+      const res = await request(app)
+        .get('/_api/v3/user-badges')
+        .query({ targetUserId: 'user-2' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ userBadges: [grantedUserBadge] });
+    });
+  });
+
+  describe('DELETE /:id', () => {
+    beforeEach(() => {
+      currentUser = adminUser;
+    });
+
+    it('revokes a manual badge and returns 200 with ApiV3Response shape (req 7.1)', async () => {
+      revokeManualBadgeMock.mockResolvedValueOnce(revokedUserBadge as never);
+
+      const { app } = buildApp();
+      const res = await request(app).delete('/_api/v3/user-badges/ub-2');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ userBadge: revokedUserBadge });
+      expect(revokeManualBadgeMock).toHaveBeenCalledWith('ub-2', adminUser);
+    });
+
+    it('returns 403 when the caller is not an admin (req 7.4)', async () => {
+      currentUser = nonAdminUser;
+
+      const { app } = buildApp();
+      const res = await request(app).delete('/_api/v3/user-badges/ub-2');
+
+      expect(res.status).toBe(403);
+      expect(revokeManualBadgeMock).not.toHaveBeenCalled();
+    });
+
+    it('maps UserBadgeNotFoundError from the service to 404', async () => {
+      revokeManualBadgeMock.mockRejectedValueOnce(
+        new UserBadgeNotFoundError('not found'),
+      );
+
+      const { app } = buildApp();
+      const res = await request(app).delete('/_api/v3/user-badges/missing-id');
+
+      expect(res.status).toBe(404);
+    });
+
+    it('maps BadgeGrantManualCategoryMismatchError from the service to 422 (automatic-category UserBadge, req 7.5)', async () => {
+      revokeManualBadgeMock.mockRejectedValueOnce(
+        new BadgeGrantManualCategoryMismatchError(
+          'Automatic-category UserBadge grants can only be revoked by their own evaluation rules, not manually.',
+        ),
+      );
+
+      const { app } = buildApp();
+      const res = await request(app).delete('/_api/v3/user-badges/ub-3');
+
+      expect(res.status).toBe(422);
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('returns 500 for an unexpected service error', async () => {
+      revokeManualBadgeMock.mockRejectedValueOnce(new Error('boom'));
+
+      const { app } = buildApp();
+      const res = await request(app).delete('/_api/v3/user-badges/ub-2');
+
+      expect(res.status).toBe(500);
     });
   });
 

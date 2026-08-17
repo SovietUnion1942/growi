@@ -349,7 +349,7 @@
   - _Boundary: BadgeGrantService_
   - _Depends: 16.1, 3.4_
 
-- [ ] 16.3 user-badge apiv3 route への剥奪エンドポイント追加・GET への includeRevoked 対応
+- [x] 16.3 user-badge apiv3 route への剥奪エンドポイント追加・GET への includeRevoked 対応
   - `DELETE /user-badges/:id` を追加し、`adminRequired` ミドルウェアを適用、`BadgeGrantService.revokeManualBadge` を呼び出す
   - `GET /user-badges` に `includeRevoked` クエリパラメータを追加し、リクエストユーザーが管理者の場合のみ有効(剥奪済みレコードも含めて返す)、それ以外は無視して常に有効なレコードのみ返す
   - 管理者以外が `DELETE /user-badges/:id` を呼ぶと 403、存在しない `id` を指定すると 404、自動区分バッジを指定すると 422 になることをテストで確認できる

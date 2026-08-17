@@ -144,4 +144,76 @@ describe('UserBadge model', () => {
       expect(count).toBe(2);
     });
   });
+
+  describe('revokedAt/revokedBy fields and partial unique index', () => {
+    it('defaults revokedAt and revokedBy to null on a freshly created UserBadge', async () => {
+      const userBadge = await UserBadge.create({
+        user: new Types.ObjectId(),
+        badgeType: new Types.ObjectId(),
+        level: 1,
+        grantedAt: new Date(),
+        grantedBy: null,
+        note: null,
+      });
+
+      expect(userBadge.revokedAt).toBeNull();
+      expect(userBadge.revokedBy).toBeNull();
+    });
+
+    it('allows a new (user, badgeType, level) record when the existing record is revoked', async () => {
+      const user = new Types.ObjectId();
+      const badgeType = new Types.ObjectId();
+      const admin = new Types.ObjectId();
+
+      await UserBadge.create({
+        user,
+        badgeType,
+        level: null,
+        grantedAt: new Date(),
+        grantedBy: null,
+        note: 'first grant',
+        revokedAt: new Date(),
+        revokedBy: admin,
+      });
+
+      await expect(
+        UserBadge.create({
+          user,
+          badgeType,
+          level: null,
+          grantedAt: new Date(),
+          grantedBy: null,
+          note: 'second grant after revocation',
+        }),
+      ).resolves.toBeDefined();
+
+      const count = await UserBadge.countDocuments({ user, badgeType });
+      expect(count).toBe(2);
+    });
+
+    it('still rejects a second save of the same (user, badgeType, level) when the existing record is not revoked', async () => {
+      const user = new Types.ObjectId();
+      const badgeType = new Types.ObjectId();
+
+      await UserBadge.create({
+        user,
+        badgeType,
+        level: null,
+        grantedAt: new Date(),
+        grantedBy: null,
+        note: 'first grant',
+      });
+
+      await expect(
+        UserBadge.create({
+          user,
+          badgeType,
+          level: null,
+          grantedAt: new Date(),
+          grantedBy: null,
+          note: 'second grant attempt',
+        }),
+      ).rejects.toThrow(/E11000|duplicate key/i);
+    });
+  });
 });

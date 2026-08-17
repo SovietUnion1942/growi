@@ -23,6 +23,8 @@ describe('generateSnapshot', () => {
       grantedAt: new Date(),
       grantedBy: null,
       note: null,
+      revokedAt: null,
+      revokedBy: null,
     };
     const expectedSnapshot = JSON.stringify({
       badgeName: 'Bronze Editor',
@@ -52,6 +54,8 @@ describe('generateSnapshot', () => {
       grantedAt: new Date(),
       grantedBy: null,
       note: null,
+      revokedAt: null,
+      revokedBy: null,
     });
 
     expect(result).toBeUndefined();

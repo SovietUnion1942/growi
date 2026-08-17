@@ -1399,6 +1399,15 @@
       "note": "메모",
       "note_placeholder": "부여 사유(선택 사항)",
       "grant": "부여"
+    },
+    "granted_manual_badge_list": {
+      "title": "부여된 수동 배지",
+      "no_badges": "이 사용자에게 부여된 수동 배지가 아직 없습니다.",
+      "revoke": "박탈",
+      "revoke_confirm_title": "배지 박탈",
+      "revoke_confirm_desc": "이 배지는 사용자의 부여된 배지 목록에서 제거됩니다. 이 작업은 기록되지만 이 화면에서 취소할 수 없습니다.",
+      "revoke_confirm_button": "박탈하기",
+      "revoked_info": "{{date}}에 {{revokedBy}}가 박탈함"
     }
   }
 }

@@ -1409,6 +1409,15 @@
       "note": "メモ",
       "note_placeholder": "付与理由(任意)",
       "grant": "付与"
+    },
+    "granted_manual_badge_list": {
+      "title": "付与済み手動バッジ",
+      "no_badges": "このユーザーにはまだ手動バッジが付与されていません。",
+      "revoke": "剥奪",
+      "revoke_confirm_title": "バッジを剥奪",
+      "revoke_confirm_desc": "このバッジはユーザーの付与済みバッジ一覧から削除されます。この操作は記録に残りますが、この画面から取り消すことはできません。",
+      "revoke_confirm_button": "剥奪する",
+      "revoked_info": "{{date}} に {{revokedBy}} が剥奪"
     }
   }
 }

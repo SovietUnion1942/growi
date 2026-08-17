@@ -84,12 +84,28 @@ vi.mock('../../stores/badge-type', async () => {
   return { ...actual, useSWRxBadgeTypeList };
 });
 
+// `GrantedManualBadgeList` (task 16.5) has its own dedicated spec file
+// (`GrantedManualBadgeList.spec.tsx`) covering its internal behavior; here we
+// only need to confirm `ManualGrantModal` mounts/unmounts it at the right
+// time, so `useSWRxUserBadges` is stubbed to return an empty list.
+const useSWRxUserBadges = vi.hoisted(() => vi.fn());
+vi.mock('../../stores/user-badge', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../stores/user-badge')
+  >('../../stores/user-badge');
+  return { ...actual, useSWRxUserBadges };
+});
+
 beforeEach(() => {
   apiv3Post.mockReset();
   toastSuccess.mockReset();
   toastError.mockReset();
   useSWRxBadgeTypeList.mockImplementation(() => ({
     data: badgeTypeListData,
+    mutate: vi.fn(),
+  }));
+  useSWRxUserBadges.mockImplementation(() => ({
+    data: [],
     mutate: vi.fn(),
   }));
 });
@@ -207,5 +223,29 @@ describe('ManualGrantModal', () => {
         name: 'badge_management.manual_grant.grant',
       }),
     ).toBeDisabled();
+  });
+
+  it('does not render GrantedManualBadgeList before a target user is selected', async () => {
+    render(<ManualGrantModal isShow onHide={vi.fn()} />);
+    await screen.findByRole('dialog');
+
+    expect(
+      screen.queryByTestId('grw-granted-manual-badge-list'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders GrantedManualBadgeList for the selected target user once a user is selected', async () => {
+    const user = userEvent.setup();
+    render(<ManualGrantModal isShow onHide={vi.fn()} />);
+    const dialog = await screen.findByRole('dialog');
+
+    await user.click(within(dialog).getByText('pick-alice'));
+
+    expect(
+      screen.getByTestId('grw-granted-manual-badge-list'),
+    ).toBeInTheDocument();
+    expect(useSWRxUserBadges).toHaveBeenCalledWith('target-user-1', {
+      includeRevoked: true,
+    });
   });
 });

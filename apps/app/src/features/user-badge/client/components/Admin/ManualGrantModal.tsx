@@ -9,6 +9,7 @@ import { toastError, toastSuccess } from '~/client/util/toastr';
 import type { IConversationParticipant } from '~/stores/messages';
 
 import { useSWRxBadgeTypeList } from '../../stores/badge-type';
+import { GrantedManualBadgeList } from './GrantedManualBadgeList';
 
 type Props = {
   isShow: boolean;
@@ -197,6 +198,12 @@ const ManualGrantModalSubstance: FC<Props> = (props: Props) => {
             </button>
           </div>
         </form>
+
+        {selectedUser != null && (
+          <div className="mt-4 pt-4 border-top">
+            <GrantedManualBadgeList userId={selectedUser._id} />
+          </div>
+        )}
       </ModalBody>
     </>
   );

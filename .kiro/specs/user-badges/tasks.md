@@ -329,7 +329,7 @@
 **Note**: `EditingUserList.tsx`(共同編集中ユーザー一覧、Yjsのリアルタイムプレゼンスデータ由来で `badgeSummaryCached` への経路が存在しない)は、ユーザーとの相談の結果、今回のスコープから明示的に除外した。将来対応する場合は、プレゼンスブロードキャストのペイロード/型(`packages/editor/src/interfaces/editing-client.ts`)を拡張し、`userId` 経由でバッジデータを引く新規の配線が必要になる。
 - Task 15.2 discovered that `packages/ui`'s BUILT `dist/` output was stale in this local working copy -- it predated the production hotfix (`useId().replace(/:/g, '')` in `UserPicture.tsx`) that had already been committed and deployed, causing new tests exercising the real badge tooltip to crash with `DOMException: Invalid selector: '#:r3:-badge-0'` plus a cascading React scheduler corruption in whichever spec file ran after the failing one. This is the SAME class of gotcha already documented above for `@growi/core` (task 13.4's dist-rebuild note) but for `@growi/ui`: **any edit to `packages/ui/src/**` requires `pnpm run build` in `packages/ui` before `apps/app`'s tests will see the change**, and forgetting this doesn't just hide new behavior (as with `@growi/core`) -- for a component like `UserPicture` that real tests actually render, it can produce a confusing crash that looks like a bug in the NEW code under test rather than a stale-build issue in an unrelated already-fixed file. Fixed by rebuilding `packages/ui`'s dist once (unblocking all sites, not just 15.2's). Lesson: after ANY production hotfix lands in `packages/ui`/`packages/core`, immediately rebuild that package's dist locally, even if the working copy "looks done" -- don't wait for the next task that happens to touch it to discover the staleness.
 
-- [ ] 16. Feature: 手動付与バッジの剥奪
+- [x] 16. Feature: 手動付与バッジの剥奪
 - [x] 16.1 UserBadge モデルへの剥奪フィールド追加と一意インデックスの部分インデックス化
   - `apps/app/src/features/user-badge/server/models/user-badge-model.ts` に `revokedAt: Date | null`(デフォルト `null`)、`revokedBy: ObjectId | null`(ref User、デフォルト `null`)を追加する
   - 既存の `{ user: 1, badgeType: 1, level: 1 }` 一意複合インデックスに `partialFilterExpression: { revokedAt: null }` を追加し、剥奪済みレコード(`revokedAt` が非 null)をインデックス対象から除外する
@@ -375,12 +375,16 @@
   - _Boundary: GrantedManualBadgeList, ManualGrantModal_
   - _Depends: 16.4, 7.3_
 
-- [ ] 16.6 剥奪機能に関する統合テスト
+- [x] 16.6 剥奪機能に関する統合テスト
   - 管理者が手動バッジを付与 → `GrantedManualBadgeList` から剥奪 → 対象ユーザーのアバター併記箇所(タスク12・15で配線済みの箇所のいずれか)とユーザーページのバッジ一覧の両方から即座に消えることを一気通貫で確認する
   - 剥奪後に同一の手動バッジ種類を同一ユーザーへ再付与すると、新しい `UserBadge` が作成され再度表示されることを確認する(剥奪前の記録は監査目的で残ったまま)
   - 管理者以外が剥奪 API を直接叩くと拒否されること、自動区分バッジの剥奪が拒否されることを確認する
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
   - _Depends: 16.5_
+
+## Implementation Notes (task 16, cont.)
+- Task 16.6 was reviewed with a deliberate scope judgment call: bullet 1's "avatar-adjacent site disappearance" is proven by COMPOSING two already-tested layers (12.5/15.7's `badgeSummaryCached` → real render tests, plus 16.6's new `badgeSummaryCached` → real DB mutation test through actual `grantManualBadge`/`revokeManualBadge` calls) rather than a novel HTTP+DB+React end-to-end test, since this repo has no precedent for a single test spanning that full stack (route tests here mock the service layer entirely). Bullet 3 (authz/category rejection) needed zero new tests -- fully covered by 16.2's and 16.3's own tests. Both calls were independently verified by the reviewer, not rubber-stamped.
+- The `GET /user-badges` revoked-record filter lives in the ROUTE handler (`user-badge.ts`'s `.filter(ub => ub.revokedAt == null)`), not inside `listUserBadges` in the service layer -- worth knowing if extending this endpoint further, since the function name suggests the filtering happens one layer deeper than it actually does.
 
 ## Implementation Notes (task 16)
 - The `/home/sovie/growi` working copy is a Docker Desktop WSL2 bind mount. Running `docker build` from a DIFFERENT checkout (`/home/sovie/hbw-g-build/growi-source`) during the group-15 production deploy left `node_modules` (and `apps/app/.next/dev`, `src/generated/prisma`) here root-owned as a side effect, breaking `pnpm install`/`vitest`/`tsgo` with `EACCES` until fixed via `docker run --rm -v /home/sovie/growi:/workspace alpine chown -R $(id -u sovie):$(id -g sovie) /workspace`. If tests mysteriously can't run after a production deploy from a different checkout, check `find <repo> -user root` first before assuming a code-level cause.

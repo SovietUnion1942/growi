@@ -339,7 +339,7 @@
   - _Boundary: UserBadge model_
   - _Depends: 1.3_
 
-- [ ] 16.2 BadgeGrantService.revokeManualBadge の実装
+- [x] 16.2 BadgeGrantService.revokeManualBadge の実装
   - `BadgeGrantService` に `revokeManualBadge(userBadgeId: string, revokedBy: IUserHasId): Promise<IUserBadgeHasId>` を追加する
   - 対象 `UserBadge` を `badgeType` を populate して取得し、存在しない場合はエラー(404 相当)、`badgeType.category === 'automatic'` の場合はエラー(422 相当)を投げる
   - 既に `revokedAt` が設定済みの場合は再更新せず、現在の状態をそのまま返す(冪等)

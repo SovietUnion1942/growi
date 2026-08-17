@@ -17,9 +17,22 @@ export class BadgeTypeNotFoundError extends ExtensibleCustomError {}
  * Thrown by BadgeGrantService.grantManualBadge when the target BadgeType's
  * `category` is `'automatic'` (requirement 3.4): automatic BadgeTypes may
  * only ever be granted by threshold evaluation, never by direct admin
- * action.
+ * action. Also thrown by BadgeGrantService.revokeManualBadge for the same
+ * reason in reverse (requirement 7.5): a `UserBadge` whose `BadgeType.category`
+ * is `'automatic'` can never be manually revoked either, since it was never
+ * manually granted in the first place. Both directions of the same manual-only
+ * boundary share this single error type rather than each minting its own.
  */
 export class BadgeGrantManualCategoryMismatchError extends ExtensibleCustomError {}
+
+/**
+ * Thrown by BadgeGrantService.revokeManualBadge when the given `userBadgeId`
+ * does not resolve to an existing `UserBadge` document (requirement 7.1's
+ * 404-equivalent precondition). Mirrors `BadgeTypeNotFoundError`'s role for
+ * `grantManualBadge`/`BadgeTypeService`, but scoped to the `UserBadge`
+ * collection instead of `BadgeType`.
+ */
+export class UserBadgeNotFoundError extends ExtensibleCustomError {}
 
 /**
  * Thrown by BadgeGrantService.grantManualBadge when the caller attempts to

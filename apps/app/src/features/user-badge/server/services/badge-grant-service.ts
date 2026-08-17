@@ -15,6 +15,7 @@ import {
   BadgeAlreadyGrantedError,
   BadgeGrantManualCategoryMismatchError,
   BadgeTypeNotFoundError,
+  UserBadgeNotFoundError,
 } from './badge-type-errors';
 import type { IBadgeTypeHasId } from './badge-type-service';
 
@@ -117,11 +118,21 @@ function isDuplicateKeyError(err: unknown): boolean {
  * `badgeType.iconType` is optional/legacy-defaultable (task 13.1's remediation),
  * so an absent value is treated as `'materialSymbol'`, matching the schema's own
  * `default: 'materialSymbol'`.
+ *
+ * Only reads `UserBadge` records with `revokedAt: null` (requirement 7.2): a
+ * revoked manual badge must disappear from the cache even though its
+ * `UserBadge` document is never physically deleted (requirement 7.6). This
+ * filter is a no-op for every pre-existing (task 3.4-era) grant, since
+ * `revokedAt` did not exist as a settable field before task 16.1/16.2 and
+ * every such record still has its schema default of `null`.
  */
 async function updateBadgeSummaryCached(userId: string): Promise<void> {
   const User = mongoose.model<IUserHasId>('User');
 
-  const userBadges = await UserBadge.find({ user: userId }).lean();
+  const userBadges = await UserBadge.find({
+    user: userId,
+    revokedAt: null,
+  }).lean();
 
   if (userBadges.length === 0) {
     await User.findByIdAndUpdate(userId, {
@@ -516,6 +527,88 @@ export const grantManualBadge = async (
     }
     throw err;
   }
+};
+
+/**
+ * Revokes a single manually-granted `UserBadge` (requirements 7.1, 7.2, 7.3,
+ * 7.5, 7.6), identified by its own `_id` (not `(user, badgeType, level)`,
+ * since a revoked-then-regranted series can have more than one `UserBadge`
+ * document for the same user/badgeType -- see `user-badge-model.ts`'s
+ * partial-index comment).
+ *
+ * Rejects, before writing anything, when:
+ * - no `UserBadge` with `userBadgeId` exists (`UserBadgeNotFoundError`,
+ *   design.md's 404-equivalent).
+ * - the target's `badgeType.category` is `'automatic'`
+ *   (`BadgeGrantManualCategoryMismatchError`, requirement 7.5, design.md's
+ *   422-equivalent) -- an automatically-granted `UserBadge` was never granted
+ *   by admin action and so can never be revoked by one either.
+ *
+ * A record that is already revoked (`revokedAt` already set) is a no-op: the
+ * current state is returned as-is, without touching `revokedAt`/`revokedBy`
+ * again (design.md, "Concurrency strategy" -- revocation is idempotent the
+ * same way grant-duplicate handling is, just via a state check instead of a
+ * unique-index race).
+ *
+ * Only `revokedAt`/`revokedBy` are ever set; `grantedAt`/`grantedBy`/`note`
+ * are left untouched and the document itself is never physically deleted
+ * (requirement 7.6, audit trail).
+ *
+ * Deliberately does NOT call `emitBadgeGrantActivity` or otherwise fire any
+ * notification: design.md is explicit that revocation notification is out of
+ * scope ("通知は発火しない。剥奪の通知は要件外"), unlike `recordBadgeGrant`'s grant
+ * path.
+ */
+export const revokeManualBadge = async (
+  userBadgeId: string,
+  revokedBy: IUserHasId,
+): Promise<IUserBadgeHasId> => {
+  // `badgeType` is populated only to read `category` for the guard below;
+  // Mongoose's populated-ref shape would otherwise mismatch `IUserBadgeHasId`
+  // (`badgeType: Types.ObjectId`), so the returned snapshot is taken from the
+  // document's own fields directly rather than from a `.toObject()` call
+  // that would carry the populated object through.
+  const userBadge = await UserBadge.findById(userBadgeId).populate<{
+    badgeType: IBadgeTypeHasId;
+  }>('badgeType');
+
+  if (userBadge == null) {
+    throw new UserBadgeNotFoundError(`UserBadge not found: ${userBadgeId}`);
+  }
+
+  if (userBadge.badgeType.category === 'automatic') {
+    throw new BadgeGrantManualCategoryMismatchError(
+      'Automatic-category UserBadge grants can only be revoked by their own evaluation rules, not manually.',
+    );
+  }
+
+  const asIUserBadgeHasId = (): IUserBadgeHasId => ({
+    _id: userBadge._id,
+    user: userBadge.user,
+    badgeType: userBadge.badgeType._id,
+    level: userBadge.level,
+    grantedAt: userBadge.grantedAt,
+    grantedBy: userBadge.grantedBy,
+    note: userBadge.note,
+    revokedAt: userBadge.revokedAt,
+    revokedBy: userBadge.revokedBy,
+  });
+
+  if (userBadge.revokedAt != null) {
+    return asIUserBadgeHasId();
+  }
+
+  userBadge.revokedAt = new Date();
+  // `IUserHasId._id` is a `string`; the schema field is `Types.ObjectId`
+  // (mirrors `grantManualBadge`'s own `grantedBy._id` -> `Types.ObjectId`
+  // field assignment via `recordBadgeGrant`'s `Types.ObjectId | string`
+  // parameter, just without an intermediate helper to carry the union).
+  userBadge.revokedBy = new mongoose.Types.ObjectId(revokedBy._id);
+  await userBadge.save();
+
+  await updateBadgeSummaryCached(userBadge.user.toString());
+
+  return asIUserBadgeHasId();
 };
 
 /** Actions that count toward automatic badge evaluation (requirement 2.6). */

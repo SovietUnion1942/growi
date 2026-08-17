@@ -17,6 +17,7 @@ import {
   useHydrateGlobalEachAtoms,
   useHydrateGlobalInitialAtoms,
 } from '~/states/global/hydrate';
+import { useAutoRequestPushNotificationPermission } from '~/stores/push-notification';
 import loggerFactory from '~/utils/logger';
 import { swrGlobalConfiguration } from '~/utils/swr-utils';
 
@@ -107,6 +108,10 @@ const GrowiAppSubstance = ({
       });
     }
   }, []);
+
+  // ask for push notification permission once, right after login, instead
+  // of waiting for the user to opt in from personal settings
+  useAutoRequestPushNotificationPermission();
 
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);

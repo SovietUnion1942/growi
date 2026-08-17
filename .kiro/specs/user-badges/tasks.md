@@ -358,7 +358,7 @@
   - _Boundary: user-badge apiv3 route_
   - _Depends: 16.2, 5.2_
 
-- [ ] 16.4 剥奪操作用クライアントストア拡張
+- [x] 16.4 剥奪操作用クライアントストア拡張
   - `apps/app/src/features/user-badge/client/stores/user-badge.ts` の `useSWRxUserBadges` が `includeRevoked` オプションを受け取れるよう拡張する
   - 剥奪操作用のミューテーション関数(`apiv3Delete` で `DELETE /user-badges/:id` を呼び、成功後に `mutate` で再検証する)を追加する
   - `includeRevoked: true` を指定した呼び出しが `GET /user-badges?includeRevoked=true` を叩くこと、剥奪ミューテーションが成功時に対象キャッシュを再検証することをテストで確認できる

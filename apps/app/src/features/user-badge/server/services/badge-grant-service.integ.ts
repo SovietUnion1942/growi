@@ -39,11 +39,13 @@ import {
   getCumulativeEditCount,
   grantManualBadge,
   resweepBadgeType,
+  revokeManualBadge,
 } from './badge-grant-service';
 import {
   BadgeAlreadyGrantedError,
   BadgeGrantManualCategoryMismatchError,
   BadgeTypeNotFoundError,
+  UserBadgeNotFoundError,
 } from './badge-type-errors';
 
 // A sentinel ip value so cleanup deletes only this suite's seeded activities.
@@ -1015,6 +1017,91 @@ describe('BadgeGrantService', () => {
       const User = await getUserModel();
       const stored = await User.findById(userId);
       expect(stored?.badgeSummaryCached).toHaveLength(1);
+    });
+  });
+
+  describe('revokeManualBadge', () => {
+    it('sets revokedAt/revokedBy on the target UserBadge and removes it from User.badgeSummaryCached (req 7.1, 7.2, 7.3)', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType();
+      const granted = await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+      const revokedBy = makeGrantedBy();
+      const before = Date.now();
+
+      const result = await revokeManualBadge(granted._id.toString(), revokedBy);
+
+      expect(result.revokedAt).not.toBeNull();
+      expect(result.revokedAt?.getTime()).toBeGreaterThanOrEqual(before);
+      expect(result.revokedBy?.toString()).toBe(revokedBy._id);
+
+      const stored = await UserBadge.findById(granted._id);
+      expect(stored?.revokedAt).not.toBeNull();
+      expect(stored?.revokedBy?.toString()).toBe(revokedBy._id);
+      // grantedAt/grantedBy/note untouched (requirement 7.6, postcondition).
+      expect(stored?.note).toBe(granted.note);
+      expect(stored?.grantedAt.getTime()).toBe(granted.grantedAt.getTime());
+      // The document itself is never physically deleted (req 7.6).
+      const count = await UserBadge.countDocuments({ _id: granted._id });
+      expect(count).toBe(1);
+
+      const User = await getUserModel();
+      const userAfter = await User.findById(userId);
+      expect(userAfter?.badgeSummaryCached).toHaveLength(0);
+    });
+
+    it('rejects revoking a UserBadge whose BadgeType is automatic (req 7.5), without modifying the record', async () => {
+      const userId = new Types.ObjectId().toHexString();
+      const badgeType = await createAutomaticBadgeType({
+        levels: [{ level: 1, name: 'Bronze', iconKey: 'edit', threshold: 1 }],
+      });
+      const userBadge = await UserBadge.create({
+        user: userId,
+        badgeType: badgeType._id,
+        level: 1,
+        grantedAt: new Date(),
+        grantedBy: null,
+        note: null,
+      });
+
+      await expect(
+        revokeManualBadge(userBadge._id.toString(), makeGrantedBy()),
+      ).rejects.toThrow(BadgeGrantManualCategoryMismatchError);
+
+      const stored = await UserBadge.findById(userBadge._id);
+      expect(stored?.revokedAt).toBeNull();
+      expect(stored?.revokedBy).toBeNull();
+    });
+
+    it('rejects revoking a non-existent userBadgeId', async () => {
+      await expect(
+        revokeManualBadge(new Types.ObjectId().toString(), makeGrantedBy()),
+      ).rejects.toThrow(UserBadgeNotFoundError);
+    });
+
+    it('is idempotent: revoking an already-revoked record returns the current state without changing revokedAt/revokedBy', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType();
+      const granted = await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+      const revokedBy = makeGrantedBy();
+      const first = await revokeManualBadge(granted._id.toString(), revokedBy);
+
+      const secondRevokedBy = makeGrantedBy();
+      const second = await revokeManualBadge(
+        granted._id.toString(),
+        secondRevokedBy,
+      );
+
+      expect(second.revokedAt?.getTime()).toBe(first.revokedAt?.getTime());
+      expect(second.revokedBy?.toString()).toBe(first.revokedBy?.toString());
+      expect(second.revokedBy?.toString()).not.toBe(secondRevokedBy._id);
     });
   });
 });

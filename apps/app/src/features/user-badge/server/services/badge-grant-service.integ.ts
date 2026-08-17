@@ -1103,5 +1103,67 @@ describe('BadgeGrantService', () => {
       expect(second.revokedBy?.toString()).toBe(first.revokedBy?.toString());
       expect(second.revokedBy?.toString()).not.toBe(secondRevokedBy._id);
     });
+
+    it('full lifecycle: grant -> revoke -> re-grant, going through BadgeGrantService end to end each time (req 7.1-7.4, 7.6), so that a re-granted badge reappears and the revoked record is preserved for audit (req 7.6)', async () => {
+      const userId = await createUser();
+      const badgeType = await createManualBadgeType();
+      const User = await getUserModel();
+
+      // 1. Grant: badgeSummaryCached reflects it.
+      const firstGrant = await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId, note: 'first' },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+      const afterFirstGrant = await User.findById(userId);
+      expect(afterFirstGrant?.badgeSummaryCached).toHaveLength(1);
+      expect(afterFirstGrant?.badgeSummaryCached?.[0]).toMatchObject({
+        badgeType: badgeType._id,
+        name: badgeType.name,
+      });
+
+      // 2. Revoke: badge disappears from the cache, but the UserBadge
+      // document survives with revokedAt/revokedBy set (audit trail).
+      const revokedBy = makeGrantedBy();
+      await revokeManualBadge(firstGrant._id.toString(), revokedBy);
+      const afterRevoke = await User.findById(userId);
+      expect(afterRevoke?.badgeSummaryCached).toHaveLength(0);
+      const revokedRecord = await UserBadge.findById(firstGrant._id);
+      expect(revokedRecord?.revokedAt).not.toBeNull();
+      expect(revokedRecord?.revokedBy?.toString()).toBe(revokedBy._id);
+
+      // 3. Re-grant the SAME manual badge type to the SAME user: this must
+      // create a brand new UserBadge document (the partial unique index on
+      // (user, badgeType, level) permits it because the first record is
+      // revoked), not reuse/overwrite the revoked one.
+      const secondGrant = await grantManualBadge(
+        { badgeTypeId: badgeType._id.toString(), userId, note: 'second' },
+        makeGrantedBy(),
+        makeTestCrowi(),
+      );
+      expect(secondGrant._id.toString()).not.toBe(firstGrant._id.toString());
+
+      // 4. The badge reappears in badgeSummaryCached.
+      const afterSecondGrant = await User.findById(userId);
+      expect(afterSecondGrant?.badgeSummaryCached).toHaveLength(1);
+      expect(afterSecondGrant?.badgeSummaryCached?.[0]).toMatchObject({
+        badgeType: badgeType._id,
+        name: badgeType.name,
+      });
+
+      // 5. Both UserBadge documents exist: the old revoked one (untouched,
+      // for audit) and the new active one.
+      const allRecords = await UserBadge.find({
+        user: userId,
+        badgeType: badgeType._id,
+      }).sort({ grantedAt: 1 });
+      expect(allRecords).toHaveLength(2);
+      expect(allRecords[0]._id.toString()).toBe(firstGrant._id.toString());
+      expect(allRecords[0].revokedAt).not.toBeNull();
+      expect(allRecords[0].note).toBe('first');
+      expect(allRecords[1]._id.toString()).toBe(secondGrant._id.toString());
+      expect(allRecords[1].revokedAt).toBeNull();
+      expect(allRecords[1].note).toBe('second');
+    });
   });
 });

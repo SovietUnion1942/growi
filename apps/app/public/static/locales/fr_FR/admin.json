@@ -1398,6 +1398,15 @@
       "note": "Note",
       "note_placeholder": "Raison de l'attribution (facultatif)",
       "grant": "Attribuer"
+    },
+    "granted_manual_badge_list": {
+      "title": "Badges manuels attribués",
+      "no_badges": "Aucun badge manuel n'a encore été attribué à cet utilisateur.",
+      "revoke": "Révoquer",
+      "revoke_confirm_title": "Révoquer le badge",
+      "revoke_confirm_desc": "Ce badge sera retiré de la liste des badges attribués à l'utilisateur. Cette action est enregistrée mais ne peut pas être annulée depuis cet écran.",
+      "revoke_confirm_button": "Révoquer",
+      "revoked_info": "Révoqué le {{date}} par {{revokedBy}}"
     }
   }
 }

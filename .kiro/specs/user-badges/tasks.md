@@ -366,7 +366,7 @@
   - _Boundary: user-badge client store_
   - _Depends: 16.3, 6.2_
 
-- [ ] 16.5 GrantedManualBadgeList コンポーネント実装・ManualGrantModal への組み込み
+- [x] 16.5 GrantedManualBadgeList コンポーネント実装・ManualGrantModal への組み込み
   - `apps/app/src/features/user-badge/client/components/Admin/GrantedManualBadgeList.tsx` を新規実装する: `useSWRxUserBadges(userId, { includeRevoked: true })` で取得したレコードのうち `category: 'manual'` のもののみを一覧表示し、有効なレコードには確認ダイアログ付きの「剥奪」ボタンを、剥奪済みのレコードには剥奪日時・実行者を示す表示を付ける
   - `ManualGrantModal.tsx` に、対象ユーザー選択後の付与フォームと並べて `GrantedManualBadgeList` を組み込む
   - 剥奪・剥奪済み表示・確認ダイアログに関する i18n キーを `admin.json`(5言語)に追加する

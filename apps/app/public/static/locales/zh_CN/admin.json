@@ -1408,6 +1408,15 @@
       "note": "备注",
       "note_placeholder": "授予原因（可选）",
       "grant": "授予"
+    },
+    "granted_manual_badge_list": {
+      "title": "已授予的手动徽章",
+      "no_badges": "该用户尚未被授予任何手动徽章。",
+      "revoke": "剥夺",
+      "revoke_confirm_title": "剥夺徽章",
+      "revoke_confirm_desc": "此徽章将从该用户已授予的徽章列表中移除。此操作会被记录，但无法在此界面撤销。",
+      "revoke_confirm_button": "确认剥夺",
+      "revoked_info": "于 {{date}} 被 {{revokedBy}} 剥夺"
     }
   }
 }

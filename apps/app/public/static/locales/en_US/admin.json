@@ -1410,6 +1410,15 @@
       "note": "Note",
       "note_placeholder": "Optional reason for this grant",
       "grant": "Grant"
+    },
+    "granted_manual_badge_list": {
+      "title": "Granted Manual Badges",
+      "no_badges": "No manual badges have been granted to this user yet.",
+      "revoke": "Revoke",
+      "revoke_confirm_title": "Revoke Badge",
+      "revoke_confirm_desc": "This badge will be removed from the user's granted badges. This action can be audited but cannot be undone from this screen.",
+      "revoke_confirm_button": "Revoke",
+      "revoked_info": "Revoked on {{date}} by {{revokedBy}}"
     }
   }
 }

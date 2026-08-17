@@ -15,11 +15,13 @@ import loggerFactory from '~/utils/logger';
 import {
   grantManualBadge,
   listUserBadges,
+  revokeManualBadge,
 } from '../services/badge-grant-service';
 import {
   BadgeAlreadyGrantedError,
   BadgeGrantManualCategoryMismatchError,
   BadgeTypeNotFoundError,
+  UserBadgeNotFoundError,
 } from '../services/badge-type-errors';
 
 const logger = loggerFactory('growi:routes:apiv3:user-badge');
@@ -92,6 +94,9 @@ export const setup = (crowi: UserBadgeRouteCrowi): Router => {
       )
         .exists({ checkFalsy: true })
         .isString(),
+      query('includeRevoked', 'includeRevoked must be a boolean')
+        .optional()
+        .isBoolean(),
     ],
     grant: [
       body(
@@ -113,11 +118,25 @@ export const setup = (crowi: UserBadgeRouteCrowi): Router => {
     validator.list,
     apiV3FormValidator,
     async (req: AuthorizedRequest, res: ApiV3Response) => {
-      const { targetUserId } = req.query as { targetUserId: string };
+      const { targetUserId, includeRevoked } = req.query as {
+        targetUserId: string;
+        includeRevoked?: string;
+      };
+
+      // `includeRevoked=true` is only honored for admin callers (requirement
+      // 7.7); for anyone else (including a logged-in non-admin), the param is
+      // silently ignored rather than surfaced as an error, and only active
+      // (non-revoked) records are ever returned -- design.md's API Contract
+      // table for `GET /user-badges`.
+      const shouldIncludeRevoked =
+        includeRevoked === 'true' && req.user?.admin === true;
 
       try {
         const userBadges = await listUserBadges(targetUserId);
-        return res.apiv3({ userBadges });
+        const visibleUserBadges = shouldIncludeRevoked
+          ? userBadges
+          : userBadges.filter((userBadge) => userBadge.revokedAt == null);
+        return res.apiv3({ userBadges: visibleUserBadges });
       } catch (err) {
         const msg = 'Error occurred in fetching the user badge list';
         logger.error(msg, err);
@@ -176,6 +195,40 @@ export const setup = (crowi: UserBadgeRouteCrowi): Router => {
         const msg = 'Error occurred in granting a user badge';
         logger.error(msg, err);
         return res.apiv3Err(new ErrorV3(msg, 'user-badge-grant-failed'));
+      }
+    },
+  );
+
+  router.delete(
+    '/:id',
+    loginRequiredStrictly,
+    adminRequired,
+    // addActivity before the (implicit, param-only) validation, same as
+    // POST: an authenticated admin's failed revoke attempt is still audited
+    // as ACTION_UNSETTLED (apps/app/.claude/rules/activity-recording.md).
+    addActivity,
+    async (req: AuthorizedRequest, res: ApiV3Response) => {
+      const { id } = req.params;
+
+      try {
+        const userBadge = await revokeManualBadge(id, req.user as IUserHasId);
+        return res.apiv3({ userBadge });
+      } catch (err) {
+        if (err instanceof UserBadgeNotFoundError) {
+          return res.apiv3Err(
+            new ErrorV3(err.message, 'user-badge-not-found'),
+            404,
+          );
+        }
+        if (err instanceof BadgeGrantManualCategoryMismatchError) {
+          return res.apiv3Err(
+            new ErrorV3(err.message, 'user-badge-manual-category-mismatch'),
+            422,
+          );
+        }
+        const msg = 'Error occurred in revoking a user badge';
+        logger.error(msg, err);
+        return res.apiv3Err(new ErrorV3(msg, 'user-badge-revoke-failed'));
       }
     },
   );

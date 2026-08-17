@@ -48,6 +48,8 @@ describe('user-badge snapshot serializer', () => {
         grantedAt: new Date(),
         grantedBy: null,
         note: null,
+        revokedAt: null,
+        revokedBy: null,
       };
 
       const snapshot = await stringifySnapshot(userBadge);
@@ -75,6 +77,8 @@ describe('user-badge snapshot serializer', () => {
         grantedAt: new Date(),
         grantedBy: userId,
         note: 'Great support work',
+        revokedAt: null,
+        revokedBy: null,
       };
 
       const snapshot = await stringifySnapshot(userBadge);
@@ -100,6 +104,8 @@ describe('user-badge snapshot serializer', () => {
         grantedAt: new Date(),
         grantedBy: null,
         note: null,
+        revokedAt: null,
+        revokedBy: null,
       };
 
       const snapshot = await stringifySnapshot(userBadge);
@@ -121,6 +127,8 @@ describe('user-badge snapshot serializer', () => {
         grantedAt: new Date(),
         grantedBy: null,
         note: null,
+        revokedAt: null,
+        revokedBy: null,
       };
 
       const snapshot = await stringifySnapshot(userBadge);

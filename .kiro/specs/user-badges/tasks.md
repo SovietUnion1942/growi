@@ -328,3 +328,60 @@
 
 **Note**: `EditingUserList.tsx`(共同編集中ユーザー一覧、Yjsのリアルタイムプレゼンスデータ由来で `badgeSummaryCached` への経路が存在しない)は、ユーザーとの相談の結果、今回のスコープから明示的に除外した。将来対応する場合は、プレゼンスブロードキャストのペイロード/型(`packages/editor/src/interfaces/editing-client.ts`)を拡張し、`userId` 経由でバッジデータを引く新規の配線が必要になる。
 - Task 15.2 discovered that `packages/ui`'s BUILT `dist/` output was stale in this local working copy -- it predated the production hotfix (`useId().replace(/:/g, '')` in `UserPicture.tsx`) that had already been committed and deployed, causing new tests exercising the real badge tooltip to crash with `DOMException: Invalid selector: '#:r3:-badge-0'` plus a cascading React scheduler corruption in whichever spec file ran after the failing one. This is the SAME class of gotcha already documented above for `@growi/core` (task 13.4's dist-rebuild note) but for `@growi/ui`: **any edit to `packages/ui/src/**` requires `pnpm run build` in `packages/ui` before `apps/app`'s tests will see the change**, and forgetting this doesn't just hide new behavior (as with `@growi/core`) -- for a component like `UserPicture` that real tests actually render, it can produce a confusing crash that looks like a bug in the NEW code under test rather than a stale-build issue in an unrelated already-fixed file. Fixed by rebuilding `packages/ui`'s dist once (unblocking all sites, not just 15.2's). Lesson: after ANY production hotfix lands in `packages/ui`/`packages/core`, immediately rebuild that package's dist locally, even if the working copy "looks done" -- don't wait for the next task that happens to touch it to discover the staleness.
+
+- [ ] 16. Feature: 手動付与バッジの剥奪
+- [x] 16.1 UserBadge モデルへの剥奪フィールド追加と一意インデックスの部分インデックス化
+  - `apps/app/src/features/user-badge/server/models/user-badge-model.ts` に `revokedAt: Date | null`(デフォルト `null`)、`revokedBy: ObjectId | null`(ref User、デフォルト `null`)を追加する
+  - 既存の `{ user: 1, badgeType: 1, level: 1 }` 一意複合インデックスに `partialFilterExpression: { revokedAt: null }` を追加し、剥奪済みレコード(`revokedAt` が非 null)をインデックス対象から除外する
+  - `IUserBadge` 型定義(`apps/app/src/features/user-badge/interfaces/badge.ts`)に `revokedAt`/`revokedBy` を追加する
+  - 剥奪済みレコードが存在する状態で同一 `(user, badgeType, level)` の新規レコードを作成しても重複キーエラーにならないこと、かつ剥奪されていない2件目の同一キー作成は引き続き重複キーエラーになることをテストで確認できる
+  - _Requirements: 7.3, 7.6_
+  - _Boundary: UserBadge model_
+  - _Depends: 1.3_
+
+- [ ] 16.2 BadgeGrantService.revokeManualBadge の実装
+  - `BadgeGrantService` に `revokeManualBadge(userBadgeId: string, revokedBy: IUserHasId): Promise<IUserBadgeHasId>` を追加する
+  - 対象 `UserBadge` を `badgeType` を populate して取得し、存在しない場合はエラー(404 相当)、`badgeType.category === 'automatic'` の場合はエラー(422 相当)を投げる
+  - 既に `revokedAt` が設定済みの場合は再更新せず、現在の状態をそのまま返す(冪等)
+  - 有効な手動バッジの剥奪では `revokedAt`/`revokedBy` を設定し、続けて対象ユーザーの `updateBadgeSummaryCached`(既存、3.4 で実装済み)を `revokedAt: null` の `UserBadge` のみを対象に再計算・呼び出す
+  - 手動バッジを剥奪すると `User.badgeSummaryCached` から該当エントリが消えること、自動区分バッジの `UserBadge` を指定するとエラーになること、剥奪済みレコードへの再呼び出しが冪等であることをテストで確認できる
+  - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6_
+  - _Boundary: BadgeGrantService_
+  - _Depends: 16.1, 3.4_
+
+- [ ] 16.3 user-badge apiv3 route への剥奪エンドポイント追加・GET への includeRevoked 対応
+  - `DELETE /user-badges/:id` を追加し、`adminRequired` ミドルウェアを適用、`BadgeGrantService.revokeManualBadge` を呼び出す
+  - `GET /user-badges` に `includeRevoked` クエリパラメータを追加し、リクエストユーザーが管理者の場合のみ有効(剥奪済みレコードも含めて返す)、それ以外は無視して常に有効なレコードのみ返す
+  - 管理者以外が `DELETE /user-badges/:id` を呼ぶと 403、存在しない `id` を指定すると 404、自動区分バッジを指定すると 422 になることをテストで確認できる
+  - 管理者以外が `includeRevoked=true` を付けて `GET /user-badges` を呼んでも剥奪済みレコードが含まれないことをテストで確認できる
+  - _Requirements: 7.1, 7.4, 7.5, 7.7_
+  - _Boundary: user-badge apiv3 route_
+  - _Depends: 16.2, 5.2_
+
+- [ ] 16.4 剥奪操作用クライアントストア拡張
+  - `apps/app/src/features/user-badge/client/stores/user-badge.ts` の `useSWRxUserBadges` が `includeRevoked` オプションを受け取れるよう拡張する
+  - 剥奪操作用のミューテーション関数(`apiv3Delete` で `DELETE /user-badges/:id` を呼び、成功後に `mutate` で再検証する)を追加する
+  - `includeRevoked: true` を指定した呼び出しが `GET /user-badges?includeRevoked=true` を叩くこと、剥奪ミューテーションが成功時に対象キャッシュを再検証することをテストで確認できる
+  - _Requirements: 7.1, 7.7_
+  - _Boundary: user-badge client store_
+  - _Depends: 16.3, 6.2_
+
+- [ ] 16.5 GrantedManualBadgeList コンポーネント実装・ManualGrantModal への組み込み
+  - `apps/app/src/features/user-badge/client/components/Admin/GrantedManualBadgeList.tsx` を新規実装する: `useSWRxUserBadges(userId, { includeRevoked: true })` で取得したレコードのうち `category: 'manual'` のもののみを一覧表示し、有効なレコードには確認ダイアログ付きの「剥奪」ボタンを、剥奪済みのレコードには剥奪日時・実行者を示す表示を付ける
+  - `ManualGrantModal.tsx` に、対象ユーザー選択後の付与フォームと並べて `GrantedManualBadgeList` を組み込む
+  - 剥奪・剥奪済み表示・確認ダイアログに関する i18n キーを `admin.json`(5言語)に追加する
+  - 対象ユーザーの手動バッジ一覧が表示されること、「剥奪」ボタン押下→確認→実行で一覧上の該当行が「剥奪済み」表示に切り替わることを確認できる
+  - _Requirements: 7.1, 7.7_
+  - _Boundary: GrantedManualBadgeList, ManualGrantModal_
+  - _Depends: 16.4, 7.3_
+
+- [ ] 16.6 剥奪機能に関する統合テスト
+  - 管理者が手動バッジを付与 → `GrantedManualBadgeList` から剥奪 → 対象ユーザーのアバター併記箇所(タスク12・15で配線済みの箇所のいずれか)とユーザーページのバッジ一覧の両方から即座に消えることを一気通貫で確認する
+  - 剥奪後に同一の手動バッジ種類を同一ユーザーへ再付与すると、新しい `UserBadge` が作成され再度表示されることを確認する(剥奪前の記録は監査目的で残ったまま)
+  - 管理者以外が剥奪 API を直接叩くと拒否されること、自動区分バッジの剥奪が拒否されることを確認する
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
+  - _Depends: 16.5_
+
+## Implementation Notes (task 16)
+- The `/home/sovie/growi` working copy is a Docker Desktop WSL2 bind mount. Running `docker build` from a DIFFERENT checkout (`/home/sovie/hbw-g-build/growi-source`) during the group-15 production deploy left `node_modules` (and `apps/app/.next/dev`, `src/generated/prisma`) here root-owned as a side effect, breaking `pnpm install`/`vitest`/`tsgo` with `EACCES` until fixed via `docker run --rm -v /home/sovie/growi:/workspace alpine chown -R $(id -u sovie):$(id -g sovie) /workspace`. If tests mysteriously can't run after a production deploy from a different checkout, check `find <repo> -user root` first before assuming a code-level cause.
+- Task 16.1 widened `IUserBadge` with two new required fields (`revokedAt`, `revokedBy`), which broke type-checking on unrelated pre-existing test fixtures that construct `IUserBadge` object literals directly (`src/models/serializers/in-app-notification-snapshot/user-badge.spec.ts`, `src/server/service/in-app-notification/in-app-notification-utils.spec.ts`) -- fixed by adding `revokedAt: null, revokedBy: null` to each fixture. Any later task that adds a required field to `IUserBadge`/`IBadgeType` should grep for other direct object-literal constructions of that type across the repo, not just the files the task's own boundary names.

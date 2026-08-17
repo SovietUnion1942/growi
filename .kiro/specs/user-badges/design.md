@@ -16,7 +16,7 @@
 - バッジ付与時に既存のアプリ内通知経路でユーザーへ通知する
 
 ### Non-Goals
-- バッジの取り消し(剥奪)
+- 「自動」区分バッジの取り消し(剥奪)。手動区分の剥奪は本 spec の対象(要件7)
 - ページ作成・更新以外の活動(コメント投稿等)を自動付与の対象に含めること
 - 「自動」区分バッジ種類の手動付与
 - バッジ保有数によるランキング/リーダーボード
@@ -31,9 +31,10 @@
 - バッジ付与に伴う新規 `SupportedAction`/`SupportedTargetModel` エントリと、対応する InAppNotification スナップショット生成ロジック
 - `UserPicture` への `badges` 表示オプションの追加、ユーザーページのバッジ一覧セクション、管理画面のバッジ管理 UI
 - `BadgeType` のアイコンとして画像ファイルをアップロードする経路(`AttachmentType` への `BADGE_ICON` 値の追加を含む)、および画像アイコンの表示解決ロジック
+- 手動区分 `UserBadge` の剥奪(論理削除)とその監査用記録(`revokedAt`/`revokedBy`)、および管理画面での剥奪操作 UI
 
 ### Out of Boundary
-- バッジの取り消し(剥奪) — 将来の拡張として据え置き
+- 「自動」区分バッジの取り消し(剥奪) — 自動区分は常にシステムが基準に基づいて付与するため対象外(将来の拡張として据え置き)
 - Contribution グラフ機能自体の集計範囲・挙動 — 変更しない(本 spec は独立したカウントを持つ)
 - `ActivityService`/`InAppNotificationService` の既存リスナー・抑制ロジック(`shouldGenerateUpdate` 等)の変更 — 継承するのみで変更しない
 - `UserPicture` の既存 props・レンダリングロジック — 新規 optional prop の追加のみ
@@ -147,7 +148,8 @@ apps/app/src/features/user-badge/
         │   ├── BadgeTypeModal.tsx
         │   ├── BadgeTypeForm.tsx
         │   ├── BadgeTypeDeleteModal.tsx
-        │   └── ManualGrantModal.tsx     # 手動付与用ユーザー検索+付与フォーム
+        │   ├── ManualGrantModal.tsx     # 手動付与用ユーザー検索+付与フォーム、剥奪一覧を内包する親
+        │   └── GrantedManualBadgeList.tsx # 選択中ユーザーの手動付与済みバッジ一覧+剥奪ボタン(ManualGrantModal 内で使用)
         └── BadgeShelf.tsx               # ユーザーページのバッジ一覧セクション
 ```
 
@@ -171,7 +173,12 @@ apps/app/src/features/user-badge/
 - `apps/app/src/features/user-badge/client/components/Admin/BadgeTypeTable.tsx` — `{badgeType.iconKey}` の素朴なテキスト描画(`BadgeTypeTable.tsx:60`)に `iconType === 'image'` 判定を追加し、画像の場合は `<img>` サムネイルを描画する分岐を追加
 - `packages/ui/src/components/UserPicture.tsx` — `UserPictureBadge` 型に `iconType`/`iconUrl` を追加し、既存の `isEmojiIconKey` による絵文字/Material-Symbols判定(`UserPicture.tsx:171,258-264`)に先立って `iconType === 'image'` を判定し `<img>` で描画する分岐を追加。3種類の判定順は「`iconType === 'image'` → `<img>` / それ以外 → 従来通り `isEmojiIconKey` 判定」とする
 - `apps/app/src/features/user-badge/client/components/BadgeShelf.tsx` — `resolveEntryDisplay`(`BadgeShelf.tsx:50-62`)が解決した `iconKey` を最終描画する箇所(`BadgeShelf.tsx:108-112`)に、`UserPicture.tsx` と同じ `iconType === 'image'` 判定を追加。`category: 'manual'` の場合 `levelDef` が存在しないため既存の `?? badgeType.iconKey` フォールバックがそのまま `badgeType` の `iconType`/`iconAttachment` を素通しする(解決ロジック自体の変更は不要、最終描画の分岐追加のみ)
-- `apps/app/src/features/user-badge/server/services/badge-grant-service.ts` — `updateBadgeSummaryCached`(`badge-grant-service.ts:141-169`)が `IUserBadgeSummaryEntry` を構築する際、`iconType`/`iconUrl`(`Attachment.filePathProxied` を解決した値)を含めるよう拡張する
+- `apps/app/src/features/user-badge/server/services/badge-grant-service.ts` — `updateBadgeSummaryCached`(`badge-grant-service.ts:141-169`)が `IUserBadgeSummaryEntry` を構築する際、`iconType`/`iconUrl`(`Attachment.filePathProxied` を解決した値)を含めるよう拡張する。加えて `revokeManualBadge` メソッドを追加(要件7)
+- `apps/app/src/features/user-badge/server/models/user-badge-model.ts` — `revokedAt: Date | null`, `revokedBy: Types.ObjectId | null` フィールドを追加し、一意複合インデックス `{ user, badgeType, level }` を `partialFilterExpression: { revokedAt: null }` 付きの部分インデックスに変更する(要件7)
+- `apps/app/src/features/user-badge/server/routes/user-badge.ts` — `DELETE /user-badges/:id`(剥奪、admin 限定)を追加。`GET /user-badges` に admin 限定の `includeRevoked` クエリパラメータを追加する(要件7)
+- `apps/app/src/features/user-badge/client/stores/user-badge.ts` — `useSWRxRevokeUserBadge` 相当のミューテーション、および `includeRevoked` を渡せるよう `useSWRxUserBadges` を拡張する(要件7)
+- `apps/app/src/features/user-badge/client/components/Admin/ManualGrantModal.tsx` — 対象ユーザー選択後、既存の付与フォームに加えて `GrantedManualBadgeList` を表示する(要件7)
+- `apps/app/public/static/locales/{en_US,ja_JP,ko_KR,fr_FR,zh_CN}/admin.json` — 剥奪操作・確認ダイアログ・剥奪済み表示に関する i18n キーを追加(要件7)
 
 ## System Flows
 
@@ -209,6 +216,35 @@ sequenceDiagram
 - resweep は apiv3 のバッジ種類作成/更新レスポンスをブロックしない fire-and-forget 呼び出しとして実行する(`update-page.ts` の `postAction(...)` と同じ非同期発火パターン)
 - `(user, badgeType, level)` の一意複合インデックスにより、リアルタイム経路と resweep 経路が同時に同じ付与を試みても重複は発生しない
 
+### 手動バッジの剥奪
+
+```mermaid
+sequenceDiagram
+    participant Admin as Admin (GrantedManualBadgeList)
+    participant Route as user-badge apiv3 route
+    participant Grant as BadgeGrantService
+    participant DB as UserBadge / User
+
+    Admin->>Route: DELETE /user-badges/:id
+    Route->>Route: adminRequired
+    Route->>Grant: revokeManualBadge(id, revokedBy)
+    Grant->>DB: find UserBadge by id (populate badgeType)
+    alt UserBadge not found
+        Grant-->>Route: 404
+    else badgeType.category === 'automatic'
+        Grant-->>Route: 422 (自動区分は剥奪対象外)
+    else already revoked
+        Grant-->>Route: 200 (no-op, current state)
+    else category === 'manual' and not yet revoked
+        Grant->>DB: set revokedAt, revokedBy on UserBadge
+        Grant->>DB: recompute User.badgeSummaryCached (active UserBadge only)
+        Grant-->>Route: 200 (updated UserBadge)
+    end
+```
+
+- `revokeManualBadge` は `grantManualBadge` と同じ「UserBadge 更新 → `badgeSummaryCached` 再計算」の一貫パターンに従う(通知は発火しない。剥奪の通知は要件外)
+- `GrantedManualBadgeList` は剥奪成功後、`useSWRxUserBadges` の `mutate` で再検証し、一覧上の該当行を「剥奪済み」表示に更新する
+
 ## Requirements Traceability
 
 | Requirement | Summary | Components | Interfaces | Flows |
@@ -242,6 +278,13 @@ sequenceDiagram
 | 6.3 | 非画像 MIME のアップロード拒否 | AttachmentService(既存), `validateImageContentType`(既存) | - | 画像アイコンアップロードフロー |
 | 6.4 | 再アップロード時に旧ファイルを置き換え(同一 BadgeType 内に限定、他のバッジ種類の画像には影響しない) | badge-type apiv3 route | `BadgeTypeService.updateBadgeType`(対象 BadgeType 自身の旧 `iconAttachment` ID のみ削除) | 画像アイコンアップロードフロー |
 | 6.5 | 画像アイコンの表示 | UserPicture(拡張), UserPictureBadge | `IUserBadgeSummaryEntry.iconType`/`iconUrl` | - |
+| 7.1 | 手動区分バッジの剥奪操作 | BadgeGrantService, user-badge route, GrantedManualBadgeList | `BadgeGrantService.revokeManualBadge` | 剥奪フロー |
+| 7.2 | 剥奪後は表示対象から除外 | BadgeGrantService(cached 再計算), UserPicture, BadgeShelf | `updateBadgeSummaryCached`(`revokedAt: null` のみ集計) | 剥奪フロー |
+| 7.3 | 剥奪者・剥奪日時の記録 | UserBadge model | `IUserBadge.revokedAt`/`revokedBy` | 剥奪フロー |
+| 7.4 | 管理者以外は操作拒否 | user-badge route(adminRequired) | - | - |
+| 7.5 | 自動区分の剥奪は拒否 | BadgeGrantService | `revokeManualBadge`(category 検証) | 剥奪フロー |
+| 7.6 | 剥奪記録は物理削除しない | UserBadge model | `IUserBadge.revokedAt`(論理削除フラグ) | - |
+| 7.7 | 管理者は剥奪状態を判別できる形で履歴を閲覧できる | user-badge route, GrantedManualBadgeList | `GET /user-badges?includeRevoked=true` | - |
 
 ## Components and Interfaces
 
@@ -250,9 +293,9 @@ sequenceDiagram
 | BadgeType model | Data | バッジ種類の永続化(`iconType`/`iconAttachment` を含む) | 1.1-1.6, 6.1-6.4 | getOrCreateModel (P0) | State |
 | UserBadge model | Data | 付与記録の永続化・重複防止 | 2.4, 3.1-3.5 | getOrCreateModel (P0) | State |
 | BadgeTypeService | Server logic | バッジ種類 CRUD・ソフトデリート・アイコン画像の保存/置換 | 1.1-1.6, 6.1-6.4 | BadgeType model (P0), AttachmentService(既存) (P0) | Service |
-| BadgeGrantService | Server logic | 自動評価・手動付与・通知発火・User キャッシュ更新の単一窓口 | 2.1-2.6, 3.1-3.5, 4.4, 5.1 | UserBadge/BadgeType model (P0), crowi.events.activity (P0), User model (P0), InAppNotificationService (P1) | Service, Event |
+| BadgeGrantService | Server logic | 自動評価・手動付与・手動剥奪・通知発火・User キャッシュ更新の単一窓口 | 2.1-2.6, 3.1-3.5, 4.4, 5.1, 7.1-7.3, 7.5, 7.6 | UserBadge/BadgeType model (P0), crowi.events.activity (P0), User model (P0), InAppNotificationService (P1) | Service, Event |
 | badge-type apiv3 route | API | バッジ種類 CRUD の HTTP 境界 | 1.1-1.6 | BadgeTypeService (P0) | API |
-| user-badge apiv3 route | API | 手動付与・一覧取得の HTTP 境界 | 3.1-3.5, 4.3 | BadgeGrantService (P0) | API |
+| user-badge apiv3 route | API | 手動付与・剥奪・一覧取得の HTTP 境界 | 3.1-3.5, 4.3, 7.1, 7.4, 7.5, 7.7 | BadgeGrantService (P0) | API |
 | UserPicture(拡張) | UI(共有) | アバター併記のバッジ表示(画像アイコンの表示を含む) | 4.1, 4.2, 4.5, 6.5 | User.badgeSummaryCached (P0) | - |
 | BadgeShelf | UI | ユーザーページの全バッジ一覧 | 4.3, 4.4 | user-badge route (P0) | - |
 | Badge admin screens | UI(admin) | バッジ種類 CRUD・手動付与フォーム | 1.1-1.6, 3.1-3.5 | badge-type/user-badge route (P0) | - |
@@ -325,12 +368,12 @@ export interface IBadgeType {
 
 | Field | Detail |
 |-------|--------|
-| Intent | 誰にどのバッジ(レベル)がいつ・誰によって付与されたかの記録 |
-| Requirements | 2.3, 2.4, 3.1, 3.2, 3.5 |
+| Intent | 誰にどのバッジ(レベル)がいつ・誰によって付与されたか、および(手動区分のみ)剥奪されたかの記録 |
+| Requirements | 2.3, 2.4, 3.1, 3.2, 3.5, 7.1, 7.3, 7.6 |
 
 **Responsibilities & Constraints**
-- `(user, badgeType, level)` に一意複合インデックスを持ち、同一バッジ(同一レベル)の重複付与を DB 制約レベルで防止する(`level: null` の手動バッジにも同様に適用される)
-- 付与記録は不変(更新・削除 API を提供しない。取り消し機能は Out of Boundary)
+- `(user, badgeType, level)` に**部分**一意複合インデックス(`revokedAt: null` の記録のみを対象)を持ち、同一バッジ(同一レベル)の重複「有効」付与を DB 制約レベルで防止する(`level: null` の手動バッジにも同様に適用される)。剥奪済みレコードはこのインデックスの対象外となるため、剥奪後に同一バッジを再付与すると新しい `UserBadge` ドキュメントが作成される(剥奪前の記録は監査目的でそのまま残る)
+- 付与済みフィールド(`grantedAt`/`grantedBy`/`note` 等)は不変。唯一許される更新は手動区分バッジの剥奪(`revokedAt`/`revokedBy` の設定)のみで、物理削除・その他フィールドの更新は行わない
 
 **Dependencies**
 - Inbound: BadgeGrantService — 唯一の書き込み元 (P0)
@@ -347,10 +390,12 @@ export interface IUserBadge {
   grantedAt: Date;
   grantedBy: Types.ObjectId | null; // null = システムによる自動付与
   note: string | null;         // 手動付与時の任意メモ
+  revokedAt: Date | null;      // null = 有効。手動区分のみ非 null になりうる
+  revokedBy: Types.ObjectId | null; // ref User(剥奪操作を行った管理者)。revokedAt が null の場合は常に null
 }
 ```
-- Persistence & consistency: `{ user: 1, badgeType: 1, level: 1 }` 一意複合インデックス
-- Concurrency strategy: 重複キーエラー(`E11000`)は「既に付与済み」として無視する冪等な書き込み
+- Persistence & consistency: `{ user: 1, badgeType: 1, level: 1 }` 部分一意複合インデックス(`partialFilterExpression: { revokedAt: null }`)
+- Concurrency strategy: 挿入時の重複キーエラー(`E11000`)は「既に付与済み」として無視する冪等な書き込み。剥奪の再実行(既に `revokedAt` が設定済みの記録への再剥奪)は冪等な no-op として扱い、現在の状態をそのまま返す
 
 ### Server / Logic
 
@@ -393,16 +438,17 @@ interface BadgeTypeService {
 
 | Field | Detail |
 |-------|--------|
-| Intent | 自動評価・手動付与・User 表示キャッシュ更新・通知発火を一本化する単一の付与窓口 |
-| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.4, 3.5, 4.4, 5.1 |
+| Intent | 自動評価・手動付与・手動バッジ剥奪・User 表示キャッシュ更新・通知発火を一本化する単一の付与/剥奪窓口 |
+| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.4, 3.5, 4.4, 5.1, 7.1, 7.2, 7.3, 7.5, 7.6 |
 
 **Responsibilities & Constraints**
 - コンストラクタで `crowi.events.activity.on('updated', ...)` を購読し、`action` が `ACTION_PAGE_CREATE`/`ACTION_PAGE_UPDATE` の場合のみ処理する(`ActivityService` 自体は変更しない)
 - 自動付与・手動付与ともに最終的に同じ「UserBadge 作成 → `User.badgeSummaryCached` 更新 → 通知用 Activity 発火」という3ステップを通る単一内部関数に集約する
 - 手動付与時、対象 `BadgeType.category` が `'automatic'` の場合は拒否する(要件 3.4)
+- 剥奪(`revokeManualBadge`)時、対象 `UserBadge` が参照する `BadgeType.category` が `'automatic'` の場合は拒否する(要件 7.5)。剥奪は「`revokedAt`/`revokedBy` の設定 → 対象ユーザーの `User.badgeSummaryCached` 再計算(`revokedAt: null` の `UserBadge` のみを対象に集計)」の2ステップを一貫して行う
 
 **Dependencies**
-- Inbound: `crowi.events.activity`(自動評価トリガー) (P0), user-badge apiv3 route(手動付与) (P0), BadgeTypeService(resweep 呼び出し元) (P1)
+- Inbound: `crowi.events.activity`(自動評価トリガー) (P0), user-badge apiv3 route(手動付与・剥奪) (P0), BadgeTypeService(resweep 呼び出し元) (P1)
 - Outbound: UserBadge/BadgeType model (P0), User model(`badgeSummaryCached` 書き込み) (P0), `activities`(Prisma、累積カウント読み取り) (P0), InAppNotificationService(既存パイプライン経由) (P1)
 
 **Contracts**: Service [x] / Event [x]
@@ -415,11 +461,12 @@ interface BadgeGrantService {
     input: { badgeTypeId: string; userId: string; note?: string },
     grantedBy: IUserHasId,
   ): Promise<IUserBadgeHasId>;
+  revokeManualBadge(userBadgeId: string, revokedBy: IUserHasId): Promise<IUserBadgeHasId>;
 }
 ```
-- Preconditions: `grantManualBadge` は対象 `BadgeType.category === 'manual'` であること
-- Postconditions: 新規に条件を満たしたレベル/バッジのみ `UserBadge` として作成され、既存の付与記録は変更されない
-- Invariants: 同一 `(user, badgeType, level)` は常に高々1件しか存在しない(DB 一意制約に委譲)
+- Preconditions: `grantManualBadge` は対象 `BadgeType.category === 'manual'` であること。`revokeManualBadge` は対象 `UserBadge` が存在し、その `BadgeType.category === 'manual'` であること
+- Postconditions: 新規に条件を満たしたレベル/バッジのみ `UserBadge` として作成され、既存の付与記録は変更されない。`revokeManualBadge` は対象 `UserBadge` の `revokedAt`/`revokedBy` のみを設定し、他フィールドは変更しない。既に剥奪済みの記録への再呼び出しは現在の状態をそのまま返す(冪等)
+- Invariants: 同一 `(user, badgeType, level)` の**有効な**(`revokedAt: null`)記録は常に高々1件しか存在しない(DB の部分一意制約に委譲)。剥奪済みの記録は同インデックスの対象外のため、再付与時に新規ドキュメントとして共存しうる
 
 ##### Event Contract
 - Subscribed events: `crowi.events.activity`(`'updated'`)— `action` でフィルタし `ACTION_PAGE_CREATE`/`ACTION_PAGE_UPDATE` のみ処理
@@ -449,16 +496,18 @@ interface BadgeGrantService {
 
 | Method | Endpoint | Request | Response | Errors |
 |--------|----------|---------|----------|--------|
-| GET | `/user-badges?targetUserId=` | - | `IUserBadgeHasId[]`(BadgeType 情報を populate) | 400, 401 |
+| GET | `/user-badges?targetUserId=&includeRevoked=` | - | `IUserBadgeHasId[]`(BadgeType 情報を populate) | 400, 401 |
 | POST | `/user-badges` | `{ badgeTypeId, userId, note? }` | `IUserBadgeHasId` | 400, 401, 403, 404, 422(自動区分への手動付与) |
+| DELETE | `/user-badges/:id` | - | `IUserBadgeHasId`(剥奪後の状態。既に剥奪済みなら現在の状態をそのまま返す) | 401, 403, 404, 422(自動区分バッジの剥奪) |
 
-- `GET` はログイン済み一般ユーザーが利用可能(自分・他人問わずプロフィール表示のため)。`POST`(手動付与)は `adminRequired`
+- `GET` はログイン済み一般ユーザーが利用可能(自分・他人問わずプロフィール表示のため)。`includeRevoked=true` は `adminRequired` を満たす場合のみ有効で、それ以外のリクエストでは無視され常に有効な記録のみを返す。`POST`(手動付与)・`DELETE`(剥奪)は `adminRequired`
 
 ### Client / UI(要約のみ、新規境界を持たないため詳細ブロック省略)
 
 - **UserPicture(拡張)**: 新規 optional prop `badges?: UserPictureBadge[]`(`{ iconKey: string; name: string; level: number | null }[]`、`packages/ui` 内で完結する表示専用型、`apps/app` のドメイン型に依存しない)。`badges` が空/未指定なら既存描画から一切変化しない。ホバー/フォーカス時のツールチップは、クライアント側で一度取得済みのバッジ種類カタログ(`useSWRxBadgeTypeList` 相当を一般ユーザー向けにも提供、または軽量な公開エンドポイント)から名前・説明を解決する
 - **BadgeShelf**: `useSWRxUserBadges(userId)` で取得した全付与バッジ(レベル別)をアイコン・名前・付与日とともに一覧表示。`UsersHomepageFooter.tsx` の ContributionGraph セクション直後に配置
 - **Badge admin screens**: `UserGroup` 管理画面(`BadgeManagement.tsx` が `UserGroupPage.tsx` 相当、`BadgeTypeTable/Modal/Form/DeleteModal` が対応コンポーネント相当)と同一パターン。追加で `ManualGrantModal.tsx`(ユーザー検索 + 手動バッジ選択 + メモ入力)を持つ
+- **GrantedManualBadgeList**: `ManualGrantModal.tsx` 内で対象ユーザー選択後に表示。`useSWRxUserBadges(userId, { includeRevoked: true })` で当該ユーザーの手動バッジ付与記録(有効/剥奪済み双方)を取得し、`category: 'manual'` のもののみ一覧化する。有効な記録には剥奪確認ダイアログ付きの「剥奪」ボタンを、剥奪済みの記録には剥奪日時・実行者を示すバッジ表示を付ける(要件 7.7)
 
 **Implementation Notes**
 - Integration: 管理画面は `apps/app/src/stores/badge-type.ts` の `useSWRxBadgeTypeList`/`useSWRxBadgeType`(`useSWRImmutable`)経由、`apiv3Post/Put/Delete` 呼び出し後に `mutate` で再検証(`UserGroupPage.tsx` と同一パターン)
@@ -478,7 +527,7 @@ interface BadgeGrantService {
 - `User 1 --- 1 badgeSummaryCached[]`(非正規化キャッシュ、`UserBadge` の派生データであり正とはしない。正は `UserBadge` コレクション)
 
 ### Data Contracts & Integration
-- `IUserBadgeSummaryEntry`(`User.badgeSummaryCached` の要素型)は「そのバッジ系列で保有する最高レベル」のみを保持する。系列数に上限は設けない(v1 では管理者が作成するバッジ種類数は小さいと想定。Open Questions 参照)
+- `IUserBadgeSummaryEntry`(`User.badgeSummaryCached` の要素型)は「そのバッジ系列で保有する、剥奪されていない最高レベル」のみを保持する(`revokedAt: null` の `UserBadge` のみを集計対象とする)。系列数に上限は設けない(v1 では管理者が作成するバッジ種類数は小さいと想定。Open Questions 参照)
 
 ```typescript
 export interface IUserBadgeSummaryEntry {
@@ -499,9 +548,9 @@ export interface IUserBadgeSummaryEntry {
 GROWI の既存 apiv3 規約(`ErrorV3` + `res.apiv3Err`)に従い、型付きの Error サブクラスを投げてルート層で変換する。
 
 ### Error Categories and Responses
-- **User Errors(4xx)**: 不正な `category`/`levels` 構成 → 400(バリデーションエラー内容を返す)。管理者権限なし → 403。存在しない `BadgeType`/対象ユーザー → 404
-- **Business Logic Errors(422)**: 自動区分バッジ種類への手動付与試行 → 422 + 「自動区分は自動評価によってのみ付与される」旨のエラーメッセージ(要件 3.4)
-- **System Errors(5xx)**: `UserBadge` 作成時の予期しない DB エラー(重複キー以外)→ 500、ログ記録。重複キー(`E11000`)は「既に付与済み」として正常系扱いし、エラーを外部に伝播しない
+- **User Errors(4xx)**: 不正な `category`/`levels` 構成 → 400(バリデーションエラー内容を返す)。管理者権限なし → 403。存在しない `BadgeType`/対象ユーザー/`UserBadge` → 404
+- **Business Logic Errors(422)**: 自動区分バッジ種類への手動付与試行 → 422 + 「自動区分は自動評価によってのみ付与される」旨のエラーメッセージ(要件 3.4)。自動区分の `UserBadge` を剥奪しようとした場合 → 422 + 「自動区分は剥奪の対象外」旨のエラーメッセージ(要件 7.5)
+- **System Errors(5xx)**: `UserBadge` 作成時の予期しない DB エラー(重複キー以外)→ 500、ログ記録。重複キー(`E11000`)は「既に付与済み」として正常系扱いし、エラーを外部に伝播しない。既に剥奪済みの `UserBadge` への再剥奪はエラーとせず、現在の状態を 200 で返す(冪等)
 
 ## Testing Strategy
 
@@ -511,6 +560,7 @@ GROWI の既存 apiv3 規約(`ErrorV3` + `res.apiv3Err`)に従い、型付きの
 - `BadgeGrantService.evaluateAndGrantForUser`: しきい値未到達では付与しないこと、複数レベルを一度に跨いだ場合に全レベルが付与されること(2.2, 2.3)、同一 `(user, badgeType, level)` への2回目の呼び出しが冪等であること(2.4)
 - `BadgeGrantService.grantManualBadge`: `category === 'automatic'` の `BadgeType` に対して呼び出すとエラーになること(3.4)
 - `BadgeType` スキーマ検証: `iconType === 'image'` のとき `iconAttachment` が必須であること、`iconType !== 'image'` のとき `iconAttachment` が `null` に強制されること、`category === 'automatic'` の場合に `iconType: 'image'` を指定すると検証エラーになること(6.1, 6.1a)
+- `BadgeGrantService.revokeManualBadge`: 手動区分の `UserBadge` を剥奪すると `revokedAt`/`revokedBy` が設定されること(7.1, 7.3)。自動区分の `UserBadge` に対して呼び出すとエラーになること(7.5)。既に剥奪済みの記録への再呼び出しが冪等であること(現在の状態をそのまま返す)
 
 ### Integration Tests
 - ページ更新 API を叩いた際、しきい値を跨いだユーザーに `UserBadge` が作成され `User.badgeSummaryCached` が更新されること(自動付与フロー全体、2.1-2.3)
@@ -519,16 +569,19 @@ GROWI の既存 apiv3 規約(`ErrorV3` + `res.apiv3Err`)に従い、型付きの
 - バッジ付与後、対象ユーザーの InAppNotification に `ACTION_USER_BADGE_GRANT` の通知が生成されること(5.1)
 - バッジ種類の画像アイコンをアップロードすると `AttachmentType.BADGE_ICON` の `Attachment` が作成され `BadgeType.iconAttachment` に反映されること、非画像 MIME のファイルをアップロードすると拒否されること(6.2, 6.3)
 - 既に画像アイコンを持つバッジ種類へ再アップロードすると、その `BadgeType` 自身の旧 `Attachment` のみが削除され新しい `Attachment` に置き換わること、かつ**他の `BadgeType` が保持する画像アイコンには一切影響しないこと**(複数バッジ種類が同時に独立した画像アイコンを持てることを証明する、6.4)
+- 手動バッジを剥奪すると、対象ユーザーの `User.badgeSummaryCached` から該当エントリが除かれること(7.2)。剥奪後に同一の手動バッジ種類を同一ユーザーへ再付与すると、新しい `UserBadge` ドキュメントが作成され(剥奪前の記録と共存)、`badgeSummaryCached` に再度含まれること
+- 管理者以外のユーザーで `DELETE /user-badges/:id` を呼ぶと 403 になること(7.4)、自動区分バッジに対応する `UserBadge` を指定すると 422 になること(7.5)
 
 ### E2E/UI Tests
 - 管理者がバッジ種類を作成し、対象ユーザーがページを規定回数編集すると、コメント欄・サイドバー・ユーザーページのアバターにバッジが表示されること(1.1, 2.2, 4.1, 4.3)
 - 管理者が手動区分バッジをユーザーへ付与し、そのユーザーがバッジ通知を受け取ること(3.1, 5.1)
 - 同一バッジ系列で複数レベルを保有するユーザーについて、アバター併記箇所は最高レベルのみ、ユーザーページは全レベルが表示されること(4.4)
 - 管理画面でバッジ種類のアイコンとして「画像アップロード」を選び画像を保存すると、そのバッジを保有するユーザーのアバター横に画像アイコンが表示されること(6.1, 6.5)
+- 管理者が `GrantedManualBadgeList` から手動バッジを剥奪すると、対象ユーザーのアバター併記箇所・ユーザーページの双方から即座にそのバッジが消えること(7.1, 7.2)
 
 ## Security Considerations
 
-- バッジ種類の作成・編集・削除・手動付与はすべて既存の `adminRequiredFactory` による管理者限定操作とする(新規権限モデルは導入しない)
+- バッジ種類の作成・編集・削除・手動付与・剥奪はすべて既存の `adminRequiredFactory` による管理者限定操作とする(新規権限モデルは導入しない)
 - `iconKey` は許可された表現(Material Symbols アイコン名の正規表現、または単一絵文字)のみを受理し、任意の URL・HTML・SVG を受け付けない(格納型 XSS 対策、`research.md` の Decision 参照)。この制約は `iconType !== 'image'` の場合にのみ適用される
 - `iconType === 'image'` の画像アップロードは新規のアップロード/検証ロジックを実装せず、既存の `AttachmentService.createAttachment` + `validateImageContentType` にそのまま委譲する。SVG(`image/svg+xml`)も既存の許可 MIME に含まれるが、既存の配信経路(`createContentHeaders`)が SVG に対して `Content-Disposition: attachment` を強制しインライン表示させないこと、および添付ファイル応答に個別の `Content-Security-Policy`(`script-src` 実質封鎖・`object-src: none`)が付与されることにより、悪意ある SVG の格納型 XSS は既存基盤側で緩和されている。本 spec はこの既存の緩和策に依存し、`respond`/配信ロジックを独自実装・迂回しない
 - アップロード可能なのは管理者のみ(badge-type apiv3 route は既存の `adminRequiredFactory` 配下)であるため、画像アップロード経路の攻撃面は「管理者アカウントが侵害された場合」に限定される

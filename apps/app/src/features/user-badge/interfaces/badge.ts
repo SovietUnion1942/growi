@@ -31,6 +31,8 @@ export interface IUserBadge {
   grantedAt: Date;
   grantedBy: Types.ObjectId | null;
   note: string | null;
+  revokedAt: Date | null; // null = active. Only manual-category badges can become non-null.
+  revokedBy: Types.ObjectId | null; // ref User (the admin who revoked it). Always null when revokedAt is null.
 }
 
 export interface IUserBadgeSummaryEntry {

@@ -92,12 +92,23 @@ export const useAutoExpandAncestors = ({
     if (didExpand) {
       onExpanded?.();
     } else {
-      // Only mark as fully processed when all ancestors are expanded
-      // Check if we have all the ancestors we need
+      // Only mark as fully processed when all ancestors are expanded.
+      // getAncestorPaths() never includes "/" itself (it only returns
+      // intermediate segment paths), so it returns an empty array for the
+      // home page and any top-level page — that made `every()` on an empty
+      // array trivially true on the very first run (often while the root
+      // item still only has its "Loading..." placeholder data), marking
+      // targetPath as fully processed before the root was ever expanded.
+      // The root is always a candidate for expansion above (itemPath ===
+      // '/'), so completion must also confirm it was actually expanded.
       const ancestorPaths = getAncestorPaths(targetPath);
-      const hasAllAncestors = ancestorPaths.every((ancestorPath) =>
-        items.some((item) => item.getItemData().path === ancestorPath),
-      );
+      const hasAllAncestors =
+        ancestorPaths.every((ancestorPath) =>
+          items.some((item) => item.getItemData().path === ancestorPath),
+        ) &&
+        items.some(
+          (item) => item.getItemData().path === '/' && item.isExpanded(),
+        );
 
       if (hasAllAncestors) {
         processedTargetPathRef.current = targetPath;

@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from 'react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { NextPage } from 'next';
 import type { AppContext, AppProps } from 'next/app';
 import App from 'next/app';
@@ -69,10 +69,16 @@ const GrowiAppSubstance = ({
 }: GrowiAppProps): JSX.Element => {
   const router = useRouter();
 
-  // Deserialize superjson-serialized props from getServerSideProps
-  const pageProps = deserializeSuperJSONProps(
-    rawPageProps,
-  ) as CombinedCommonProps;
+  // Deserialize superjson-serialized props from getServerSideProps.
+  // Memoized: deserializing allocates fresh objects (e.g. commonEachProps.currentUser),
+  // and useHydrateGlobalEachAtoms re-syncs atoms in a useEffect keyed on those objects —
+  // a new reference every render (even with unchanged rawPageProps) re-fires that effect,
+  // rewriting widely-subscribed atoms (currentUserAtom, currentPathnameAtom) every render
+  // and triggering a self-sustaining app-wide re-render loop.
+  const pageProps = useMemo(
+    () => deserializeSuperJSONProps(rawPageProps) as CombinedCommonProps,
+    [rawPageProps],
+  );
 
   // Hydrate global atoms with server-side data
   useHydrateGlobalInitialAtoms(

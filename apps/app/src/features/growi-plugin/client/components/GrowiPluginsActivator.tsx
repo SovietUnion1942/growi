@@ -42,7 +42,13 @@ async function activateAll(): Promise<void> {
 
 export const GrowiPluginsActivator = (): JSX.Element => {
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG GrowiPluginsActivator] mount effect firing');
     activateAll();
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log('[DEBUG GrowiPluginsActivator] unmounting');
+    };
   }, []);
 
   return <></>;

@@ -4,6 +4,11 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 
 import { getOrCreateModel } from '../util/mongoose-utils';
 
+export type MessageReaction = {
+  emoji: string;
+  userId: Types.ObjectId;
+};
+
 export interface MessageDocument extends Document {
   _id: Types.ObjectId;
   conversation: Types.ObjectId;
@@ -12,6 +17,11 @@ export interface MessageDocument extends Document {
   readBy: Types.ObjectId[];
   mentionedUserIds: Types.ObjectId[];
   attachment?: Types.ObjectId;
+  // One entry per (emoji, user) pair -- not grouped by emoji here, so this
+  // shape is agnostic to whichever emoji source added the entry (a fixed
+  // quick-react row today, a full picker later). Grouping for display is a
+  // pure client-side transform (see reaction-utils.ts).
+  reactions: MessageReaction[];
   createdAt: Date;
 }
 
@@ -29,6 +39,11 @@ export interface MessageModel extends PaginateModel<MessageDocument> {
     conversationIds: Types.ObjectId[],
     user: Types.ObjectId,
   ): Promise<Map<string, number>>;
+  toggleReaction(
+    messageId: Types.ObjectId,
+    emoji: string,
+    userId: Types.ObjectId,
+  ): Promise<MessageDocument | null>;
 }
 
 const messageSchema = new Schema<MessageDocument, MessageModel>(
@@ -67,6 +82,13 @@ const messageSchema = new Schema<MessageDocument, MessageModel>(
       type: Schema.Types.ObjectId,
       ref: 'Attachment',
     },
+    reactions: [
+      {
+        _id: false,
+        emoji: { type: String, required: true },
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+      },
+    ],
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
@@ -119,6 +141,33 @@ messageSchema.statics.countUnreadByConversation = async function (
     ]);
 
   return new Map(results.map((r) => [r._id.toString(), r.count]));
+};
+
+// Atomic per-step toggle: first try to remove a matching (emoji, userId)
+// entry; if none matched (findOneAndUpdate's query filter requires the
+// entry to exist, so it returns null when there's nothing to pull), add one
+// instead. $addToSet already de-dupes identical entries, so the narrow
+// double-click race window at worst repeats a no-op rather than corrupting
+// state.
+messageSchema.statics.toggleReaction = async function (
+  messageId: Types.ObjectId,
+  emoji: string,
+  userId: Types.ObjectId,
+) {
+  const removed = await this.findOneAndUpdate(
+    { _id: messageId, reactions: { $elemMatch: { emoji, userId } } },
+    { $pull: { reactions: { emoji, userId } } },
+    { new: true },
+  );
+  if (removed != null) {
+    return removed;
+  }
+
+  return this.findOneAndUpdate(
+    { _id: messageId },
+    { $addToSet: { reactions: { emoji, userId } } },
+    { new: true },
+  );
 };
 
 const Message = getOrCreateModel<MessageDocument, MessageModel>(

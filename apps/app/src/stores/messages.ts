@@ -58,6 +58,11 @@ export const getConversationDisplayName = (
   return conversation.name ?? '';
 };
 
+export type IMessageReaction = {
+  emoji: string;
+  userId: string;
+};
+
 export type IMessage = {
   _id: string;
   conversation: string;
@@ -66,6 +71,7 @@ export type IMessage = {
   readBy: string[];
   mentionedUserIds: string[];
   attachment?: string;
+  reactions: IMessageReaction[];
   createdAt: string;
 };
 
@@ -168,6 +174,18 @@ export const sendMessage = async (
   }
 
   const res = await apiv3Post(endpoint, { body, mentionedUserIds });
+  return res.data.message;
+};
+
+export const toggleMessageReaction = async (
+  conversationId: string,
+  messageId: string,
+  emoji: string,
+): Promise<IMessage> => {
+  const res = await apiv3Post(
+    `/messages/conversations/${conversationId}/messages/${messageId}/reactions`,
+    { emoji },
+  );
   return res.data.message;
 };
 

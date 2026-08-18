@@ -30,6 +30,9 @@ const logger = loggerFactory('growi:routes:apiv3:messages');
 
 const MESSAGE_PUSH_BODY_MAX_LENGTH = 100;
 const IMAGE_PUSH_BODY_FALLBACK = '📷 画像を送信しました';
+// Generous enough for a multi-codepoint ZWJ sequence (e.g. a family emoji
+// with skin-tone modifiers) while still rejecting arbitrary long strings.
+const MAX_EMOJI_LENGTH = 32;
 
 const router = express.Router();
 
@@ -133,6 +136,30 @@ export const setup = (crowi: Crowi): Router => {
     return candidateIds.filter((id) =>
       conversation.participants.some((p) => p.equals(id)),
     );
+  };
+
+  // Broadcasts a message-related event to everyone who can see the
+  // conversation: the shared broadcast room for a 'broadcast' conversation,
+  // or each participant's own user room otherwise. Shared by MessageCreated
+  // and MessageReactionUpdated so the two stay consistent.
+  const emitToConversation = (
+    conversation: ConversationDocument,
+    eventName: string,
+    payload: unknown,
+  ): void => {
+    if (!crowi.socketIoService.isInitialized) {
+      return;
+    }
+    const socket = crowi.socketIoService.getDefaultSocket();
+    if (conversation.type === 'broadcast') {
+      socket.in(BROADCAST_ROOM_NAME).emit(eventName, payload);
+      return;
+    }
+    conversation.participants.forEach((participantId) => {
+      socket
+        .in(getRoomNameWithId(RoomPrefix.USER, participantId.toString()))
+        .emit(eventName, payload);
+    });
   };
 
   // A multipart/form-data body (image send) can't carry a real array field,
@@ -487,28 +514,10 @@ export const setup = (crowi: Crowi): Router => {
         conversation.lastMessageAt = new Date();
         await conversation.save();
 
-        if (crowi.socketIoService.isInitialized) {
-          const socket = crowi.socketIoService.getDefaultSocket();
-          if (conversation.type === 'broadcast') {
-            socket
-              .in(BROADCAST_ROOM_NAME)
-              .emit(SocketEventName.MessageCreated, {
-                conversationId,
-                message,
-              });
-          } else {
-            conversation.participants.forEach((participantId) => {
-              socket
-                .in(
-                  getRoomNameWithId(RoomPrefix.USER, participantId.toString()),
-                )
-                .emit(SocketEventName.MessageCreated, {
-                  conversationId,
-                  message,
-                });
-            });
-          }
-        }
+        emitToConversation(conversation, SocketEventName.MessageCreated, {
+          conversationId,
+          message,
+        });
 
         // fire-and-forget: don't make the sender wait on push delivery
         const senderName = user.name || user.username;
@@ -533,6 +542,56 @@ export const setup = (crowi: Crowi): Router => {
           .catch((err) => {
             logger.error('Failed to send push notification for message', err);
           });
+
+        return res.apiv3({ message });
+      } catch (err) {
+        return res.apiv3Err(err);
+      }
+    },
+  );
+
+  router.post(
+    '/conversations/:id/messages/:messageId/reactions',
+    accessTokenParser(),
+    loginRequiredStrictly,
+    async (req: CrowiRequest, res: ApiV3Response) => {
+      const user = req.user!;
+      const { id: conversationId, messageId } = req.params;
+      const { emoji } = req.body;
+
+      if (
+        typeof emoji !== 'string' ||
+        emoji.trim() === '' ||
+        emoji.length > MAX_EMOJI_LENGTH
+      ) {
+        return res.apiv3Err(new Error('emoji is required'), 400);
+      }
+
+      try {
+        const conversation = await Conversation.findById(conversationId);
+        if (
+          conversation == null ||
+          !isConversationMember(conversation, user._id)
+        ) {
+          return res.apiv3Err(new Error('Forbidden'), 403);
+        }
+
+        const message = await Message.toggleReaction(
+          new Types.ObjectId(messageId),
+          emoji,
+          user._id,
+        );
+        // also guards against toggling a reaction on a message that
+        // belongs to a different conversation than the one just verified
+        if (message == null || !message.conversation.equals(conversation._id)) {
+          return res.apiv3Err(new Error('Message not found'), 404);
+        }
+
+        emitToConversation(
+          conversation,
+          SocketEventName.MessageReactionUpdated,
+          { conversationId, message },
+        );
 
         return res.apiv3({ message });
       } catch (err) {

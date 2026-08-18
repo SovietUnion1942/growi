@@ -95,6 +95,7 @@ const buildMessage = (
   conversation: 'conv1',
   body: 'hello',
   readBy: [],
+  mentionedUserIds: [],
   createdAt: '2026-08-17T00:00:00.000Z',
   ...overrides,
 });

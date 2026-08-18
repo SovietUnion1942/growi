@@ -1,4 +1,11 @@
-import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type JSX,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { UserPicture } from '@growi/ui/dist/components';
 import { mutate as mutateGlobal } from 'swr';
 
@@ -17,6 +24,10 @@ import {
   sendMessage,
   useSWRxMessages,
 } from '~/stores/messages';
+
+import { MentionAutocomplete } from './MentionAutocomplete';
+import { splitMessageBodyIntoMentionSegments } from './mention-query';
+import { useMentionComposer } from './useMentionComposer';
 
 type Props = {
   conversation: IConversation;
@@ -64,6 +75,11 @@ const MessageItem = ({
 
   const badges = useUserPictureBadges(badgeSummary);
 
+  const segments = useMemo(
+    () => splitMessageBodyIntoMentionSegments(message.body),
+    [message.body],
+  );
+
   return (
     <li className="mb-2">
       {!isMine && isFirstOfRun && (
@@ -89,7 +105,17 @@ const MessageItem = ({
             borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
           }}
         >
-          {message.body}
+          {segments.map((segment, index) =>
+            segment.type === 'mention' ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
+              <span key={index} className="fw-bold">
+                {segment.value}
+              </span>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
+              <span key={index}>{segment.value}</span>
+            ),
+          )}
         </div>
       </div>
     </li>
@@ -107,6 +133,15 @@ export const MessageThread = (props: Props): JSX.Element => {
 
   const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const mention = useMentionComposer({
+    conversation,
+    currentUserId: currentUser?._id,
+    body,
+    setBody,
+    inputRef,
+  });
 
   const markAsRead = useCallback(async () => {
     await markConversationAsRead(conversationId);
@@ -152,22 +187,27 @@ export const MessageThread = (props: Props): JSX.Element => {
 
     setIsSending(true);
     try {
-      await sendMessage(conversationId, trimmed);
+      const mentionedUserIds = mention.resolveMentionedUserIds(trimmed);
+      await sendMessage(conversationId, trimmed, mentionedUserIds);
       setBody('');
+      mention.reset();
       await mutate();
     } finally {
       setIsSending(false);
     }
-  }, [body, conversationId, isSending, mutate]);
+  }, [body, conversationId, isSending, mention, mutate]);
 
   const keyDownHandler = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (mention.onKeyDown(e)) {
+        return;
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submitHandler();
       }
     },
-    [submitHandler],
+    [mention, submitHandler],
   );
 
   return (
@@ -210,12 +250,21 @@ export const MessageThread = (props: Props): JSX.Element => {
         </ul>
       </div>
 
-      <div className="d-flex align-items-center mt-2">
+      <div className="d-flex align-items-center mt-2 position-relative">
+        {mention.isOpen && (
+          <MentionAutocomplete
+            candidates={mention.candidates}
+            activeIndex={mention.activeIndex}
+            onSelect={mention.selectCandidate}
+            onHover={mention.setActiveIndex}
+          />
+        )}
         <input
+          ref={inputRef}
           type="text"
           className="form-control"
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={mention.onChange}
           onKeyDown={keyDownHandler}
           disabled={isSending}
         />

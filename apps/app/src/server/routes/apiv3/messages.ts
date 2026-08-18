@@ -65,12 +65,16 @@ export const setup = (crowi: Crowi): Router => {
   };
 
   // recipients for push notifications, muted participants excluded;
-  // broadcast has no fixed participant list, so it fans out to every active user
+  // broadcast has no fixed participant list, so it fans out to every active user.
+  // Mentioned users bypass the mute filter — a mention is an explicit call-out
+  // and should reach them even if they've muted the conversation as a whole.
   const getPushRecipientIds = async (
     conversation: ConversationDocument,
     senderId: Types.ObjectId,
+    mentionedIds: Types.ObjectId[] = [],
   ): Promise<Types.ObjectId[]> => {
     const mutedIds = new Set(conversation.mutedBy.map((id) => id.toString()));
+    const mentionedIdSet = new Set(mentionedIds.map((id) => id.toString()));
 
     const candidateIds: Types.ObjectId[] =
       conversation.type === 'broadcast'
@@ -80,7 +84,44 @@ export const setup = (crowi: Crowi): Router => {
         : conversation.participants;
 
     return candidateIds.filter(
-      (id) => !id.equals(senderId) && !mutedIds.has(id.toString()),
+      (id) =>
+        !id.equals(senderId) &&
+        (mentionedIdSet.has(id.toString()) || !mutedIds.has(id.toString())),
+    );
+  };
+
+  // Only ids that are valid ObjectIds AND a legitimate mention target are kept:
+  // for direct/group, that means an existing participant; broadcast has no
+  // fixed participant list, so any existing user is a valid mention there.
+  const resolveMentionedUserIds = async (
+    conversation: ConversationDocument,
+    rawMentionedUserIds: unknown,
+  ): Promise<Types.ObjectId[]> => {
+    if (!Array.isArray(rawMentionedUserIds)) {
+      return [];
+    }
+
+    const candidateIds = rawMentionedUserIds
+      .filter(
+        (id): id is string =>
+          typeof id === 'string' && Types.ObjectId.isValid(id),
+      )
+      .map((id) => new Types.ObjectId(id));
+
+    if (candidateIds.length === 0) {
+      return [];
+    }
+
+    if (conversation.type === 'broadcast') {
+      const existingUsers = await User.find(
+        { _id: { $in: candidateIds } },
+        '_id',
+      );
+      return existingUsers.map((u) => u._id);
+    }
+
+    return candidateIds.filter((id) =>
+      conversation.participants.some((p) => p.equals(id)),
     );
   };
 
@@ -369,7 +410,7 @@ export const setup = (crowi: Crowi): Router => {
     async (req: CrowiRequest, res: ApiV3Response) => {
       const user = req.user!;
       const { id: conversationId } = req.params;
-      const { body } = req.body;
+      const { body, mentionedUserIds: rawMentionedUserIds } = req.body;
 
       if (body == null || body.trim() === '') {
         return res.apiv3Err(new Error('body is required'), 400);
@@ -384,11 +425,17 @@ export const setup = (crowi: Crowi): Router => {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
 
+        const mentionedUserIds = await resolveMentionedUserIds(
+          conversation,
+          rawMentionedUserIds,
+        );
+
         const message = await Message.create({
           conversation: conversationId,
           sender: user._id,
           body,
           readBy: [user._id],
+          mentionedUserIds,
         });
 
         conversation.lastMessageAt = new Date();
@@ -423,7 +470,7 @@ export const setup = (crowi: Crowi): Router => {
           body.length > MESSAGE_PUSH_BODY_MAX_LENGTH
             ? `${body.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
             : body;
-        getPushRecipientIds(conversation, user._id)
+        getPushRecipientIds(conversation, user._id, mentionedUserIds)
           .then((recipientIds) =>
             sendPushNotificationToUsers(
               recipientIds.map((id) => id.toString()),

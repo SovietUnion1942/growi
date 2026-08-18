@@ -3,13 +3,16 @@ import { serializeUserSecurely } from '@growi/core/dist/models/serializers';
 import type { Router } from 'express';
 import express from 'express';
 import { Types } from 'mongoose';
+import multer from 'multer';
 
 import type { CrowiRequest } from '~/interfaces/crowi-request';
 import { SocketEventName } from '~/interfaces/websocket';
 import type Crowi from '~/server/crowi';
+import { AttachmentType } from '~/server/interfaces/attachment';
 import { accessTokenParser } from '~/server/middlewares/access-token-parser';
 import loginRequiredFactory from '~/server/middlewares/login-required';
 import { UserStatus } from '~/server/models/user/conts';
+import { validateImageContentType } from '~/server/routes/attachment/image-content-type-validator';
 import { sendPushNotificationToUsers } from '~/server/service/push-notification';
 import {
   BROADCAST_ROOM_NAME,
@@ -26,6 +29,7 @@ import type { ApiV3Response } from './interfaces/apiv3-response';
 const logger = loggerFactory('growi:routes:apiv3:messages');
 
 const MESSAGE_PUSH_BODY_MAX_LENGTH = 100;
+const IMAGE_PUSH_BODY_FALLBACK = '📷 画像を送信しました';
 
 const router = express.Router();
 
@@ -43,6 +47,12 @@ const isConversationMember = (
 export const setup = (crowi: Crowi): Router => {
   const loginRequiredStrictly = loginRequiredFactory(crowi);
   const { User } = crowi.models;
+  // same multer config shape as badge-type.ts / customize-setting.js's
+  // upload-brand-logo: a disk-backed temp store, expecting a single 'file'
+  // field. When Content-Type isn't multipart/form-data, multer is a no-op
+  // and req.body is left to the JSON body parser, so this route keeps
+  // accepting plain text-only JSON sends unchanged.
+  const uploads = multer({ dest: `${crowi.tmpDir}uploads` });
 
   const serializeConversation = async (
     conversation: ConversationDocument,
@@ -123,6 +133,20 @@ export const setup = (crowi: Crowi): Router => {
     return candidateIds.filter((id) =>
       conversation.participants.some((p) => p.equals(id)),
     );
+  };
+
+  // A multipart/form-data body (image send) can't carry a real array field,
+  // so the client JSON-stringifies mentionedUserIds in that case; a plain
+  // JSON body already has a real array. Normalize both shapes here.
+  const parseMentionedUserIdsInput = (raw: unknown): unknown => {
+    if (typeof raw !== 'string') {
+      return raw;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
   };
 
   router.get(
@@ -407,13 +431,23 @@ export const setup = (crowi: Crowi): Router => {
       acceptLegacy: true,
     }),
     loginRequiredStrictly,
+    uploads.single('file'),
     async (req: CrowiRequest, res: ApiV3Response) => {
       const user = req.user!;
       const { id: conversationId } = req.params;
       const { body, mentionedUserIds: rawMentionedUserIds } = req.body;
+      const file = req.file;
 
-      if (body == null || body.trim() === '') {
-        return res.apiv3Err(new Error('body is required'), 400);
+      const trimmedBody = typeof body === 'string' ? body.trim() : '';
+      if (trimmedBody === '' && file == null) {
+        return res.apiv3Err(new Error('body or file is required'), 400);
+      }
+
+      if (file != null) {
+        const { isValid, error } = validateImageContentType(file.mimetype);
+        if (!isValid) {
+          return res.apiv3Err(new Error(error ?? 'Invalid file type.'), 400);
+        }
       }
 
       try {
@@ -427,15 +461,27 @@ export const setup = (crowi: Crowi): Router => {
 
         const mentionedUserIds = await resolveMentionedUserIds(
           conversation,
-          rawMentionedUserIds,
+          parseMentionedUserIdsInput(rawMentionedUserIds),
         );
+
+        const attachment =
+          file != null
+            ? await crowi.attachmentService.createAttachment(
+                file,
+                user,
+                null,
+                AttachmentType.MESSAGE_IMAGE,
+                undefined,
+              )
+            : undefined;
 
         const message = await Message.create({
           conversation: conversationId,
           sender: user._id,
-          body,
+          body: trimmedBody,
           readBy: [user._id],
           mentionedUserIds,
+          attachment: attachment?._id,
         });
 
         conversation.lastMessageAt = new Date();
@@ -467,9 +513,11 @@ export const setup = (crowi: Crowi): Router => {
         // fire-and-forget: don't make the sender wait on push delivery
         const senderName = user.name || user.username;
         const pushBody =
-          body.length > MESSAGE_PUSH_BODY_MAX_LENGTH
-            ? `${body.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
-            : body;
+          trimmedBody === ''
+            ? IMAGE_PUSH_BODY_FALLBACK
+            : trimmedBody.length > MESSAGE_PUSH_BODY_MAX_LENGTH
+              ? `${trimmedBody.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
+              : trimmedBody;
         getPushRecipientIds(conversation, user._id, mentionedUserIds)
           .then((recipientIds) =>
             sendPushNotificationToUsers(

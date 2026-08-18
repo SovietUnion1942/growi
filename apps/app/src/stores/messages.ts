@@ -2,7 +2,12 @@ import type { IUserBadgeSummaryEntry } from '@growi/core';
 import useSWR, { type SWRResponse } from 'swr';
 import useSWRInfinite, { type SWRInfiniteResponse } from 'swr/infinite';
 
-import { apiv3Delete, apiv3Get, apiv3Post } from '~/client/util/apiv3-client';
+import {
+  apiv3Delete,
+  apiv3Get,
+  apiv3Post,
+  apiv3PostForm,
+} from '~/client/util/apiv3-client';
 
 export const CONVERSATIONS_SWR_KEY = '/messages/conversations';
 
@@ -60,8 +65,12 @@ export type IMessage = {
   body: string;
   readBy: string[];
   mentionedUserIds: string[];
+  attachment?: string;
   createdAt: string;
 };
+
+export const getMessageAttachmentUrl = (attachmentId: string): string =>
+  `/attachment/${attachmentId}`;
 
 export const useSWRxConversations = (): SWRResponse<
   { docs: IConversation[]; totalDocs: number },
@@ -139,11 +148,26 @@ export const sendMessage = async (
   conversationId: string,
   body: string,
   mentionedUserIds?: string[],
+  file?: File,
 ): Promise<IMessage> => {
-  const res = await apiv3Post(
-    `/messages/conversations/${conversationId}/messages`,
-    { body, mentionedUserIds },
-  );
+  const endpoint = `/messages/conversations/${conversationId}/messages`;
+
+  // An image attaches as multipart/form-data so the server's multer
+  // middleware can parse it; a JSON array wouldn't survive that encoding, so
+  // mentionedUserIds is carried as a JSON string in this branch (the server
+  // parses both shapes -- see parseMentionedUserIdsInput in messages.ts).
+  if (file != null) {
+    const formData = new FormData();
+    formData.append('body', body);
+    if (mentionedUserIds != null) {
+      formData.append('mentionedUserIds', JSON.stringify(mentionedUserIds));
+    }
+    formData.append('file', file);
+    const res = await apiv3PostForm(endpoint, formData);
+    return res.data.message;
+  }
+
+  const res = await apiv3Post(endpoint, { body, mentionedUserIds });
   return res.data.message;
 };
 

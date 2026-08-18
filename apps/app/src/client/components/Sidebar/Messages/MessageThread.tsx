@@ -26,7 +26,9 @@ import {
 } from '~/stores/messages';
 
 import { MentionAutocomplete } from './MentionAutocomplete';
+import { MessageImage } from './MessageImage';
 import { splitMessageBodyIntoMentionSegments } from './mention-query';
+import { useImageAttachment } from './useImageAttachment';
 import { useMentionComposer } from './useMentionComposer';
 
 type Props = {
@@ -99,12 +101,17 @@ const MessageItem = ({
           }
           style={{
             maxWidth: '75%',
-            padding: '0.5rem 0.75rem',
+            // an image-only message (no body text) skips the text padding
+            // so the bubble hugs the image instead of framing it awkwardly
+            padding: message.body === '' ? '0.25rem' : '0.5rem 0.75rem',
             wordBreak: 'break-word',
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
             borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
           }}
         >
+          {message.attachment != null && (
+            <MessageImage attachmentId={message.attachment} />
+          )}
           {segments.map((segment, index) =>
             segment.type === 'mention' ? (
               // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
@@ -134,6 +141,8 @@ export const MessageThread = (props: Props): JSX.Element => {
   const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const image = useImageAttachment();
 
   const mention = useMentionComposer({
     conversation,
@@ -181,21 +190,39 @@ export const MessageThread = (props: Props): JSX.Element => {
 
   const submitHandler = useCallback(async () => {
     const trimmed = body.trim();
-    if (trimmed === '' || isSending) {
+    if ((trimmed === '' && image.file == null) || isSending) {
       return;
     }
 
     setIsSending(true);
     try {
       const mentionedUserIds = mention.resolveMentionedUserIds(trimmed);
-      await sendMessage(conversationId, trimmed, mentionedUserIds);
+      await sendMessage(
+        conversationId,
+        trimmed,
+        mentionedUserIds,
+        image.file ?? undefined,
+      );
       setBody('');
       mention.reset();
+      image.clear();
       await mutate();
     } finally {
       setIsSending(false);
     }
-  }, [body, conversationId, isSending, mention, mutate]);
+  }, [body, conversationId, image, isSending, mention, mutate]);
+
+  const fileChangeHandler = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0];
+      if (selected != null) {
+        image.select(selected);
+      }
+      // reset so picking the same file again still fires onChange
+      e.target.value = '';
+    },
+    [image],
+  );
 
   const keyDownHandler = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -250,6 +277,41 @@ export const MessageThread = (props: Props): JSX.Element => {
         </ul>
       </div>
 
+      {image.previewUrl != null && (
+        <div className="mt-2 position-relative d-inline-block">
+          <img
+            src={image.previewUrl}
+            alt="送信予定の画像"
+            style={{
+              maxHeight: '96px',
+              maxWidth: '96px',
+              borderRadius: '8px',
+              objectFit: 'cover',
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-sm btn-dark rounded-circle position-absolute p-0 d-flex align-items-center justify-content-center"
+            aria-label="画像を取り消す"
+            onClick={image.clear}
+            disabled={isSending}
+            style={{
+              top: '-6px',
+              right: '-6px',
+              width: '20px',
+              height: '20px',
+            }}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 14 }}
+            >
+              close
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="d-flex align-items-center mt-2 position-relative">
         {mention.isOpen && (
           <MentionAutocomplete
@@ -260,9 +322,25 @@ export const MessageThread = (props: Props): JSX.Element => {
           />
         )}
         <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="d-none"
+          onChange={fileChangeHandler}
+        />
+        <button
+          type="button"
+          className="btn btn-outline-secondary"
+          aria-label="画像を添付"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isSending}
+        >
+          <span className="material-symbols-outlined align-middle">image</span>
+        </button>
+        <input
           ref={inputRef}
           type="text"
-          className="form-control"
+          className="form-control ms-2"
           value={body}
           onChange={mention.onChange}
           onKeyDown={keyDownHandler}
@@ -272,7 +350,7 @@ export const MessageThread = (props: Props): JSX.Element => {
           type="button"
           className="btn btn-primary ms-2"
           onClick={submitHandler}
-          disabled={isSending || body.trim() === ''}
+          disabled={isSending || (body.trim() === '' && image.file == null)}
         >
           送信
         </button>

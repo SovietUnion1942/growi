@@ -11,6 +11,7 @@ export interface MessageDocument extends Document {
   body: string;
   readBy: Types.ObjectId[];
   mentionedUserIds: Types.ObjectId[];
+  attachment?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -43,9 +44,12 @@ const messageSchema = new Schema<MessageDocument, MessageModel>(
       ref: 'User',
       required: true,
     },
+    // A message must carry a body or an attachment (enforced at the route
+    // level, alongside multipart parsing), so `body` allows an empty string
+    // here rather than requiring one.
     body: {
       type: String,
-      required: true,
+      default: '',
     },
     readBy: [
       {
@@ -59,6 +63,10 @@ const messageSchema = new Schema<MessageDocument, MessageModel>(
         ref: 'User',
       },
     ],
+    attachment: {
+      type: Schema.Types.ObjectId,
+      ref: 'Attachment',
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

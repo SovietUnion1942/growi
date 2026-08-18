@@ -258,7 +258,7 @@
   - _Requirements: 6.1, 6.1a_
   - _Depends: 13.3_
 
-- [ ] 13.7 管理画面一覧・ユーザーページ全バッジ一覧への画像アイコン表示対応
+- [x] 13.7 管理画面一覧・ユーザーページ全バッジ一覧への画像アイコン表示対応
   - `BadgeTypeTable.tsx` の `{badgeType.iconKey}` の素朴なテキスト描画に `iconType === 'image'` 判定を追加し、画像の場合は `<img>` サムネイルを描画する
   - `BadgeShelf.tsx` の最終描画箇所に、`UserPicture.tsx` と同じ `iconType === 'image'` 判定を追加する(`resolveEntryDisplay` の解決ロジック自体は変更不要 — 手動区分は `levelDef` を持たないため既存の `?? badgeType.iconKey` フォールバックが自然に型レベルの `iconType`/`iconAttachment` を素通しする)
   - 画像アイコンを持つ手動バッジについて、管理画面のバッジ種類一覧とユーザーページのバッジ一覧の両方で画像が表示されることを確認できる

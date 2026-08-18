@@ -585,6 +585,17 @@
       "error": "The response stopped because an error occurred.",
       "unknown": "The response stopped before completing."
     },
+    "edit_proposal": {
+      "title": "Proposed edit",
+      "not_saved_notice": "This change has not been saved yet.",
+      "approve": "Approve & Save",
+      "reject": "Reject",
+      "rejected": "Rejected",
+      "saved": "Saved",
+      "saving": "Saving...",
+      "conflict_error": "The page was changed since this proposal was made. Ask the assistant to redo the edit.",
+      "save_error": "Failed to save the change."
+    },
     "toaster": {
       "thread_deleted_success": "Thread deleted",
       "thread_deleted_failed": "Failed to delete thread"

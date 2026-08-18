@@ -223,6 +223,7 @@ describe('growiAgent', () => {
 
       expect(toolKeys).toContain('fullTextSearchTool');
       expect(toolKeys).toContain('getPageContentTool');
+      expect(toolKeys).toContain('proposePageEditTool');
       expect(toolKeys).not.toContain('fileSearchTool');
     });
   });

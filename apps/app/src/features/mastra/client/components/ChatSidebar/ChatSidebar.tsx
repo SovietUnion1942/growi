@@ -66,6 +66,7 @@ import {
   resolveChatErrorDetail,
   resolveChatHeaderLabel,
 } from './chat-sidebar-helpers';
+import { EditProposal } from './EditProposal';
 import { IncompleteResponseNotice } from './IncompleteResponseNotice';
 import { PageSources } from './PageSources';
 import { extractPageSources } from './page-sources';
@@ -332,6 +333,20 @@ export const ChatSidebar = (): JSX.Element => {
                             <ReasoningTrigger />
                             <ReasoningContent>{part.text}</ReasoningContent>
                           </Reasoning>
+                        );
+                      case 'tool-proposePageEditTool':
+                        if (
+                          part.state !== 'output-available' ||
+                          part.output.result !== 'ok'
+                        ) {
+                          return null;
+                        }
+                        return (
+                          <EditProposal
+                            key={part.toolCallId}
+                            toolCallId={part.toolCallId}
+                            page={part.output.page}
+                          />
                         );
                       default:
                         return null;

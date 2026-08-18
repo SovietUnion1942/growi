@@ -5,6 +5,7 @@ export const AttachmentType = {
   PAGE_BULK_EXPORT: 'PAGE_BULK_EXPORT',
   AUDIT_LOG_BULK_EXPORT: 'AUDIT_LOG_BULK_EXPORT',
   BADGE_ICON: 'BADGE_ICON',
+  MESSAGE_IMAGE: 'MESSAGE_IMAGE',
 } as const;
 
 export type AttachmentType =

@@ -44,12 +44,14 @@ vi.mock('~/states/socket-io', () => ({
 const useSWRxMessages = vi.fn();
 const markConversationAsRead = vi.fn();
 const sendMessage = vi.fn();
+const toggleMessageReaction = vi.fn();
 vi.mock('~/stores/messages', () => ({
   CONVERSATIONS_SWR_KEY: '/messages/conversations',
   useSWRxMessages: (...args: unknown[]) => useSWRxMessages(...args),
   markConversationAsRead: (...args: unknown[]) =>
     markConversationAsRead(...args),
   sendMessage: (...args: unknown[]) => sendMessage(...args),
+  toggleMessageReaction: (...args: unknown[]) => toggleMessageReaction(...args),
 }));
 
 import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
@@ -96,6 +98,7 @@ const buildMessage = (
   body: 'hello',
   readBy: [],
   mentionedUserIds: [],
+  reactions: [],
   createdAt: '2026-08-17T00:00:00.000Z',
   ...overrides,
 });

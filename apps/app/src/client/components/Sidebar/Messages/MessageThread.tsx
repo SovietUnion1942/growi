@@ -22,12 +22,14 @@ import {
   type IMessage,
   markConversationAsRead,
   sendMessage,
+  toggleMessageReaction,
   useSWRxMessages,
 } from '~/stores/messages';
 
 import { MentionAutocomplete } from './MentionAutocomplete';
 import { MessageImage } from './MessageImage';
 import { splitMessageBodyIntoMentionSegments } from './mention-query';
+import { ReactionBar } from './ReactionBar';
 import { useImageAttachment } from './useImageAttachment';
 import { useMentionComposer } from './useMentionComposer';
 
@@ -39,6 +41,8 @@ type MessageItemProps = {
   message: IMessage;
   isMine: boolean;
   isFirstOfRun: boolean;
+  currentUserId: string | undefined;
+  onToggleReaction: (messageId: string, emoji: string) => void;
 };
 
 /**
@@ -56,6 +60,8 @@ const MessageItem = ({
   message,
   isMine,
   isFirstOfRun,
+  currentUserId,
+  onToggleReaction,
 }: MessageItemProps): JSX.Element => {
   // `IUserBadgeSummaryEntry.badgeType` (packages/core) is typed as
   // `Types.ObjectId` for the server-side Mongoose model, but by the time it
@@ -125,6 +131,12 @@ const MessageItem = ({
           )}
         </div>
       </div>
+      <ReactionBar
+        reactions={message.reactions}
+        currentUserId={currentUserId}
+        isMine={isMine}
+        onToggle={(emoji) => onToggleReaction(message._id, emoji)}
+      />
     </li>
   );
 };
@@ -181,6 +193,23 @@ export const MessageThread = (props: Props): JSX.Element => {
     };
   }, [conversationId, markAsRead, mutate, socket]);
 
+  useEffect(() => {
+    if (socket == null) {
+      return;
+    }
+
+    const onReactionUpdated = (payload: { conversationId: string }) => {
+      if (payload.conversationId === conversationId) {
+        mutate();
+      }
+    };
+
+    socket.on(SocketEventName.MessageReactionUpdated, onReactionUpdated);
+    return () => {
+      socket.off(SocketEventName.MessageReactionUpdated, onReactionUpdated);
+    };
+  }, [conversationId, mutate, socket]);
+
   // each page is newest-first; earlier pages hold newer messages, so
   // reversing the concatenated pages yields oldest-to-newest for display
   const messages = (data ?? [])
@@ -222,6 +251,15 @@ export const MessageThread = (props: Props): JSX.Element => {
       e.target.value = '';
     },
     [image],
+  );
+
+  const toggleReactionHandler = useCallback(
+    (messageId: string, emoji: string) => {
+      toggleMessageReaction(conversationId, messageId, emoji).then(() =>
+        mutate(),
+      );
+    },
+    [conversationId, mutate],
   );
 
   const keyDownHandler = useCallback(
@@ -271,6 +309,8 @@ export const MessageThread = (props: Props): JSX.Element => {
                 message={message}
                 isMine={isMine}
                 isFirstOfRun={isFirstOfRun}
+                currentUserId={currentUser?._id}
+                onToggleReaction={toggleReactionHandler}
               />
             );
           })}

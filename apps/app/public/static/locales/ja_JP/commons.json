@@ -260,5 +260,10 @@
       },
       "cancel": "キャンセル"
     }
+  },
+  "badge": {
+    "badge": "バッジ",
+    "badges": "バッジ",
+    "description_loading": "説明を読み込み中..."
   }
 }

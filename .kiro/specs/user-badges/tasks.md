@@ -1,0 +1,227 @@
+# Implementation Plan
+
+- [ ] 1. Foundation: 型・データモデル・共有定数
+- [x] 1.1 共有インターフェース定義
+  - `BadgeCategory`, `IBadgeLevel`, `IBadgeType`, `IUserBadge`, `IUserBadgeSummaryEntry` を `features/user-badge/interfaces` に定義する
+  - 型チェックが通り、後続タスクから import できる状態になっていることが確認できる
+  - _Requirements: 1.1, 1.2, 1.3_
+- [x] 1.2 BadgeType モデル実装
+  - `getOrCreateModel` パターンで `BadgeType` コレクションを定義する
+  - `category` が `automatic` のとき `levels`(1件以上、`threshold` 必須)を要求し、`manual` のとき `levels` を空配列に強制するスキーマ検証を実装する
+  - `isDeleted`/`deletedAt` によるソフトデリート用フィールドを持たせる
+  - 不正な構成(automatic で levels なし等)を保存しようとするとバリデーションエラーになることをテストで確認できる
+  - _Requirements: 1.2, 1.3_
+  - _Depends: 1.1_
+- [x] 1.3 UserBadge モデル実装
+  - `getOrCreateModel` パターンで `UserBadge` コレクションを定義する
+  - `(user, badgeType, level)` の一意複合インデックスを設定する
+  - 同一 `(user, badgeType, level)` を2回保存すると重複キーエラーになることをテストで確認できる
+  - _Requirements: 2.4, 3.5_
+  - _Depends: 1.1_
+- [x] 1.4 User スキーマへの badgeSummaryCached フィールド追加
+  - `apps/app/src/server/models/user/index.js` に `badgeSummaryCached`(配列、デフォルト空配列)を追加する
+  - 既存ユーザードキュメントの取得時にフィールドが空配列として返ることを確認できる
+  - _Requirements: 4.1_
+- [x] 1.5 Activity 定数の追加
+  - `apps/app/src/interfaces/activity.ts` に `ACTION_USER_BADGE_GRANT`, `ACTION_ADMIN_BADGE_TYPE_CREATE/UPDATE/DELETE` を追加する
+  - `ACTION_USER_BADGE_GRANT` を `EssentialActionGroup` に追加する
+  - `SupportedTargetModel` に `MODEL_USER_BADGE` を追加する
+  - 型チェックが通り、新定数が他モジュールから import できることを確認できる
+  - _Requirements: 5.1_
+- [x] 1.6 バッジ関連 i18n キーの基盤追加
+  - `admin.json`(`badge_management.*` の見出し・区分ラベル等の基盤キー)と `commons.json`(バッジ0件時のプレースホルダー等)に en_US/ja_JP/ko_KR/fr_FR/zh_CN の5言語ぶんキーを追加する
+  - ここでは画面固有の細かい文言までは対象にしない。管理画面フォームやツールチップ等、実装時にしか確定しない文言は各UIタスク(7.x, 8, 10.1, 10.3)側でそのタスクの成果として追加する
+  - 5言語すべてで基盤キーが揃っていることを確認できる
+  - _Requirements: 1.1, 4.5_
+
+- [ ] 2. Core: バッジ種類管理ロジック(BadgeTypeService)
+- [x] 2.1 (P) バッジ種類の作成・編集ロジック実装
+  - `createBadgeType`/`updateBadgeType` を実装し、`category` に応じたバリデーションをサービス層でも行う
+  - 編集時に既存の `UserBadge` 付与記録が変更されないことをテストで確認できる
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+  - _Boundary: BadgeTypeService_
+- [x] 2.2 バッジ種類のソフトデリート・一覧取得実装
+  - `deleteBadgeType`(ソフトデリート)、`listBadgeTypes(includeDeleted)` を実装する
+  - 削除後も `BadgeType` ドキュメント自体は取得可能で、一覧のデフォルト表示からは除外されることを確認できる
+  - _Requirements: 1.5_
+
+- [ ] 3. Core: バッジ付与ロジック(BadgeGrantService)
+- [x] 3.1 (P) 累積編集回数カウントとしきい値評価ロジック実装
+  - `ACTION_PAGE_CREATE`/`ACTION_PAGE_UPDATE` のみを対象にした累積回数カウント関数を実装する
+  - しきい値到達時に対象レベルを付与し、複数レベルを一度に跨いだ場合は全レベルを付与し下位レベルの記録も保持するロジックを実装する
+  - 同一 `(user, badgeType, level)` への重複呼び出しが冪等であることをテストで確認できる
+  - コメント投稿等のアクションがカウントに含まれないことをテストで確認できる
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6_
+  - _Boundary: BadgeGrantService_
+- [x] 3.2 リアルタイム自動付与のイベント購読実装
+  - `crowi.events.activity` の `'updated'` イベントを購読し、対象アクションのときのみ 3.1 の評価ロジックを呼び出す
+  - ページ更新 API を叩いた際、しきい値を跨いだユーザーに実際に `UserBadge` が作成されることを確認できる
+  - _Requirements: 2.1, 2.2_
+- [x] 3.3 手動付与ロジック実装
+  - `grantManualBadge` を実装し、対象 `BadgeType` が automatic 区分の場合はエラーにする
+  - 付与者(`grantedBy`)・日時・任意メモ(`note`)が記録されることを確認できる
+  - _Requirements: 3.1, 3.2, 3.4, 3.5_
+- [x] 3.4 付与時の User キャッシュ更新と通知連携実装
+  - `UserBadge` 作成後、そのバッジ系統内で最高レベルのみを反映する形で `User.badgeSummaryCached` を更新する
+  - `ACTION_USER_BADGE_GRANT` の Activity を発火し、既存の通知パイプラインに委譲する
+  - バッジ付与後に対象ユーザーの `User.badgeSummaryCached` が更新されていることを確認できる
+  - _Requirements: 4.4, 5.1_
+- [x] 3.5 バッジ種類全体への遡及再評価(resweep)ロジック実装
+  - 指定した `BadgeType` について、対象アクションの活動実績を持つ全ユーザーに対し 3.1 の評価を再実行する関数を実装する
+  - 導入前からしきい値を満たしていたユーザーに対し、この関数の実行で新たにバッジが付与されることを確認できる
+  - _Requirements: 2.5_
+
+- [x] 4. (P) UserPicture へのバッジ表示拡張
+  - `packages/ui/src/components/UserPicture.tsx` に新規 optional prop `badges` を追加する(表示専用のローカル型、既存 props やレンダリングには影響しない)
+  - `badges` が未指定/空配列の場合は既存の描画から見た目が変化しないことを確認できる
+  - `badges` が1件以上のとき、アバター横にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.2_
+  - _Boundary: UserPicture_
+
+- [ ] 5. Core: apiv3 ルート
+- [x] 5.1 (P) バッジ種類管理 API ルート実装
+  - `GET /badge-types`(一覧)、`POST /badge-types`(作成)、`PUT /badge-types/:id`(編集)、`DELETE /badge-types/:id`(ソフトデリート)を `loginRequiredStrictly`+`adminRequired`+`addActivity`+`validator`のミドルウェア連鎖で実装する
+  - 各エンドポイントが 2.1/2.2 のサービス関数を呼び出し、成功時に `ApiV3Response` 形状のレスポンスを返すことを確認できる
+  - 不正なリクエストボディに対して 400 が返ることを確認できる
+  - 管理者以外が `POST` を呼ぶと 403 になることを確認できる
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
+  - _Boundary: badge-type apiv3 route_
+  - _Depends: 2.1, 2.2_
+- [x] 5.2 (P) ユーザーバッジ API ルート実装
+  - `GET /user-badges?targetUserId=` をログイン済み一般ユーザーに公開し、`POST /user-badges`(手動付与)は `adminRequired` にする
+  - automatic 区分の `badgeTypeId` を指定して `POST` すると 422 になることを確認できる
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.3_
+  - _Boundary: user-badge apiv3 route_
+  - _Depends: 3.1, 3.3_
+
+- [ ] 6. Core: クライアントストア
+- [x] 6.1 (P) バッジ種類管理用 SWR ストア実装
+  - `useSWRxBadgeTypeList`/`useSWRxBadgeType` を `useSWRImmutable` で実装する
+  - 管理画面から一覧データが実際に取得できることを確認できる
+  - _Requirements: 1.1_
+  - _Boundary: badge-type client store_
+  - _Depends: 5.1_
+- [x] 6.2 (P) ユーザーバッジ一覧用 SWR ストア実装
+  - `useSWRxUserBadges(userId)` を実装する
+  - 指定ユーザーの付与バッジ一覧(BadgeType 情報込み)が実際に取得できることを確認できる
+  - _Requirements: 4.3_
+  - _Boundary: user-badge client store_
+  - _Depends: 5.2_
+
+- [ ] 7. Core: 管理画面 UI
+- [x] 7.1 バッジ種類一覧・作成・編集フォーム UI 実装
+  - UserGroup 管理画面と同様のパターン(一覧テーブル+作成/編集モーダル、`useState` ベースのフォーム)で実装する
+  - フォームに必要な i18n キーを 1.6 の基盤キーに追加する形で用意する
+  - 管理者がバッジ種類を作成すると一覧に反映されることをブラウザ操作で確認できる
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+- [x] 7.2 バッジ種類削除確認モーダル実装
+  - 削除確認モーダルから `deleteBadgeType` API を呼び出す
+  - 削除後、一覧からそのバッジ種類が消えることを確認できる
+  - _Requirements: 1.5_
+- [x] 7.3 手動付与用ユーザー検索・付与モーダル実装
+  - ユーザー検索 + manual 区分バッジ選択 + メモ入力フォームを実装する
+  - 付与操作後にトースト通知が表示されることを確認できる
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 8. (P) BadgeShelf コンポーネント実装
+  - ユーザーページ用に、対象ユーザーの全付与バッジ(レベル別、アイコン・名前・付与日込み)を一覧表示するコンポーネントを実装する
+  - 複数レベルを保有するユーザーについて、全レベルが表示されることを確認できる
+  - _Requirements: 4.3, 4.4_
+  - _Boundary: BadgeShelf_
+  - _Depends: 6.2_
+
+- [ ] 9. Integration: サーバー配線
+- [x] 9.1 BadgeGrantService の起動時インスタンス化
+  - `apps/app/src/server/crowi/index.ts` の起動シーケンスで `BadgeGrantService` をインスタンス化する
+  - サーバー起動後、ページ更新をトリガーに `BadgeGrantService` のイベントリスナーが実際に発火することを確認できる
+  - _Requirements: 2.1, 2.2_
+  - _Depends: 3.2_
+- [x] 9.2 BadgeTypeService から BadgeGrantService への resweep 呼び出し配線
+  - automatic 区分の `BadgeType` が新規作成/しきい値変更されたとき、3.5 の resweep を fire-and-forget で呼び出す
+  - しきい値を下げる編集を行うと、既存ユーザーに遡及付与が行われることを確認できる
+  - _Requirements: 2.5_
+  - _Depends: 2.1, 3.5_
+- [x] 9.3 apiv3 ルーターへのバッジ関連エンドポイント配線
+  - `apps/app/src/server/routes/apiv3/index.js` に badge-type/user-badge ルートを登録する
+  - `/api/v3/badge-types` 等に実際に HTTP リクエストが到達することを確認できる
+  - _Requirements: 1.1, 3.1_
+  - _Depends: 5.1, 5.2_
+- [x] 9.4 InAppNotification スナップショット生成への UserBadge 分岐追加
+  - `generateSnapshot` に UserBadge 向け分岐とシリアライザを追加する
+  - バッジ付与後、対象ユーザーの通知一覧にバッジ名を含む通知が表示されることを確認できる
+  - _Requirements: 5.1_
+  - _Depends: 3.4_
+
+- [ ] 10. Integration: クライアント配線
+- [x] 10.1 管理ナビゲーション項目追加+管理ページルート新設
+  - `AdminNavigation.tsx` にバッジ管理メニューを追加し、`/admin/badges` ページを新設する
+  - メニューラベル用の i18n キーを追加する
+  - 管理画面サイドバーからバッジ管理画面に遷移できることを確認できる
+  - _Requirements: 1.6_
+  - _Depends: 7.1_
+- [x] 10.2 ユーザーページフッターへの BadgeShelf 組み込み
+  - `UsersHomepageFooter.tsx` の ContributionGraph セクション直後に `BadgeShelf` を配置する
+  - ユーザーページを開くとバッジ一覧セクションが表示されることを確認できる
+  - _Requirements: 4.3_
+  - _Depends: 8_
+- [x] 10.3 バッジツールチップ用カタログ参照配線
+  - `UserPicture` のホバー/フォーカス時に、バッジ種類カタログから名前・説明を解決して表示する
+  - ツールチップに必要な i18n キーを追加する
+  - バッジアイコンにカーソルを合わせると名前と説明が表示されることを確認できる
+  - _Requirements: 4.5_
+  - _Depends: 4, 6.1_
+
+- [ ] 11. Validation: テスト
+- [x] 11.1 BadgeType/UserBadge モデルのバリデーション・一意制約ユニットテスト
+  - _Requirements: 1.2, 1.3, 2.4, 3.5_
+- [x] 11.2 BadgeGrantService のしきい値評価・冪等性・除外アクションユニットテスト
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 3.4_
+- [x] 11.3 自動付与エンドツーエンド統合テスト
+  - ページ更新 API 経由でしきい値を跨いだ際に、`UserBadge` 作成・通知生成までが一気通貫で行われることを確認する
+  - _Requirements: 2.1, 2.2, 2.3, 2.5, 5.1_
+- [x] 11.4 手動付与・権限・resweep 統合テスト
+  - 管理者以外の操作拒否、automatic 区分への手動付与拒否、resweep による遡及付与を確認する
+  - _Requirements: 1.6, 2.5, 3.3, 3.4_
+- [x]* 11.5 バッジ表示 UI テスト
+  - アバター併記(最高レベルのみ)・ユーザーページ全レベル表示・ツールチップの3パターンを確認する
+  - _Requirements: 4.1, 4.2, 4.4, 4.5_
+
+- [x] 12. Integration: UserPicture 実呼び出し箇所への配線(feature-level validation で発見された配線ギャップの解消)
+- [x] 12.1 `USER_FIELDS_EXCEPT_CONFIDENTIAL` に `badgeSummaryCached` を追加
+  - `apps/app/src/server/models/user/conts.ts` の `USER_FIELDS_EXCEPT_CONFIDENTIAL`(Mongoose `populate({select})` 用ホワイトリスト)に `badgeSummaryCached` を追加する
+  - このホワイトリストは `page.populateDataToShowRevision`(12.2 が使う `page.creator`)と `Page.findRecentUpdatedPages` の `populateDataToList`(12.3 が使う `page.lastUpdateUser`)の両方から共有されているため、1箇所の修正で両方のサイトの前提条件を満たすことを確認できる
+  - _Requirements: 4.1_
+- [x] 12.2 `UserInfo.tsx`(プロフィールヘッダー)へのバッジ表示配線
+  - `author.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
+  - バッジを保有するユーザーのプロフィールページで、ユーザー名の隣にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.1_
+- [x] 12.3 `RecentChangesSubstance.tsx`(サイドバー最近の更新)へのバッジ表示配線
+  - `page.lastUpdateUser?.badgeSummaryCached` を `useUserPictureBadges` に渡し、結果を `<UserPicture badges={...} />` に渡す
+  - サイドバーの最近の更新一覧で、バッジを保有するユーザーの更新行にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.1_
+- [x] 12.4 `Comment.tsx`(コメント投稿者)へのバッジ表示配線
+  - コメントの `creator` は Prisma 経由で取得されており、Prisma の `users` テーブルには `badgeSummaryCached` 列が存在しない(Mongoose 側にしかないフィールド)。Prisma スキーマへの列追加・マイグレーションは行わず、コメント一覧のサーバー側シリアライズ時に Mongoose `User` から対象ユーザー分の `badgeSummaryCached` のみを軽量に取得してマージする
+  - コメント投稿者のバッジを保有するユーザーのアバター横にバッジアイコンが表示されることを確認できる
+  - _Requirements: 4.1, 4.4, 4.5_
+- [x] 12.5 3箇所のバッジ表示配線に関する統合テスト
+  - 3箇所(プロフィールヘッダー・サイドバー最近の更新・コメント投稿者)それぞれで、バッジ保有ユーザーのデータを渡すと実際に `UserPicture` にバッジが渡ることをテストで確認する
+  - _Requirements: 4.1, 4.4, 4.5_
+  - _Depends: 12.2, 12.3, 12.4_
+
+## Implementation Notes
+- Mongoose builds indexes asynchronously; any test that calls `.create()` right after importing a model with a `unique` index must `await Model.init()` first, or duplicate-key rejection tests will be flaky (discovered in 1.3, relevant to 3.x BadgeGrantService tests too).
+- Task 3.4 (BadgeGrantService) must add `badgeSummaryCached?: IUserBadgeSummaryEntry[]` to `packages/core/src/interfaces/user.ts`'s `IUser` before writing to that field from TypeScript; the Mongoose schema field itself (task 1.4) has no `IUser` type counterpart yet, and its array subdocuments auto-generate an `_id` (consider `_id: false` when task 3.4 writes to it).
+- `findByIdAndUpdate(..., { runValidators: true })` does NOT invoke a Mongoose model's `pre('validate', fn)` document middleware (only schema-level path validators run) -- empirically confirmed on this repo's Mongoose 6.13.9 during task 2.1. Any service using `findByIdAndUpdate` for a document with custom cross-field validation logic must re-run that validation at the service layer explicitly.
+- `IBadgeTypeHasId` is defined and exported from `badge-type-service.ts` (not `interfaces/badge.ts`) -- import it from there in tasks 2.2/5.1 rather than redefining.
+- The `crowi.events.activity` `'updated'` event's `ActivityDocument.user` field is NOT populated at emit time (`createByParameters` never `include`s the user relation, unlike `updateByParameters`) -- use the scalar `activity.userId` field instead, never `.user`, when consuming this event elsewhere.
+- **REQUIRED before/at task 5.2**: `grantManualBadge`'s `crowi` parameter is currently *optional* with a silent no-op skip of the Activity/notification step when omitted. Task 5.2 (user-badge apiv3 route, the first real caller of `grantManualBadge`) MUST either pass `crowi` on every call, or better, this should be tightened to a *required* parameter across `evaluateAndGrantForUser`/`grantManualBadge`/`recordBadgeGrant`/`emitBadgeGrantActivity` so a missing `crowi` is a compile error, not a silent requirement-5.1 gap. Update the 17 pre-3.4 tests that don't pass `crowi` to pass an explicit test double when this is tightened.
+- **Follow-up (not blocking)**: `IUserBadgeSummaryEntry` is currently duplicated (manually synced) between `apps/app/src/features/user-badge/interfaces/badge.ts` (task 1.1) and `packages/core/src/interfaces/user.ts` (task 3.4). Per this repo's own steering rule ("`@growi/core` is the single source of truth for cross-package types"), the canonical definition should move to `@growi/core` with `apps/app`'s copy re-exporting/importing it instead.
+- `adminRequiredFactory(crowi)` called bare (no fallback) redirects (302) a logged-in non-admin instead of returning 403 -- this repo's `admin-required.ts` only produces JSON 403 when an explicit fallback is passed as the 2nd argument (see `socket-io.ts` for the reference pattern). Any apiv3 route requiring a JSON 403 for non-admin callers (not a page redirect) must pass a custom fallback; task 5.2's route needs the same treatment.
+- No `GET /badge-types/:id` endpoint exists (task 5.1 only built `GET /`, `POST /`, `PUT /:id`, `DELETE /:id`). `useSWRxBadgeType(id)` derives its item from `useSWRxBadgeTypeList()`'s own cached data rather than issuing a second fetch -- two hooks resolving to the same conceptual resource must share ONE SWR key, not two independently-keyed fetches for identical data (a real stale-cache bug, caught by review on the first attempt here).
+- The admin badge UI's `t('Create')`/`t('Update')`/`t('Edit')`/`t('Delete')`/`t('Cancel')` button labels are bare, unnamespaced i18next keys with no corresponding entry in any locale JSON -- i18next falls back to the raw English key text regardless of locale, so non-English admins see raw English button labels. Introduced in 7.1, inherited by 7.2. Not blocking any individual task, but worth a real i18n key + translation pass (11.x or a dedicated follow-up) before this admin UI ships.
+- `apps/app/src/features/user-badge/client/i18n-badge-management.spec.ts` (task 1.6's key-parity test) has been failing since task 7.1/7.2 added ~20 badge_management.* keys without updating that test's fixed key-set assertion (it still expects exactly 3 keys). Confirmed pre-existing, not caused by 7.3. Fix this drift as part of task 11.x or a standalone follow-up before final validation.
+- ManualGrantModal reuses `Sidebar/Messages/UserSearchList.tsx` (a DM-messaging-feature component) as its user picker via cross-feature import. Works correctly today, but consider extracting a feature-agnostic UserPicker (e.g. into packages/ui or a generic client/components/User/ dir) if that Messages feature's component semantics narrow later.
+- **IMPORTANT for task 11.x / final validation**: no task in this spec actually wires `UserPicture`'s real ~17 call sites (or `User.badgeSummaryCached`) to real badge data yet -- `useUserPictureBadges` (task 10.3) exists and is tested in isolation but has zero real callers today. Badges are not visibly rendered anywhere in the running app yet, even though every underlying piece (model, service, API, store, component) is built and tested. This is a genuine end-to-end wiring gap that should be surfaced in the feature-level GO/NO-GO assessment, not silently assumed closed.
+- When testing a code path whose bug manifests as a silently-swallowed error (e.g. resweepBadgeType's per-user catch), assert on the SPECIFIC downstream field the bug corrupts (here: User.badgeSummaryCached), not just on a step that completes before the failure point (here: UserBadge creation, which succeeds regardless). A test that only checks the earlier-completing step is structurally blind to the exact regression it's meant to catch.

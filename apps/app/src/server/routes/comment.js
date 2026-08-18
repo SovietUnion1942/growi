@@ -164,18 +164,58 @@ export const setup = (crowi, _app) => {
       return res.json(ApiResponse.error(err));
     }
 
+    // `badgeSummaryCached` lives only on the Mongoose `User` model, not on
+    // Prisma's `users` mirror (no schema migration for this field is
+    // planned), so it cannot come from the `include: { creator: true }`
+    // above. Batch-fetch it for every distinct comment creator in this
+    // response with a single lightweight Mongoose query (never N+1), then
+    // merge it onto each Prisma creator before serialization.
+    const creatorIds = Array.from(
+      new Set(
+        comments
+          .filter((comment) => comment.creator != null)
+          .map((comment) => comment.creatorId),
+      ),
+    );
+
+    let badgeSummaryCachedByUserId = new Map();
+    if (creatorIds.length > 0) {
+      const User = mongoose.model('User');
+      const usersWithBadges = await User.find(
+        { _id: { $in: creatorIds } },
+        'badgeSummaryCached',
+      ).lean();
+      badgeSummaryCachedByUserId = new Map(
+        usersWithBadges.map((user) => [
+          user._id.toString(),
+          user.badgeSummaryCached,
+        ]),
+      );
+    }
+
     res.json(
       ApiResponse.success({
-        comments: comments.map((comment) => ({
-          ...comment,
-          page: comment.pageId,
-          creator:
+        comments: comments.map((comment) => {
+          const creatorWithBadges =
             comment.creator != null
-              ? serializeUserSecurely(comment.creator)
-              : comment.creatorId,
-          revision: comment.revisionId,
-          replyTo: comment.replyToId,
-        })),
+              ? {
+                  ...comment.creator,
+                  badgeSummaryCached:
+                    badgeSummaryCachedByUserId.get(comment.creatorId) ?? [],
+                }
+              : undefined;
+
+          return {
+            ...comment,
+            page: comment.pageId,
+            creator:
+              creatorWithBadges != null
+                ? serializeUserSecurely(creatorWithBadges)
+                : comment.creatorId,
+            revision: comment.revisionId,
+            replyTo: comment.replyToId,
+          };
+        }),
       }),
     );
   };

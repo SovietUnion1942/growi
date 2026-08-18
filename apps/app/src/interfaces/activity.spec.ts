@@ -8,7 +8,9 @@ import type {
   ISnapshot,
 } from './activity';
 import {
+  AllEssentialActions,
   AllSupportedActions,
+  EssentialActionGroup,
   isAttachmentAddActivity,
   isAttachmentDownloadActivity,
   isAttachmentRemoveActivity,
@@ -153,18 +155,63 @@ describe('SupportedAction - admin AI setting update action', () => {
 });
 
 describe('SupportedTargetModel', () => {
-  it('includes Attachment while preserving the existing four models', () => {
+  it('includes UserBadge while preserving the existing five models', () => {
     expect(SupportedTargetModel).toEqual({
       MODEL_PAGE: 'Page',
       MODEL_USER: 'User',
       MODEL_PAGE_BULK_EXPORT_JOB: 'PageBulkExportJob',
       MODEL_AUDIT_LOG_BULK_EXPORT_JOB: 'AuditLogBulkExportJob',
       MODEL_ATTACHMENT: 'Attachment',
+      MODEL_USER_BADGE: 'UserBadge',
     });
   });
 
   it('exports MODEL_ATTACHMENT as the Attachment model literal', () => {
     expect(MODEL_ATTACHMENT).toBe('Attachment');
+  });
+});
+
+describe('SupportedAction - user badge constants', () => {
+  it('exports ACTION_USER_BADGE_GRANT with the expected value', () => {
+    expect(SupportedAction.ACTION_USER_BADGE_GRANT).toBe('USER_BADGE_GRANT');
+  });
+
+  it('exports ACTION_ADMIN_BADGE_TYPE_CREATE/UPDATE/DELETE with the expected values', () => {
+    expect(SupportedAction.ACTION_ADMIN_BADGE_TYPE_CREATE).toBe(
+      'ADMIN_BADGE_TYPE_CREATE',
+    );
+    expect(SupportedAction.ACTION_ADMIN_BADGE_TYPE_UPDATE).toBe(
+      'ADMIN_BADGE_TYPE_UPDATE',
+    );
+    expect(SupportedAction.ACTION_ADMIN_BADGE_TYPE_DELETE).toBe(
+      'ADMIN_BADGE_TYPE_DELETE',
+    );
+  });
+
+  it('includes all four new actions in AllSupportedActions', () => {
+    expect(AllSupportedActions).toContain('USER_BADGE_GRANT');
+    expect(AllSupportedActions).toContain('ADMIN_BADGE_TYPE_CREATE');
+    expect(AllSupportedActions).toContain('ADMIN_BADGE_TYPE_UPDATE');
+    expect(AllSupportedActions).toContain('ADMIN_BADGE_TYPE_DELETE');
+  });
+});
+
+describe('EssentialActionGroup - user badge grant', () => {
+  it('includes ACTION_USER_BADGE_GRANT for notification triggering', () => {
+    expect(EssentialActionGroup.ACTION_USER_BADGE_GRANT).toBe(
+      'USER_BADGE_GRANT',
+    );
+    expect(AllEssentialActions).toContain('USER_BADGE_GRANT');
+  });
+
+  it('does NOT include the admin badge-type audit actions (audit-log only, not notification-triggering)', () => {
+    const keys = Object.keys(EssentialActionGroup);
+    expect(keys).not.toContain('ACTION_ADMIN_BADGE_TYPE_CREATE');
+    expect(keys).not.toContain('ACTION_ADMIN_BADGE_TYPE_UPDATE');
+    expect(keys).not.toContain('ACTION_ADMIN_BADGE_TYPE_DELETE');
+    expect(AllEssentialActions).not.toContain('ADMIN_BADGE_TYPE_CREATE');
+    expect(AllEssentialActions).not.toContain('ADMIN_BADGE_TYPE_UPDATE');
+    expect(AllEssentialActions).not.toContain('ADMIN_BADGE_TYPE_DELETE');
   });
 });
 

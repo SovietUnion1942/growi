@@ -227,5 +227,10 @@
         "user_group": "Accorde la permission de modifier les fonctionnalités de membres de groupe d'utilisateurs."
       }
     }
+  },
+  "badge": {
+    "badge": "Badge",
+    "badges": "Badges",
+    "description_loading": "Chargement de la description..."
   }
 }

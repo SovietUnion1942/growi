@@ -1366,5 +1366,44 @@
         "description": "Manually reconcile data inconsistencies between MongoDB pages and Vault git trees without performing a full initialization."
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "Badge Management",
+    "category_automatic": "Automatic",
+    "category_manual": "Manual",
+    "badge_type_list": "Badge Types",
+    "create_badge_type": "Create Badge Type",
+    "badge_type_basic_info": "Badge Type Info",
+    "name": "Name",
+    "icon_key": "Icon",
+    "icon_key_placeholder": "e.g. star or a Material Symbols icon name",
+    "category": "Category",
+    "category_immutable_notice": "Category cannot be changed after the badge type is created.",
+    "levels": "Levels",
+    "add_level": "Add Level",
+    "remove_level": "Remove Level",
+    "level_number": "Level",
+    "level_name": "Level Name",
+    "level_icon_key": "Level Icon",
+    "level_threshold": "Threshold",
+    "levels_required_for_automatic": "At least one level is required for an automatic badge type.",
+    "no_badge_types": "No badge types have been created yet.",
+    "delete_modal": {
+      "header": "Delete Badge Type",
+      "desc": "This badge type will stop being granted to new users. Badges already granted to users will remain on their records."
+    },
+    "manual_grant": {
+      "button": "Grant Badge",
+      "title": "Manually Grant Badge",
+      "select_user": "User",
+      "selected_user": "Selected user",
+      "change_user": "Change",
+      "badge_type": "Badge Type",
+      "badge_type_placeholder": "Select a manual badge type",
+      "no_manual_badge_types": "No manual badge types have been created yet.",
+      "note": "Note",
+      "note_placeholder": "Optional reason for this grant",
+      "grant": "Grant"
+    }
   }
 }

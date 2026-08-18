@@ -16,6 +16,8 @@ import { setup as setupPageBulkExport } from '~/features/page-bulk-export/server
 import { changesRouteHandlersFactory } from '~/features/revision-diff/server/routes/changes';
 import { diffRouteHandlersFactory } from '~/features/revision-diff/server/routes/diff';
 import { setup as setupTemplates } from '~/features/templates/server/routes/apiv3';
+import { setup as setupBadgeType } from '~/features/user-badge/server/routes/badge-type';
+import { setup as setupUserBadge } from '~/features/user-badge/server/routes/user-badge';
 import { allreadyInstalledMiddleware } from '~/server/middlewares/application-not-installed';
 import loggerFactory from '~/utils/logger';
 
@@ -105,6 +107,7 @@ export const setup = (crowi, app) => {
   routerForAdmin.use('/notification-setting', setupNotificationSetting(crowi));
   routerForAdmin.use('/users', setupUsers(crowi));
   routerForAdmin.use('/user-groups', setupUserGroup(crowi));
+  routerForAdmin.use('/badge-types', setupBadgeType(crowi));
   routerForAdmin.use('/external-user-groups', setupExternalUserGroup(crowi));
   routerForAdmin.use('/export', setupExport(crowi));
   routerForAdmin.use('/import', importRoute(crowi));
@@ -242,6 +245,8 @@ export const setup = (crowi, app) => {
   router.use('/ai-tools', aiToolsRouteFactory(crowi));
 
   router.use('/user', userRouteFactory(crowi));
+
+  router.use('/user-badges', setupUserBadge(crowi));
 
   return [router, routerForAdmin, routerForAuth];
 };

@@ -31,4 +31,18 @@ describe('AdminNavigation', () => {
 
     expect(aiLinks.length).toBeGreaterThan(0);
   });
+
+  it('renders a navigation link to the badge management page (/admin/badges)', () => {
+    // Act
+    render(<AdminNavigation />);
+
+    // Assert: at least one link points to the badges admin page.
+    // Both the desktop list-group and the mobile dropdown render the link,
+    // so query all and assert presence.
+    const badgeLinks = screen
+      .getAllByRole('link')
+      .filter((el) => el.getAttribute('href') === '/admin/badges');
+
+    expect(badgeLinks.length).toBeGreaterThan(0);
+  });
 });

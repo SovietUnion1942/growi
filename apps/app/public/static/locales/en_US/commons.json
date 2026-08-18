@@ -258,5 +258,10 @@
       },
       "cancel": "Cancel"
     }
+  },
+  "badge": {
+    "badge": "Badge",
+    "badges": "Badges",
+    "description_loading": "Loading description..."
   }
 }

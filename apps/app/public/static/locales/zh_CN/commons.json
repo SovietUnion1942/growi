@@ -229,5 +229,10 @@
         "user_group": "授予编辑用户组成员功能的权限。"
       }
     }
+  },
+  "badge": {
+    "badge": "徽章",
+    "badges": "徽章",
+    "description_loading": "正在加载描述..."
   }
 }

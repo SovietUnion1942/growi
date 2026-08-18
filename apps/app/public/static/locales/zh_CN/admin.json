@@ -1364,5 +1364,44 @@
         "description": "在不进行完整初始化的情况下，手动对账 MongoDB 页面与 Vault git 树之间的数据不一致。"
       }
     }
+  },
+  "badge_management": {
+    "badge_management": "徽章管理",
+    "category_automatic": "自动",
+    "category_manual": "手动",
+    "badge_type_list": "徽章类型列表",
+    "create_badge_type": "创建徽章类型",
+    "badge_type_basic_info": "徽章类型基本信息",
+    "name": "名称",
+    "icon_key": "图标",
+    "icon_key_placeholder": "例如 star 或 Material Symbols 图标名称",
+    "category": "类别",
+    "category_immutable_notice": "创建后无法更改类别。",
+    "levels": "等级",
+    "add_level": "添加等级",
+    "remove_level": "删除等级",
+    "level_number": "等级",
+    "level_name": "等级名称",
+    "level_icon_key": "等级图标",
+    "level_threshold": "阈值",
+    "levels_required_for_automatic": "自动类别的徽章类型至少需要一个等级。",
+    "no_badge_types": "尚未创建任何徽章类型。",
+    "delete_modal": {
+      "header": "删除徽章类型",
+      "desc": "该徽章类型将停止授予新用户。已授予用户的徽章在删除后仍会保留在其记录中。"
+    },
+    "manual_grant": {
+      "button": "授予徽章",
+      "title": "手动授予徽章",
+      "select_user": "用户",
+      "selected_user": "已选用户",
+      "change_user": "更改",
+      "badge_type": "徽章类型",
+      "badge_type_placeholder": "选择一个手动类别的徽章类型",
+      "no_manual_badge_types": "尚未创建任何手动类别的徽章类型。",
+      "note": "备注",
+      "note_placeholder": "授予原因（可选）",
+      "grant": "授予"
+    }
   }
 }

@@ -5,6 +5,7 @@ import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
 import { fullTextSearchTool } from '../tools/full-text-search-tool';
 import { getPageContentTool } from '../tools/get-page-content-tool';
+import { proposePageEditTool } from '../tools/propose-page-edit-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
 export const growiAgent = new Agent({
@@ -20,6 +21,13 @@ export const growiAgent = new Agent({
   - The fullTextSearch query supports plain natural-language tokens combined with: "phrase", -term, -"phrase", prefix:/path, -prefix:/path, tag:foo, -tag:foo (all AND-combined). Use these operators only when the user intent maps to a subtree, tag, or exclusion.
   - When the user explicitly asks for newest or oldest pages (e.g. "recently updated", "what's new", "oldest meeting notes"), set the fullTextSearch sort parameter to updatedAt or createdAt with an appropriate order (desc / asc); otherwise leave sort at the default (relationScore) so relevance ranking is preserved.
   - Keep answers concise and well-structured with headings and lists where helpful.
+
+  # EDITING PAGES (propose-only — you can NEVER save directly)
+  - When the user asks you to edit, rewrite, fix, or otherwise change an EXISTING page's content, first call getPageContent to read its current full body (drill in with offset as needed until you have read every part you are about to change — never guess at content you have not read).
+  - Compose the complete resulting Markdown body — the FULL page content after your change, not only the changed lines or a diff/patch — and call proposeEditTool with that full body and a short summary of what changed.
+  - Calling proposeEditTool does NOT save anything. It only shows the user a diff with an approve/reject choice in the UI. After calling it, tell the user their change is ready for review and needs their approval — never say the page has been updated, saved, or edited, since only their own click in the UI can do that.
+  - Do not call proposeEditTool for a page you have not first read via getPageContent in this conversation.
+  - This agent has no tool for creating new pages — if the user asks to create a brand-new page, explain that you can only propose edits to existing pages.
   `,
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the
@@ -48,6 +56,7 @@ export const growiAgent = new Agent({
   tools: {
     fullTextSearchTool,
     getPageContentTool,
+    proposePageEditTool,
   },
   memory,
 });

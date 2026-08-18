@@ -625,6 +625,17 @@
       "error": "エラーが発生したため、回答が途中で停止しました。",
       "unknown": "回答が途中で停止しました。"
     },
+    "edit_proposal": {
+      "title": "編集の提案",
+      "not_saved_notice": "この変更はまだ保存されていません。",
+      "approve": "承認して保存",
+      "reject": "却下",
+      "rejected": "却下しました",
+      "saved": "保存しました",
+      "saving": "保存中...",
+      "conflict_error": "この提案の作成後にページが変更されています。もう一度編集をやり直すようアシスタントに依頼してください。",
+      "save_error": "保存に失敗しました。"
+    },
     "toaster": {
       "thread_deleted_success": "スレッドを削除しました",
       "thread_deleted_failed": "スレッドの削除に失敗しました"

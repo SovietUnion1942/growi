@@ -1,5 +1,6 @@
 import type { FullTextSearchToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/full-text-search-tool';
 import type { GetPageContentToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/get-page-content-tool';
+import type { ProposePageEditToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/propose-page-edit-tool';
 
 /**
  * The GROWI agent's tool set, typed for the AI SDK `UIMessage` `TOOLS` generic.
@@ -19,4 +20,5 @@ import type { GetPageContentToolOutput } from '~/features/mastra/server/services
 export type GrowiChatTools = {
   getPageContentTool: { input: unknown; output: GetPageContentToolOutput };
   fullTextSearchTool: { input: unknown; output: FullTextSearchToolOutput };
+  proposePageEditTool: { input: unknown; output: ProposePageEditToolOutput };
 };

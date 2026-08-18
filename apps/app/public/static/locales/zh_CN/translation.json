@@ -575,6 +575,17 @@
       "error": "因发生错误，回答中途停止。",
       "unknown": "回答在完成前停止。"
     },
+    "edit_proposal": {
+      "title": "编辑建议",
+      "not_saved_notice": "此更改尚未保存。",
+      "approve": "批准并保存",
+      "reject": "拒绝",
+      "rejected": "已拒绝",
+      "saved": "已保存",
+      "saving": "保存中...",
+      "conflict_error": "自提出此建议以来页面已被修改，请让助手重新生成修改建议。",
+      "save_error": "保存失败。"
+    },
     "toaster": {
       "thread_deleted_success": "已删除会话",
       "thread_deleted_failed": "删除会话失败"

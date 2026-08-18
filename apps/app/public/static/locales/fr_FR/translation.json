@@ -581,6 +581,17 @@
       "error": "La réponse s'est arrêtée en raison d'une erreur.",
       "unknown": "La réponse s'est arrêtée avant d'être terminée."
     },
+    "edit_proposal": {
+      "title": "Modification proposée",
+      "not_saved_notice": "Cette modification n'a pas encore été enregistrée.",
+      "approve": "Approuver et enregistrer",
+      "reject": "Rejeter",
+      "rejected": "Rejetée",
+      "saved": "Enregistrée",
+      "saving": "Enregistrement...",
+      "conflict_error": "La page a été modifiée depuis cette proposition. Demandez à l'assistant de refaire la modification.",
+      "save_error": "Échec de l'enregistrement."
+    },
     "toaster": {
       "thread_deleted_success": "Discussion supprimée",
       "thread_deleted_failed": "Échec de la suppression de la discussion"

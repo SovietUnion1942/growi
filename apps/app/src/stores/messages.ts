@@ -59,6 +59,7 @@ export type IMessage = {
   sender: IConversationParticipant;
   body: string;
   readBy: string[];
+  mentionedUserIds: string[];
   createdAt: string;
 };
 
@@ -137,10 +138,11 @@ export const muteConversation = async (
 export const sendMessage = async (
   conversationId: string,
   body: string,
+  mentionedUserIds?: string[],
 ): Promise<IMessage> => {
   const res = await apiv3Post(
     `/messages/conversations/${conversationId}/messages`,
-    { body },
+    { body, mentionedUserIds },
   );
   return res.data.message;
 };

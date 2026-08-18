@@ -10,6 +10,7 @@ export interface MessageDocument extends Document {
   sender: Types.ObjectId;
   body: string;
   readBy: Types.ObjectId[];
+  mentionedUserIds: Types.ObjectId[];
   createdAt: Date;
 }
 
@@ -47,6 +48,12 @@ const messageSchema = new Schema<MessageDocument, MessageModel>(
       required: true,
     },
     readBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    mentionedUserIds: [
       {
         type: Schema.Types.ObjectId,
         ref: 'User',

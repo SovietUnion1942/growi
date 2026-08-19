@@ -1,5 +1,6 @@
 import type { FullTextSearchToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/full-text-search-tool';
 import type { GetPageContentToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/get-page-content-tool';
+import type { ProposePageCreateToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/propose-page-create-tool';
 import type { ProposePageEditToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/propose-page-edit-tool';
 
 /**
@@ -21,4 +22,8 @@ export type GrowiChatTools = {
   getPageContentTool: { input: unknown; output: GetPageContentToolOutput };
   fullTextSearchTool: { input: unknown; output: FullTextSearchToolOutput };
   proposePageEditTool: { input: unknown; output: ProposePageEditToolOutput };
+  proposePageCreateTool: {
+    input: unknown;
+    output: ProposePageCreateToolOutput;
+  };
 };

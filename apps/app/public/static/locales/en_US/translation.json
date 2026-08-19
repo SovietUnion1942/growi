@@ -596,6 +596,16 @@
       "conflict_error": "The page was changed since this proposal was made. Ask the assistant to redo the edit.",
       "save_error": "Failed to save the change."
     },
+    "create_proposal": {
+      "title": "Proposed new page",
+      "not_created_notice": "This page has not been created yet.",
+      "approve": "Approve & Create",
+      "reject": "Reject",
+      "rejected": "Rejected",
+      "created": "Created",
+      "creating": "Creating...",
+      "create_error": "Failed to create the page."
+    },
     "toaster": {
       "thread_deleted_success": "Thread deleted",
       "thread_deleted_failed": "Failed to delete thread"

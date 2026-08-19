@@ -61,6 +61,7 @@ import {
 import { useSWRxMessages } from '../../stores/message';
 import { useSWRxChatModels } from '../../stores/models';
 import { useSWRINFxRecentThreads } from '../../stores/thread';
+import { CreatePageProposal } from './CreatePageProposal';
 import {
   createMastraChatTransport,
   resolveChatErrorDetail,
@@ -343,6 +344,20 @@ export const ChatSidebar = (): JSX.Element => {
                         }
                         return (
                           <EditProposal
+                            key={part.toolCallId}
+                            toolCallId={part.toolCallId}
+                            page={part.output.page}
+                          />
+                        );
+                      case 'tool-proposePageCreateTool':
+                        if (
+                          part.state !== 'output-available' ||
+                          part.output.result !== 'ok'
+                        ) {
+                          return null;
+                        }
+                        return (
+                          <CreatePageProposal
                             key={part.toolCallId}
                             toolCallId={part.toolCallId}
                             page={part.output.page}

@@ -565,6 +565,16 @@
       "conflict_error": "이 제안이 만들어진 후 페이지가 변경되었습니다. 어시스턴트에게 수정을 다시 요청하세요.",
       "save_error": "저장에 실패했습니다."
     },
+    "create_proposal": {
+      "title": "새 페이지 제안",
+      "not_created_notice": "이 페이지는 아직 생성되지 않았습니다.",
+      "approve": "승인 및 생성",
+      "reject": "거부",
+      "rejected": "거부됨",
+      "created": "생성됨",
+      "creating": "생성 중...",
+      "create_error": "생성에 실패했습니다."
+    },
     "toaster": {
       "thread_deleted_success": "스레드 삭제됨",
       "thread_deleted_failed": "스레드 삭제 실패"

@@ -22,12 +22,19 @@ const urlBase64ToUint8Array = (
 
 export type NotificationSupportState = 'checking' | 'unsupported' | 'supported';
 
+type SubscribeOptions = {
+  // Suppress the permission-denied toast — for the automatic post-login
+  // request, where the user did not initiate the action and a denial is not
+  // actionable feedback (it fires again on every reload while denied).
+  silent?: boolean;
+};
+
 type UsePushNotificationSubscriptionResult = {
   supportState: NotificationSupportState;
   permission: NotificationPermission;
   isSubscribed: boolean;
   isProcessing: boolean;
-  subscribe: () => Promise<void>;
+  subscribe: (options?: SubscribeOptions) => Promise<void>;
   unsubscribe: () => Promise<void>;
 };
 
@@ -65,48 +72,53 @@ export const usePushNotificationSubscription =
       init();
     }, []);
 
-    const subscribe = useCallback(async () => {
-      setIsProcessing(true);
-      try {
-        const permissionResult = await Notification.requestPermission();
-        setPermission(permissionResult);
+    const subscribe = useCallback(
+      async (options?: SubscribeOptions) => {
+        setIsProcessing(true);
+        try {
+          const permissionResult = await Notification.requestPermission();
+          setPermission(permissionResult);
 
-        if (permissionResult !== 'granted') {
-          toastError(t('push_notification_settings.permission_denied'));
-          return;
+          if (permissionResult !== 'granted') {
+            if (!options?.silent) {
+              toastError(t('push_notification_settings.permission_denied'));
+            }
+            return;
+          }
+
+          const { data } = await apiv3Get(
+            '/personal-setting/push-notification/vapid-public-key',
+          );
+          const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+
+          const subscriptionJson = subscription.toJSON();
+          await apiv3Put('/personal-setting/push-notification/subscribe', {
+            endpoint: subscriptionJson.endpoint,
+            keys: subscriptionJson.keys,
+            userAgent: navigator.userAgent,
+          });
+
+          setIsSubscribed(true);
+          toastSuccess(
+            t('toaster.update_successed', {
+              target: 'PushNotification Settings',
+              ns: 'commons',
+            }),
+          );
+        } catch (err) {
+          toastError(err);
+        } finally {
+          setIsProcessing(false);
         }
-
-        const { data } = await apiv3Get(
-          '/personal-setting/push-notification/vapid-public-key',
-        );
-        const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
-
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey,
-        });
-
-        const subscriptionJson = subscription.toJSON();
-        await apiv3Put('/personal-setting/push-notification/subscribe', {
-          endpoint: subscriptionJson.endpoint,
-          keys: subscriptionJson.keys,
-          userAgent: navigator.userAgent,
-        });
-
-        setIsSubscribed(true);
-        toastSuccess(
-          t('toaster.update_successed', {
-            target: 'PushNotification Settings',
-            ns: 'commons',
-          }),
-        );
-      } catch (err) {
-        toastError(err);
-      } finally {
-        setIsProcessing(false);
-      }
-    }, [t]);
+      },
+      [t],
+    );
 
     const unsubscribe = useCallback(async () => {
       setIsProcessing(true);
@@ -151,17 +163,22 @@ export const usePushNotificationSubscription =
 // permanently), so this only ever prompts once per browser/user.
 export const useAutoRequestPushNotificationPermission = (): void => {
   const currentUser = useCurrentUser();
-  const { supportState, permission, subscribe } =
-    usePushNotificationSubscription();
+  const { supportState, subscribe } = usePushNotificationSubscription();
 
-  // subscribe/permission/supportState intentionally excluded: this effect
-  // must fire at most once per mount, driven only by "did the user log in"
+  // Read Notification.permission directly rather than the `permission` state
+  // from usePushNotificationSubscription: that state starts at its 'default'
+  // initial value and is only corrected by the hook's own mount effect, which
+  // has not committed yet when this effect first runs — so gating on it would
+  // re-run subscribe() (and, without `silent`, re-toast) on every page load
+  // even after the user has already denied permission.
+  // subscribe/supportState intentionally excluded: this effect must fire at
+  // most once per mount, driven only by "did the user log in"
   // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
     if (currentUser == null) return;
     if (supportState !== 'supported') return;
-    if (permission !== 'default') return;
+    if (Notification.permission !== 'default') return;
 
-    subscribe();
+    subscribe({ silent: true });
   }, [currentUser]);
 };

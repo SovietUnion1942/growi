@@ -29,7 +29,7 @@ type ProposeOkResult = {
   page: { path: string; body: string; summary: string };
 };
 type ProposeFailureResult = {
-  result: 'missing_input' | 'context_error';
+  result: 'missing_input' | 'context_error' | 'forbidden_path';
   reason: string;
 };
 type ProposeResult = ProposeOkResult | ProposeFailureResult;
@@ -93,6 +93,20 @@ describe('proposePageCreateTool', () => {
       expect(isValidationFailure(result)).toBe(false);
       if (isValidationFailure(result)) return;
       expect(result.result).toBe('missing_input');
+    });
+
+    it('refuses to propose creating a page at an AI-protected path', async () => {
+      const requestContext = buildRequestContext();
+      requestContext.set('user', buildMockUser());
+
+      const result = await invokeExecute(
+        { path: '/メンバー/アカウント対応表', body: 'x', summary: 'y' },
+        requestContext,
+      );
+
+      expect(isValidationFailure(result)).toBe(false);
+      if (isValidationFailure(result)) return;
+      expect(result.result).toBe('forbidden_path');
     });
   });
 

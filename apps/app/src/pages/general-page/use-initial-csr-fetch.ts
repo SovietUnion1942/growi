@@ -24,15 +24,6 @@ export const useInitialCSRFetch = (condition: {
   const { fetchCurrentPage } = useFetchCurrentPage();
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(
-      '[DEBUG useInitialCSRFetch] effect fired, skipSSR=',
-      condition.skipSSR,
-      'nextjsRoutingType=',
-      condition.nextjsRoutingType,
-      'asPath=',
-      router.asPath,
-    );
     const isFromOutside =
       condition.nextjsRoutingType === NextjsRoutingType.FROM_OUTSIDE;
     if (condition.skipSSR || isFromOutside) {

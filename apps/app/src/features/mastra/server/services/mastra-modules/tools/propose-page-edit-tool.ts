@@ -11,6 +11,17 @@ import type { MastraRequestContextShape } from '../types/request-context';
 
 const logger = loggerFactory('growi:tools:propose-page-edit-tool');
 
+// Pages that must never go through the AI propose→approve flow, however the
+// GROWI account approving the proposal is chosen to see it. This exists
+// because the Discord bot's shared service account needs VIEWER access to
+// certain admin-managed pages (e.g. the cross-account identity directory at
+// /メンバー/アカウント対応表) to build chat context — and GROWI's grant model
+// ties view and edit together, so that same account also technically has
+// edit rights. Without this guard, any Discord user could ask the agent to
+// edit + self-approve a page meant to be admin-only, bypassing the page's
+// grant intent entirely. Keep in sync with propose-page-create-tool.ts.
+const AI_EDIT_PROTECTED_PATHS = ['/メンバー/アカウント対応表'];
+
 // Typed view of RequestContext bound to the shared shape so that
 // ctx.get('user') is statically inferred.
 type TypedRequestContext = RequestContext<MastraRequestContextShape>;
@@ -113,6 +124,13 @@ export const proposePageEditTool = createTool({
         return {
           result: 'not_found_or_forbidden' as const,
           reason: 'page not found or viewer is not permitted',
+        };
+      }
+
+      if (AI_EDIT_PROTECTED_PATHS.includes(page.path)) {
+        return {
+          result: 'not_found_or_forbidden' as const,
+          reason: 'this page can only be edited directly by an administrator',
         };
       }
 

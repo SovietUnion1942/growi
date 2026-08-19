@@ -202,6 +202,26 @@ describe('proposePageEditTool', () => {
     });
   });
 
+  describe('AI-protected pages', () => {
+    it('refuses to propose an edit for the member-directory page even though the viewer can see it', async () => {
+      const requestContext = buildRequestContext();
+      requestContext.set('user', buildMockUser());
+      const mockPage = buildMockPage({ path: '/メンバー/アカウント対応表' });
+      mocks.findByIdAndViewer.mockResolvedValue(mockPage);
+
+      const result = await invokeExecute(
+        { pageId: 'abc', newBody: 'x', summary: 'y' },
+        requestContext,
+      );
+
+      expect(isValidationFailure(result)).toBe(false);
+      if (isValidationFailure(result)) return;
+      expect(result.result).toBe('not_found_or_forbidden');
+      // The guard fires before any revision is read.
+      expect(mocks.populateDataToShowRevision).not.toHaveBeenCalled();
+    });
+  });
+
   describe('success path', () => {
     it('returns ok with current + proposed body and the revisionId to send back on approval', async () => {
       const requestContext = buildRequestContext();

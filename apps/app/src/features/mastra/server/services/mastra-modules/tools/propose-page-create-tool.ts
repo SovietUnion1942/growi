@@ -8,6 +8,13 @@ import type { MastraRequestContextShape } from '../types/request-context';
 
 const logger = loggerFactory('growi:tools:propose-page-create-tool');
 
+// Kept in sync with propose-page-edit-tool.ts's AI_EDIT_PROTECTED_PATHS —
+// see that file's comment for why this guard exists (the Discord bot's
+// shared service account has edit rights on these admin-managed pages
+// purely as a side effect of needing viewer access, so the AI flow must
+// refuse to touch them regardless of who is asking).
+const AI_EDIT_PROTECTED_PATHS = ['/メンバー/アカウント対応表'];
+
 // Typed view of RequestContext bound to the shared shape so that
 // ctx.get('user') is statically inferred.
 type TypedRequestContext = RequestContext<MastraRequestContextShape>;
@@ -38,7 +45,7 @@ const outputSchema = z.discriminatedUnion('result', [
     }),
   }),
   z.object({
-    result: z.enum(['missing_input', 'context_error']),
+    result: z.enum(['missing_input', 'context_error', 'forbidden_path']),
     reason: z.string(),
   }),
 ]);
@@ -72,6 +79,14 @@ export const proposePageCreateTool = createTool({
       return {
         result: 'missing_input' as const,
         reason: 'path must be a non-empty string starting with "/"',
+      };
+    }
+
+    if (AI_EDIT_PROTECTED_PATHS.includes(path)) {
+      return {
+        result: 'forbidden_path' as const,
+        reason:
+          'this page can only be created/edited directly by an administrator',
       };
     }
 

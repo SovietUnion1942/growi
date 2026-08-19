@@ -169,19 +169,32 @@ export type ReasoningContentProps = ComponentProps<
 
 export const ReasoningContent: React.NamedExoticComponent<ReasoningContentProps> =
   memo(
-    ({ className, children, ...props }: ReasoningContentProps): JSX.Element => (
-      <CollapsibleContent
-        className={cn(
-          'tw:mt-4 tw:text-sm',
-          // eslint-disable-next-line max-len
-          'tw:data-[state=closed]:fade-out-0 tw:data-[state=closed]:slide-out-to-top-2 tw:data-[state=open]:slide-in-from-top-2 tw:text-muted-foreground tw:outline-none tw:data-[state=closed]:animate-out tw:data-[state=open]:animate-in',
-          className,
-        )}
-        {...props}
-      >
-        <Response className="tw:grid tw:gap-2">{children}</Response>
-      </CollapsibleContent>
-    ),
+    ({ className, children, ...props }: ReasoningContentProps): JSX.Element => {
+      const { isStreaming } = useReasoning();
+      return (
+        <CollapsibleContent
+          className={cn(
+            'tw:mt-4 tw:text-sm',
+            // eslint-disable-next-line max-len
+            'tw:data-[state=closed]:fade-out-0 tw:data-[state=closed]:slide-out-to-top-2 tw:data-[state=open]:slide-in-from-top-2 tw:text-muted-foreground tw:outline-none tw:data-[state=closed]:animate-out tw:data-[state=open]:animate-in',
+            className,
+          )}
+          {...props}
+        >
+          {/* Streamdown defaults to mode="streaming", which waits for
+              further incremental updates before it ever flushes visible
+              output -- content that stops streaming without one more
+              update (e.g. the reasoning phase ends and the model moves on
+              to its text response) renders nothing at all. */}
+          <Response
+            className="tw:grid tw:gap-2"
+            mode={isStreaming ? 'streaming' : 'static'}
+          >
+            {children}
+          </Response>
+        </CollapsibleContent>
+      );
+    },
   );
 
 Reasoning.displayName = 'Reasoning';

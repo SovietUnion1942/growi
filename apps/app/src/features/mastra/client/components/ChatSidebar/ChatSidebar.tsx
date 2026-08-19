@@ -292,6 +292,24 @@ export const ChatSidebar = (): JSX.Element => {
                                       ? 'tw-prose'
                                       : undefined
                                   }
+                                  // Streamdown defaults to mode="streaming",
+                                  // which waits for further incremental
+                                  // updates before it ever flushes visible
+                                  // output. A part that isn't the tail of an
+                                  // in-flight stream (a completed message, a
+                                  // reloaded thread's history, a fast
+                                  // response that never produced more than
+                                  // one delta) never gets that follow-up
+                                  // update, so it rendered nothing at all.
+                                  // "static" renders whatever text is
+                                  // present immediately.
+                                  mode={
+                                    status === 'streaming' &&
+                                    i === message.parts.length - 1 &&
+                                    message.id === messages.at(-1)?.id
+                                      ? 'streaming'
+                                      : 'static'
+                                  }
                                 >
                                   {part.text}
                                 </Response>

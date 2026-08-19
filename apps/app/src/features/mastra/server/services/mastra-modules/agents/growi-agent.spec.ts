@@ -129,9 +129,16 @@ const getModelFn = (): ModelFn => {
 // with `requestContext.get('modelKey')` returning the supplied value. A typed
 // stub (no `as any`) keeps the fake aligned with RequestContext's surface; only
 // `get` is exercised by the model function.
-const makeModelFnArg = (modelKey?: string): ModelFnArg => {
+const makeModelFnArg = (
+  modelKey?: string,
+  user?: MastraRequestContextShape['user'],
+): ModelFnArg => {
   const requestContext = {
-    get: (key: string): unknown => (key === 'modelKey' ? modelKey : undefined),
+    get: (key: string): unknown => {
+      if (key === 'modelKey') return modelKey;
+      if (key === 'user') return user;
+      return undefined;
+    },
   } as unknown as RequestContext<MastraRequestContextShape>;
   return { requestContext };
 };
@@ -237,8 +244,31 @@ describe('growiAgent', () => {
     const hasContentField = (v: unknown): v is { content: unknown } =>
       v != null && typeof v === 'object' && 'content' in v;
 
+    // `instructions` is now a DynamicArgument function (same mechanism as
+    // `model`, see getModelFn above) so it can append a per-request identity
+    // note. Resolve it here the same way Mastra would at request time,
+    // with no logged-in user on the requestContext (the anonymous/base case).
+    const resolveInstructions = async (
+      user?: MastraRequestContextShape['user'],
+    ): Promise<unknown> => {
+      const config =
+        'getCapturedConfig' in growiAgent &&
+        typeof growiAgent.getCapturedConfig === 'function'
+          ? growiAgent.getCapturedConfig()
+          : undefined;
+      const instructions = config?.instructions;
+      if (typeof instructions === 'function') {
+        return await (
+          instructions as (arg: {
+            requestContext: RequestContext<MastraRequestContextShape>;
+          }) => unknown
+        )(makeModelFnArg(undefined, user));
+      }
+      return instructions;
+    };
+
     const getInstructionsString = async (): Promise<string> => {
-      const instructions = await growiAgent.getInstructions();
+      const instructions = await resolveInstructions();
       // The agent declares instructions as a plain string. Defensive guard:
       // if the field is wrapped in an array of messages, flatten to text.
       if (typeof instructions === 'string') return instructions;
@@ -258,13 +288,33 @@ describe('growiAgent', () => {
     };
 
     it('is a non-empty string', async () => {
-      const instructions = await growiAgent.getInstructions();
+      const instructions = await resolveInstructions();
       // typeof check narrows `instructions` to `string` for the next line,
       // so no `as string` cast is needed. The expect on typeof gates the
       // .length read behind the narrowing.
       expect(typeof instructions).toBe('string');
       if (typeof instructions !== 'string') return;
       expect(instructions.length).toBeGreaterThan(0);
+    });
+
+    it('appends a note naming the logged-in user when requestContext carries one', async () => {
+      const user = {
+        username: 'tanaka',
+        name: 'Taro Tanaka',
+      } as unknown as MastraRequestContextShape['user'];
+
+      const instructions = await resolveInstructions(user);
+      expect(typeof instructions).toBe('string');
+      if (typeof instructions !== 'string') return;
+      expect(instructions).toContain('tanaka');
+      expect(instructions).toContain('Taro Tanaka');
+    });
+
+    it('omits the identity note when requestContext carries no user', async () => {
+      const instructions = await resolveInstructions(undefined);
+      expect(typeof instructions).toBe('string');
+      if (typeof instructions !== 'string') return;
+      expect(instructions).not.toContain('WHO YOU ARE TALKING TO');
     });
 
     // Substring-presence assertions on instruction wording (cite-path order,

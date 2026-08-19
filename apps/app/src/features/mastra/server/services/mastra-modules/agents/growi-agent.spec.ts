@@ -317,6 +317,52 @@ describe('growiAgent', () => {
       expect(instructions).not.toContain('WHO YOU ARE TALKING TO');
     });
 
+    it("appends the user's badges (with level) to the identity note when badgeSummaryCached has entries", async () => {
+      const user = {
+        username: 'tanaka',
+        name: 'Taro Tanaka',
+        badgeSummaryCached: [
+          { name: 'Wiki Editor', level: 3 },
+          { name: 'Community Helper', level: null },
+        ],
+      } as unknown as MastraRequestContextShape['user'];
+
+      const instructions = await resolveInstructions(user);
+      expect(typeof instructions).toBe('string');
+      if (typeof instructions !== 'string') return;
+      expect(instructions).toContain('Wiki Editor (level 3)');
+      expect(instructions).toContain('Community Helper');
+      // A null-level (manual) badge must not render a "(level null)" suffix.
+      expect(instructions).not.toContain('Community Helper (level');
+    });
+
+    it('does not mention badges in the identity note when badgeSummaryCached is empty or absent', async () => {
+      const userWithNoBadges = {
+        username: 'tanaka',
+        name: 'Taro Tanaka',
+        badgeSummaryCached: [],
+      } as unknown as MastraRequestContextShape['user'];
+      const userWithUndefinedBadges = {
+        username: 'suzuki',
+        name: 'Jiro Suzuki',
+      } as unknown as MastraRequestContextShape['user'];
+
+      const instructionsEmpty = await resolveInstructions(userWithNoBadges);
+      const instructionsUndefined = await resolveInstructions(
+        userWithUndefinedBadges,
+      );
+      expect(typeof instructionsEmpty).toBe('string');
+      expect(typeof instructionsUndefined).toBe('string');
+      if (
+        typeof instructionsEmpty !== 'string' ||
+        typeof instructionsUndefined !== 'string'
+      ) {
+        return;
+      }
+      expect(instructionsEmpty).not.toContain('earned the following badge');
+      expect(instructionsUndefined).not.toContain('earned the following badge');
+    });
+
     // Substring-presence assertions on instruction wording (cite-path order,
     // query operator list, outline/offset/hasMore drill-down) were removed
     // intentionally: they made every prompt iteration a test-maintenance

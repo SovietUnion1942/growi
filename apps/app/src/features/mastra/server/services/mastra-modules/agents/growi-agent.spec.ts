@@ -230,6 +230,7 @@ describe('growiAgent', () => {
 
       expect(toolKeys).toContain('fullTextSearchTool');
       expect(toolKeys).toContain('getPageContentTool');
+      expect(toolKeys).toContain('getUserBadgesTool');
       expect(toolKeys).toContain('proposePageEditTool');
       expect(toolKeys).toContain('proposePageCreateTool');
       expect(toolKeys).not.toContain('fileSearchTool');

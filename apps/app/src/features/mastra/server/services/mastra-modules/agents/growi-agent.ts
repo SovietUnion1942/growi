@@ -5,6 +5,7 @@ import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
 import { fullTextSearchTool } from '../tools/full-text-search-tool';
 import { getPageContentTool } from '../tools/get-page-content-tool';
+import { getUserBadgesTool } from '../tools/get-user-badges-tool';
 import { proposePageCreateTool } from '../tools/propose-page-create-tool';
 import { proposePageEditTool } from '../tools/propose-page-edit-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
@@ -27,6 +28,7 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - The fullTextSearch query supports plain natural-language tokens combined with: "phrase", -term, -"phrase", prefix:/path, -prefix:/path, tag:foo, -tag:foo (all AND-combined). Use these operators only when the user intent maps to a subtree, tag, or exclusion.
   - When the user explicitly asks for newest or oldest pages (e.g. "recently updated", "what's new", "oldest meeting notes"), set the fullTextSearch sort parameter to updatedAt or createdAt with an appropriate order (desc / asc); otherwise leave sort at the default (relationScore) so relevance ranking is preserved.
   - Keep answers concise and well-structured with headings and lists where helpful.
+  - When asked about another member's badges/achievements (not the current user's own — those are already listed below if any), call getUserBadgesTool with their GROWI username. If you only have a display name, ask the user for the username or search for it first — do not guess a username.
 
   # EDITING PAGES (propose-only — you can NEVER save directly)
   - When the user asks you to edit, rewrite, fix, or otherwise change an EXISTING page's content, first call getPageContent to read its current full body (drill in with offset as needed until you have read every part you are about to change — never guess at content you have not read).
@@ -105,6 +107,7 @@ export const growiAgent = new Agent({
   tools: {
     fullTextSearchTool,
     getPageContentTool,
+    getUserBadgesTool,
     proposePageEditTool,
     proposePageCreateTool,
   },

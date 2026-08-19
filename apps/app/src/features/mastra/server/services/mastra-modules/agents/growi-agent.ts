@@ -9,10 +9,15 @@ import { proposePageCreateTool } from '../tools/propose-page-create-tool';
 import { proposePageEditTool } from '../tools/propose-page-edit-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
-export const growiAgent = new Agent({
-  id: 'growiAgent',
-  name: 'GROWI Agent',
-  instructions: `You are an AI assistant that helps users search and understand content in their GROWI wiki.
+// Static portion of the system prompt. The dynamic `instructions` function
+// below appends a per-request note identifying the logged-in user, so the
+// agent actually knows who it's talking to if asked (e.g. "who am I?") —
+// previously `req.user` was only used internally for tool permission checks
+// and never reached the LLM's own context. Mirrors the identity note the
+// Discord bot separately builds from its member-directory page (see
+// discord-bot/src/handlers/message-handler.ts's buildIdentityNote), except
+// here the identity is the real authenticated GROWI account, not a lookup.
+const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and understand content in their GROWI wiki.
 
   # CRITICAL INSTRUCTION
   - ALWAYS RESPOND IN THE SAME LANGUAGE AS THE USER'S INPUT.
@@ -35,7 +40,25 @@ export const growiAgent = new Agent({
   - Calling proposeCreateTool does NOT create anything. It only shows the user the proposed path and content with an approve/reject choice in the UI. After calling it, tell the user their proposal is ready for review and needs their approval — never say the page has been created, saved, or added, since only their own click in the UI can do that.
   - If you are unsure where in the wiki hierarchy the new page should live, say so and ask the user, or search for related pages first and propose a path consistent with where similar pages already live.
   - Some pages (e.g. "/メンバー/アカウント対応表") are administrator-managed and cannot be changed through proposeEditTool or proposeCreateTool at all — both tools refuse and return a forbidden result for them. If that happens, tell the user this specific page can only be edited directly by an administrator, and do not retry.
-  `,
+  `;
+
+export const growiAgent = new Agent({
+  id: 'growiAgent',
+  name: 'GROWI Agent',
+  // A DynamicArgument function, same mechanism as `model` below: it re-runs
+  // per request, so it never throws at construction time and always reflects
+  // the CURRENT requestContext's user (not one captured at agent-build time).
+  instructions: ({
+    requestContext,
+  }: {
+    requestContext: RequestContext<MastraRequestContextShape>;
+  }) => {
+    const user = requestContext.get('user');
+    if (user == null) return STATIC_INSTRUCTIONS;
+
+    const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.\n  `;
+    return STATIC_INSTRUCTIONS + identityNote;
+  },
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the
   // function runs at use time, not at import time, so constructing the agent

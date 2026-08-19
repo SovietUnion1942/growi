@@ -42,6 +42,25 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - Some pages (e.g. "/メンバー/アカウント対応表") are administrator-managed and cannot be changed through proposeEditTool or proposeCreateTool at all — both tools refuse and return a forbidden result for them. If that happens, tell the user this specific page can only be edited directly by an administrator, and do not retry.
   `;
 
+// Formats the logged-in user's earned badges (the user-badges feature's
+// `IUser.badgeSummaryCached`) as a trailing sentence for the identity note, so
+// the agent can answer "what badges do I have?" directly — `badgeSummaryCached`
+// is already the per-user display cache carried on `req.user` (see
+// MastraRequestContextShape's doc comment: the tool layer must not re-resolve
+// the user), so no new tool or DB lookup is needed. Returns '' when the user
+// has none, leaving the identity note unchanged for badge-less users.
+const formatBadgesSentence = (
+  badges: MastraRequestContextShape['user']['badgeSummaryCached'],
+): string => {
+  if (badges == null || badges.length === 0) return '';
+  const names = badges
+    .map((badge) =>
+      badge.level != null ? `${badge.name} (level ${badge.level})` : badge.name,
+    )
+    .join(', ');
+  return ` They have earned the following badge(s): ${names}. If asked about their badges or achievements, answer directly from this list — do not guess or say you don't know.`;
+};
+
 export const growiAgent = new Agent({
   id: 'growiAgent',
   name: 'GROWI Agent',
@@ -56,7 +75,7 @@ export const growiAgent = new Agent({
     const user = requestContext.get('user');
     if (user == null) return STATIC_INSTRUCTIONS;
 
-    const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.\n  `;
+    const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.${formatBadgesSentence(user.badgeSummaryCached)}\n  `;
     return STATIC_INSTRUCTIONS + identityNote;
   },
 

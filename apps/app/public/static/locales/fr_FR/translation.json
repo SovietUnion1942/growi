@@ -592,6 +592,16 @@
       "conflict_error": "La page a été modifiée depuis cette proposition. Demandez à l'assistant de refaire la modification.",
       "save_error": "Échec de l'enregistrement."
     },
+    "create_proposal": {
+      "title": "Nouvelle page proposée",
+      "not_created_notice": "Cette page n'a pas encore été créée.",
+      "approve": "Approuver et créer",
+      "reject": "Rejeter",
+      "rejected": "Rejetée",
+      "created": "Créée",
+      "creating": "Création...",
+      "create_error": "Échec de la création de la page."
+    },
     "toaster": {
       "thread_deleted_success": "Discussion supprimée",
       "thread_deleted_failed": "Échec de la suppression de la discussion"

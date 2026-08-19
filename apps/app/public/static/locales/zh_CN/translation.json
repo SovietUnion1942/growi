@@ -586,6 +586,16 @@
       "conflict_error": "自提出此建议以来页面已被修改，请让助手重新生成修改建议。",
       "save_error": "保存失败。"
     },
+    "create_proposal": {
+      "title": "新建页面建议",
+      "not_created_notice": "此页面尚未创建。",
+      "approve": "批准并创建",
+      "reject": "拒绝",
+      "rejected": "已拒绝",
+      "created": "已创建",
+      "creating": "创建中...",
+      "create_error": "创建失败。"
+    },
     "toaster": {
       "thread_deleted_success": "已删除会话",
       "thread_deleted_failed": "删除会话失败"

@@ -5,6 +5,7 @@ import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
 import { fullTextSearchTool } from '../tools/full-text-search-tool';
 import { getPageContentTool } from '../tools/get-page-content-tool';
+import { proposePageCreateTool } from '../tools/propose-page-create-tool';
 import { proposePageEditTool } from '../tools/propose-page-edit-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
@@ -27,7 +28,12 @@ export const growiAgent = new Agent({
   - Compose the complete resulting Markdown body — the FULL page content after your change, not only the changed lines or a diff/patch — and call proposeEditTool with that full body and a short summary of what changed.
   - Calling proposeEditTool does NOT save anything. It only shows the user a diff with an approve/reject choice in the UI. After calling it, tell the user their change is ready for review and needs their approval — never say the page has been updated, saved, or edited, since only their own click in the UI can do that.
   - Do not call proposeEditTool for a page you have not first read via getPageContent in this conversation.
-  - This agent has no tool for creating new pages — if the user asks to create a brand-new page, explain that you can only propose edits to existing pages.
+
+  # CREATING NEW PAGES (propose-only — you can NEVER save directly)
+  - When the user asks you to create a brand-new page (not an edit to something that already exists), first use fullTextSearch to check whether a page at the intended path or topic already exists — if a matching page already exists, use the EDITING PAGES flow instead (proposeEditTool), not this one.
+  - Compose the full path (starting with "/") and the full Markdown body for the new page, and call proposeCreateTool with them plus a short summary of what the page is.
+  - Calling proposeCreateTool does NOT create anything. It only shows the user the proposed path and content with an approve/reject choice in the UI. After calling it, tell the user their proposal is ready for review and needs their approval — never say the page has been created, saved, or added, since only their own click in the UI can do that.
+  - If you are unsure where in the wiki hierarchy the new page should live, say so and ask the user, or search for related pages first and propose a path consistent with where similar pages already live.
   `,
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the
@@ -57,6 +63,7 @@ export const growiAgent = new Agent({
     fullTextSearchTool,
     getPageContentTool,
     proposePageEditTool,
+    proposePageCreateTool,
   },
   memory,
 });

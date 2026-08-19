@@ -636,6 +636,16 @@
       "conflict_error": "この提案の作成後にページが変更されています。もう一度編集をやり直すようアシスタントに依頼してください。",
       "save_error": "保存に失敗しました。"
     },
+    "create_proposal": {
+      "title": "新規ページの提案",
+      "not_created_notice": "このページはまだ作成されていません。",
+      "approve": "承認して作成",
+      "reject": "却下",
+      "rejected": "却下しました",
+      "created": "作成しました",
+      "creating": "作成中...",
+      "create_error": "作成に失敗しました。"
+    },
     "toaster": {
       "thread_deleted_success": "スレッドを削除しました",
       "thread_deleted_failed": "スレッドの削除に失敗しました"

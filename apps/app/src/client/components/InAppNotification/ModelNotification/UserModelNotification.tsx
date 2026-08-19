@@ -26,6 +26,11 @@ export const useUserModelNotification = (
     return null;
   }
 
+  // notification.target can be null when the target user has since been deleted
+  if (notification.target == null) {
+    return null;
+  }
+
   const actionUsers = notification.target.username;
 
   const Notification = () => {

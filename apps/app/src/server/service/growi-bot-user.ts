@@ -13,6 +13,9 @@ export const findOrCreateGrowiBotUser = (
   User: Model<any>,
   // biome-ignore lint/suspicious/noExplicitAny: matches the Model<any> above
 ): Promise<any> => {
+  // .exec() is required: a Mongoose Query is thenable but not a real
+  // Promise (no Symbol.toStringTag/finally), which doesn't structurally
+  // satisfy this function's declared Promise<any> return type.
   return User.findOneAndUpdate(
     { username: GROWI_BOT_USERNAME },
     {
@@ -22,5 +25,5 @@ export const findOrCreateGrowiBotUser = (
       },
     },
     { upsert: true, new: true },
-  );
+  ).exec();
 };

@@ -1,3 +1,4 @@
+import type { IUserHasId } from '@growi/core';
 import { SCOPE } from '@growi/core/dist/interfaces';
 import { serializeUserSecurely } from '@growi/core/dist/models/serializers';
 import type { Router } from 'express';
@@ -13,6 +14,7 @@ import { accessTokenParser } from '~/server/middlewares/access-token-parser';
 import loginRequiredFactory from '~/server/middlewares/login-required';
 import { UserStatus } from '~/server/models/user/conts';
 import { validateImageContentType } from '~/server/routes/attachment/image-content-type-validator';
+import { findOrCreateGrowiBotUser } from '~/server/service/growi-bot-user';
 import { sendPushNotificationToUsers } from '~/server/service/push-notification';
 import {
   BROADCAST_ROOM_NAME,
@@ -25,6 +27,11 @@ import type { ConversationDocument } from '../../models/Conversation';
 import { Conversation } from '../../models/Conversation';
 import { Message } from '../../models/Message';
 import type { ApiV3Response } from './interfaces/apiv3-response';
+import {
+  buildBotReplyHistory,
+  MAX_BOT_REPLY_HISTORY,
+  shouldTriggerBotReply,
+} from './messages-bot-reply';
 
 const logger = loggerFactory('growi:routes:apiv3:messages');
 
@@ -160,6 +167,70 @@ export const setup = (crowi: Crowi): Router => {
         .in(getRoomNameWithId(RoomPrefix.USER, participantId.toString()))
         .emit(eventName, payload);
     });
+  };
+
+  // Generates and posts the bot's reply as an ordinary Message from the bot
+  // User, reusing the same create -> emit -> push pipeline a human send
+  // uses. Dynamic import keeps the mastra/AI SDK stack out of this route's
+  // static import graph (it's always loaded; see server-boot-imports rule)
+  // -- it's only pulled in on the rare request that actually needs it.
+  // Errors are the caller's responsibility (fire-and-forget .catch()).
+  const triggerBotReply = async (
+    conversation: ConversationDocument,
+    botUser: { _id: Types.ObjectId },
+    askingUser: IUserHasId,
+  ): Promise<void> => {
+    const recentMessages = await Message.find({
+      conversation: conversation._id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(MAX_BOT_REPLY_HISTORY)
+      .select('sender body')
+      .lean();
+    const history = buildBotReplyHistory(recentMessages.reverse(), botUser._id);
+
+    // factory pattern: the module receives crowi (e.g. crowi.searchService
+    // for the agent's search tool) rather than importing the Crowi class --
+    // see esm-authoring.md's no-Crowi-import-cycle rule.
+    const { createGetGrowiAgentReply } = await import(
+      '~/features/mastra/server/services/growi-agent-dm-reply'
+    );
+    const getGrowiAgentReply = createGetGrowiAgentReply(crowi);
+    const replyBody = (await getGrowiAgentReply(history, askingUser)).trim();
+    if (replyBody === '') {
+      return;
+    }
+
+    const botMessage = await Message.create({
+      conversation: conversation._id,
+      sender: botUser._id,
+      body: replyBody,
+      readBy: [botUser._id],
+      mentionedUserIds: [],
+    });
+
+    conversation.lastMessageAt = new Date();
+    await conversation.save();
+
+    emitToConversation(conversation, SocketEventName.MessageCreated, {
+      conversationId: conversation._id.toString(),
+      message: botMessage,
+    });
+
+    const pushBody =
+      replyBody.length > MESSAGE_PUSH_BODY_MAX_LENGTH
+        ? `${replyBody.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
+        : replyBody;
+    const recipientIds = await getPushRecipientIds(conversation, botUser._id);
+    await sendPushNotificationToUsers(
+      recipientIds.map((id) => id.toString()),
+      {
+        title: 'GROWI AI からのメッセージ',
+        body: pushBody,
+        url: '/',
+        tag: conversation._id.toString(),
+      },
+    );
   };
 
   // A multipart/form-data body (image send) can't carry a real array field,
@@ -542,6 +613,28 @@ export const setup = (crowi: Crowi): Router => {
           .catch((err) => {
             logger.error('Failed to send push notification for message', err);
           });
+
+        // fire-and-forget: the human sender doesn't wait on agent inference
+        const botUser = await findOrCreateGrowiBotUser(User);
+        if (
+          shouldTriggerBotReply(
+            conversation,
+            user._id,
+            mentionedUserIds,
+            botUser._id,
+          )
+        ) {
+          // CrowiRequest types req.user as HydratedDocument<IUser> (_id:
+          // ObjectId), while IUserHasId types _id as string -- the same
+          // known mismatch documented in attachment-add-activity.integ.ts.
+          triggerBotReply(
+            conversation,
+            botUser,
+            user as unknown as IUserHasId,
+          ).catch((err) => {
+            logger.error('Failed to generate bot reply', err);
+          });
+        }
 
         return res.apiv3({ message });
       } catch (err) {

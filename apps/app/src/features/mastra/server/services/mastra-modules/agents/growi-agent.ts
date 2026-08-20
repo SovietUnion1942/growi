@@ -67,22 +67,46 @@ const formatBadgesSentence = (
   return ` They have earned the following badge(s): ${names}. If asked about their badges or achievements, answer directly from this list — do not guess or say you don't know.`;
 };
 
+// Formats the current wall-clock date/time (JST — this wiki serves a
+// Japan-based club) as a system-prompt note. The LLM's own knowledge is
+// frozen at its training cutoff and carries no notion of "now", so without
+// this the agent cannot answer "what's today's date?" or reason about
+// relative dates ("next Wednesday", event scheduling) at all. Computed
+// fresh on every call (the enclosing instructions function is a
+// DynamicArgument re-run per request), never cached at agent-build time.
+const formatCurrentDateTimeNote = (): string => {
+  const formatted = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  return `\n\n  # CURRENT DATE AND TIME\n  - The current date and time is ${formatted} (Asia/Tokyo, JST). Treat this as "now" — use it when the user asks today's date, or asks you to reason about relative dates (e.g. "next Wednesday", "in 3 days", upcoming events/schedules). Never rely on your training data for the current date.\n  `;
+};
+
 export const growiAgent = new Agent({
   id: 'growiAgent',
   name: 'GROWI Agent',
   // A DynamicArgument function, same mechanism as `model` below: it re-runs
   // per request, so it never throws at construction time and always reflects
-  // the CURRENT requestContext's user (not one captured at agent-build time).
+  // the CURRENT requestContext's user (not one captured at agent-build time)
+  // and the CURRENT wall-clock time (not one frozen at agent-build time).
   instructions: ({
     requestContext,
   }: {
     requestContext: RequestContext<MastraRequestContextShape>;
   }) => {
+    const dateTimeNote = formatCurrentDateTimeNote();
+
     const user = requestContext.get('user');
-    if (user == null) return STATIC_INSTRUCTIONS;
+    if (user == null) return STATIC_INSTRUCTIONS + dateTimeNote;
 
     const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.${formatBadgesSentence(user.badgeSummaryCached)}\n  `;
-    return STATIC_INSTRUCTIONS + identityNote;
+    return STATIC_INSTRUCTIONS + dateTimeNote + identityNote;
   },
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the

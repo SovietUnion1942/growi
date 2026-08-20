@@ -318,6 +318,33 @@ describe('growiAgent', () => {
       expect(instructions).not.toContain('WHO YOU ARE TALKING TO');
     });
 
+    it('includes the current date/time, reflecting the actual clock, regardless of user presence', async () => {
+      // Pin the clock to a known instant so the assertion proves the note is
+      // computed fresh per call (not a hardcoded string) — a fixed date that
+      // renders unambiguously in JST regardless of the test runner's own
+      // timezone.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2027-03-04T01:30:00Z')); // 2027-03-04 10:30 JST
+
+      try {
+        const withoutUser = await resolveInstructions(undefined);
+        const withUser = await resolveInstructions({
+          username: 'tanaka',
+        } as unknown as MastraRequestContextShape['user']);
+
+        for (const instructions of [withoutUser, withUser]) {
+          expect(typeof instructions).toBe('string');
+          if (typeof instructions !== 'string') continue;
+          expect(instructions).toContain('CURRENT DATE AND TIME');
+          expect(instructions).toContain('2027');
+          expect(instructions).toContain('03');
+          expect(instructions).toContain('04');
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("appends the user's badges (with level) to the identity note when badgeSummaryCached has entries", async () => {
       const user = {
         username: 'tanaka',

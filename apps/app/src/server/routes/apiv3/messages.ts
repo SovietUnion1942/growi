@@ -717,5 +717,46 @@ export const setup = (crowi: Crowi): Router => {
     },
   );
 
+  router.delete(
+    '/conversations/:id/messages/:messageId',
+    accessTokenParser(),
+    loginRequiredStrictly,
+    async (req: CrowiRequest, res: ApiV3Response) => {
+      const user = req.user!;
+      const { id: conversationId, messageId } = req.params;
+
+      try {
+        const conversation = await Conversation.findById(conversationId);
+        if (
+          conversation == null ||
+          !isConversationMember(conversation, user._id)
+        ) {
+          return res.apiv3Err(new Error('Forbidden'), 403);
+        }
+
+        const message = await Message.softDeleteMessage(
+          new Types.ObjectId(messageId),
+          user._id,
+        );
+        // covers "not found", "not the sender", and "already deleted" alike
+        // (softDeleteMessage's query filter folds all three into a null
+        // result), plus the same cross-conversation guard the other
+        // message-scoped routes use.
+        if (message == null || !message.conversation.equals(conversation._id)) {
+          return res.apiv3Err(new Error('Message not found'), 404);
+        }
+
+        emitToConversation(conversation, SocketEventName.MessageDeleted, {
+          conversationId,
+          message,
+        });
+
+        return res.apiv3({ message });
+      } catch (err) {
+        return res.apiv3Err(err);
+      }
+    },
+  );
+
   return router;
 };

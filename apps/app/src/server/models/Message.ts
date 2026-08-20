@@ -22,6 +22,11 @@ export interface MessageDocument extends Document {
   // quick-react row today, a full picker later). Grouping for display is a
   // pure client-side transform (see reaction-utils.ts).
   reactions: MessageReaction[];
+  // Soft-delete marker (set by softDeleteMessage). A deleted message keeps
+  // its row (conversation/sender/createdAt stay intact for pagination and
+  // unread-count consistency) but has body/attachment/reactions cleared, so
+  // the client renders a placeholder instead of the original content.
+  deletedAt?: Date;
   createdAt: Date;
 }
 
@@ -43,6 +48,10 @@ export interface MessageModel extends PaginateModel<MessageDocument> {
     messageId: Types.ObjectId,
     emoji: string,
     userId: Types.ObjectId,
+  ): Promise<MessageDocument | null>;
+  softDeleteMessage(
+    messageId: Types.ObjectId,
+    senderId: Types.ObjectId,
   ): Promise<MessageDocument | null>;
 }
 
@@ -89,6 +98,9 @@ const messageSchema = new Schema<MessageDocument, MessageModel>(
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
       },
     ],
+    deletedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
@@ -166,6 +178,25 @@ messageSchema.statics.toggleReaction = async function (
   return this.findOneAndUpdate(
     { _id: messageId },
     { $addToSet: { reactions: { emoji, userId } } },
+    { new: true },
+  );
+};
+
+// Authorization is baked into the query filter (sender: senderId) rather
+// than checked separately, so this is a single atomic op: it can only ever
+// match and update the caller's own, not-yet-deleted message. Returns null
+// for "not found", "not the sender", and "already deleted" alike -- the
+// route treats all three as a 404, which doesn't leak which case occurred.
+messageSchema.statics.softDeleteMessage = async function (
+  messageId: Types.ObjectId,
+  senderId: Types.ObjectId,
+) {
+  return this.findOneAndUpdate(
+    { _id: messageId, sender: senderId, deletedAt: { $exists: false } },
+    {
+      $set: { deletedAt: new Date(), body: '', reactions: [] },
+      $unset: { attachment: '' },
+    },
     { new: true },
   );
 };

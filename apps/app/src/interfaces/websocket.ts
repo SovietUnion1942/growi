@@ -63,6 +63,7 @@ export const SocketEventName = {
   // Message Operation
   MessageCreated: 'message:create',
   MessageReactionUpdated: 'message:reactionUpdate',
+  MessageDeleted: 'message:delete',
 } as const;
 export type SocketEventName =
   (typeof SocketEventName)[keyof typeof SocketEventName];

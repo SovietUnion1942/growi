@@ -72,6 +72,7 @@ export type IMessage = {
   mentionedUserIds: string[];
   attachment?: string;
   reactions: IMessageReaction[];
+  deletedAt?: string;
   createdAt: string;
 };
 
@@ -185,6 +186,16 @@ export const toggleMessageReaction = async (
   const res = await apiv3Post(
     `/messages/conversations/${conversationId}/messages/${messageId}/reactions`,
     { emoji },
+  );
+  return res.data.message;
+};
+
+export const deleteMessage = async (
+  conversationId: string,
+  messageId: string,
+): Promise<IMessage> => {
+  const res = await apiv3Delete(
+    `/messages/conversations/${conversationId}/messages/${messageId}`,
   );
   return res.data.message;
 };

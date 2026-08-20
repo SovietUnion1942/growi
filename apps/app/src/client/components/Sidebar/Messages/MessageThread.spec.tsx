@@ -45,6 +45,7 @@ const useSWRxMessages = vi.fn();
 const markConversationAsRead = vi.fn();
 const sendMessage = vi.fn();
 const toggleMessageReaction = vi.fn();
+const deleteMessage = vi.fn();
 vi.mock('~/stores/messages', () => ({
   CONVERSATIONS_SWR_KEY: '/messages/conversations',
   useSWRxMessages: (...args: unknown[]) => useSWRxMessages(...args),
@@ -52,6 +53,7 @@ vi.mock('~/stores/messages', () => ({
     markConversationAsRead(...args),
   sendMessage: (...args: unknown[]) => sendMessage(...args),
   toggleMessageReaction: (...args: unknown[]) => toggleMessageReaction(...args),
+  deleteMessage: (...args: unknown[]) => deleteMessage(...args),
 }));
 
 import { makeBadgeSummaryFixture } from '~/features/user-badge/test-utils/badge-summary-fixture';
@@ -197,5 +199,27 @@ describe('MessageThread', () => {
         'user-picture-badge',
       ),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders a placeholder instead of the body for a deleted message', () => {
+    const message = buildMessage({
+      _id: 'msg-deleted',
+      sender: senderNoBadge,
+      body: '',
+      deletedAt: '2026-08-20T00:00:00.000Z',
+    });
+    useSWRxMessages.mockReturnValue({
+      data: [{ docs: [message] }],
+      mutate: vi.fn(),
+      size: 1,
+      setSize: vi.fn(),
+      isLoading: false,
+    });
+
+    render(<MessageThread conversation={conversation} />);
+
+    expect(
+      screen.getByText('このメッセージは削除されました'),
+    ).toBeInTheDocument();
   });
 });

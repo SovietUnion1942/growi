@@ -18,6 +18,7 @@ import { useCurrentUser } from '~/states/global';
 import { useGlobalSocket } from '~/states/socket-io';
 import {
   CONVERSATIONS_SWR_KEY,
+  deleteMessage,
   type IConversation,
   type IMessage,
   markConversationAsRead,
@@ -43,6 +44,7 @@ type MessageItemProps = {
   isFirstOfRun: boolean;
   currentUserId: string | undefined;
   onToggleReaction: (messageId: string, emoji: string) => void;
+  onDelete: (messageId: string) => void;
 };
 
 /**
@@ -62,6 +64,7 @@ const MessageItem = ({
   isFirstOfRun,
   currentUserId,
   onToggleReaction,
+  onDelete,
 }: MessageItemProps): JSX.Element => {
   // `IUserBadgeSummaryEntry.badgeType` (packages/core) is typed as
   // `Types.ObjectId` for the server-side Mongoose model, but by the time it
@@ -99,44 +102,78 @@ const MessageItem = ({
         </div>
       )}
       <div
-        className={`d-flex ${isMine ? 'justify-content-end' : 'justify-content-start'}`}
+        className={`d-flex align-items-center gap-1 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}
       >
-        <div
-          className={
-            isMine ? 'bg-primary text-white' : 'bg-body-tertiary border'
-          }
-          style={{
-            maxWidth: '75%',
-            // an image-only message (no body text) skips the text padding
-            // so the bubble hugs the image instead of framing it awkwardly
-            padding: message.body === '' ? '0.25rem' : '0.5rem 0.75rem',
-            wordBreak: 'break-word',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-            borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          }}
-        >
-          {message.attachment != null && (
-            <MessageImage attachmentId={message.attachment} />
-          )}
-          {segments.map((segment, index) =>
-            segment.type === 'mention' ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
-              <span key={index} className="fw-bold">
-                {segment.value}
-              </span>
-            ) : (
-              // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
-              <span key={index}>{segment.value}</span>
-            ),
-          )}
-        </div>
+        {message.deletedAt != null ? (
+          <div
+            className="fst-italic text-muted border"
+            style={{
+              maxWidth: '75%',
+              padding: '0.5rem 0.75rem',
+              borderRadius: isMine
+                ? '16px 16px 4px 16px'
+                : '16px 16px 16px 4px',
+            }}
+          >
+            このメッセージは削除されました
+          </div>
+        ) : (
+          <div
+            className={
+              isMine ? 'bg-primary text-white' : 'bg-body-tertiary border'
+            }
+            style={{
+              maxWidth: '75%',
+              // an image-only message (no body text) skips the text padding
+              // so the bubble hugs the image instead of framing it awkwardly
+              padding: message.body === '' ? '0.25rem' : '0.5rem 0.75rem',
+              wordBreak: 'break-word',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+              borderRadius: isMine
+                ? '16px 16px 4px 16px'
+                : '16px 16px 16px 4px',
+            }}
+          >
+            {message.attachment != null && (
+              <MessageImage attachmentId={message.attachment} />
+            )}
+            {segments.map((segment, index) =>
+              segment.type === 'mention' ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
+                <span key={index} className="fw-bold">
+                  {segment.value}
+                </span>
+              ) : (
+                // biome-ignore lint/suspicious/noArrayIndexKey: segments are derived fresh from message.body each render and never reordered
+                <span key={index}>{segment.value}</span>
+              ),
+            )}
+          </div>
+        )}
+        {isMine && message.deletedAt == null && (
+          <button
+            type="button"
+            className="btn btn-sm btn-link text-muted p-0"
+            aria-label="メッセージを削除"
+            onClick={() => onDelete(message._id)}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 16 }}
+            >
+              delete
+            </span>
+          </button>
+        )}
       </div>
-      <ReactionBar
-        reactions={message.reactions}
-        currentUserId={currentUserId}
-        isMine={isMine}
-        onToggle={(emoji) => onToggleReaction(message._id, emoji)}
-      />
+      {message.deletedAt == null && (
+        <ReactionBar
+          reactions={message.reactions}
+          currentUserId={currentUserId}
+          isMine={isMine}
+          onToggle={(emoji) => onToggleReaction(message._id, emoji)}
+        />
+      )}
     </li>
   );
 };
@@ -210,6 +247,23 @@ export const MessageThread = (props: Props): JSX.Element => {
     };
   }, [conversationId, mutate, socket]);
 
+  useEffect(() => {
+    if (socket == null) {
+      return;
+    }
+
+    const onMessageDeleted = (payload: { conversationId: string }) => {
+      if (payload.conversationId === conversationId) {
+        mutate();
+      }
+    };
+
+    socket.on(SocketEventName.MessageDeleted, onMessageDeleted);
+    return () => {
+      socket.off(SocketEventName.MessageDeleted, onMessageDeleted);
+    };
+  }, [conversationId, mutate, socket]);
+
   // each page is newest-first; earlier pages hold newer messages, so
   // reversing the concatenated pages yields oldest-to-newest for display
   const messages = (data ?? [])
@@ -258,6 +312,17 @@ export const MessageThread = (props: Props): JSX.Element => {
       toggleMessageReaction(conversationId, messageId, emoji).then(() =>
         mutate(),
       );
+    },
+    [conversationId, mutate],
+  );
+
+  const deleteHandler = useCallback(
+    (messageId: string) => {
+      // biome-ignore lint/suspicious/noAlert: lightweight irreversible-action confirm, no custom modal needed
+      if (!window.confirm('このメッセージを削除しますか？')) {
+        return;
+      }
+      deleteMessage(conversationId, messageId).then(() => mutate());
     },
     [conversationId, mutate],
   );
@@ -311,6 +376,7 @@ export const MessageThread = (props: Props): JSX.Element => {
                 isFirstOfRun={isFirstOfRun}
                 currentUserId={currentUser?._id}
                 onToggleReaction={toggleReactionHandler}
+                onDelete={deleteHandler}
               />
             );
           })}

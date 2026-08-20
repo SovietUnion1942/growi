@@ -29,6 +29,8 @@ import { Message } from '../../models/Message';
 import type { ApiV3Response } from './interfaces/apiv3-response';
 import {
   buildBotReplyHistory,
+  getBotReplyPushRecipientIds,
+  type HistorySourceMessage,
   MAX_BOT_REPLY_HISTORY,
   shouldTriggerBotReply,
 } from './messages-bot-reply';
@@ -186,8 +188,15 @@ export const setup = (crowi: Crowi): Router => {
       .sort({ createdAt: -1 })
       .limit(MAX_BOT_REPLY_HISTORY)
       .select('sender body')
-      .lean();
-    const history = buildBotReplyHistory(recentMessages.reverse(), botUser._id);
+      .populate('sender', 'name username');
+    // Mongoose's populate() doesn't change the statically-inferred type of a
+    // ref field (MessageDocument.sender stays typed as its un-populated
+    // Types.ObjectId), even though it genuinely holds the populated User
+    // subset requested above at runtime.
+    const history = buildBotReplyHistory(
+      recentMessages.reverse() as unknown as HistorySourceMessage[],
+      botUser._id,
+    );
 
     // factory pattern: the module receives crowi (e.g. crowi.searchService
     // for the agent's search tool) rather than importing the Crowi class --
@@ -221,7 +230,15 @@ export const setup = (crowi: Crowi): Router => {
       replyBody.length > MESSAGE_PUSH_BODY_MAX_LENGTH
         ? `${replyBody.slice(0, MESSAGE_PUSH_BODY_MAX_LENGTH)}…`
         : replyBody;
-    const recipientIds = await getPushRecipientIds(conversation, botUser._id);
+    const defaultRecipientIds = await getPushRecipientIds(
+      conversation,
+      botUser._id,
+    );
+    const recipientIds = getBotReplyPushRecipientIds(
+      conversation.type,
+      new Types.ObjectId(askingUser._id),
+      defaultRecipientIds,
+    );
     await sendPushNotificationToUsers(
       recipientIds.map((id) => id.toString()),
       {

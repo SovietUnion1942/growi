@@ -2,12 +2,16 @@ import { Types } from 'mongoose';
 
 import {
   buildBotReplyHistory,
+  getBotReplyPushRecipientIds,
   shouldTriggerBotReply,
 } from './messages-bot-reply';
 
 const botId = new Types.ObjectId();
 const humanId = new Types.ObjectId();
 const otherHumanId = new Types.ObjectId();
+const human = { _id: humanId, name: 'Alice', username: 'alice' };
+const otherHuman = { _id: otherHumanId, name: 'Bob', username: 'bob' };
+const bot = { _id: botId, name: 'GROWI AI', username: 'growi-ai' };
 
 describe('shouldTriggerBotReply', () => {
   it('triggers for a direct conversation with the bot as the other participant', () => {
@@ -57,48 +61,98 @@ describe('shouldTriggerBotReply', () => {
     );
   });
 
-  it('does not trigger for broadcast conversations', () => {
+  it('triggers for a broadcast conversation when the bot is explicitly mentioned', () => {
     const conversation = { type: 'broadcast' as const, participants: [] };
     expect(shouldTriggerBotReply(conversation, humanId, [botId], botId)).toBe(
-      false,
+      true,
     );
+  });
+
+  it('does not trigger for a broadcast conversation without a mention', () => {
+    const conversation = { type: 'broadcast' as const, participants: [] };
+    expect(shouldTriggerBotReply(conversation, humanId, [], botId)).toBe(false);
   });
 });
 
 describe('buildBotReplyHistory', () => {
-  it('maps the bot sender to "assistant" and everyone else to "user"', () => {
+  it('maps the bot sender to "assistant" (unprefixed) and a human sender to "user" (prefixed with their name)', () => {
     const result = buildBotReplyHistory(
       [
-        { sender: humanId, body: 'hi' },
-        { sender: botId, body: 'hello!' },
+        { sender: human, body: 'hi' },
+        { sender: bot, body: 'hello!' },
       ],
       botId,
     );
     expect(result).toEqual([
-      { role: 'user', content: 'hi' },
+      { role: 'user', content: 'Alice: hi' },
       { role: 'assistant', content: 'hello!' },
     ]);
+  });
+
+  it('distinguishes multiple human speakers by name, so a group history is not collapsed into one voice', () => {
+    const result = buildBotReplyHistory(
+      [
+        { sender: human, body: 'what do you think?' },
+        { sender: otherHuman, body: 'good question' },
+      ],
+      botId,
+    );
+    expect(result).toEqual([
+      { role: 'user', content: 'Alice: what do you think?' },
+      { role: 'user', content: 'Bob: good question' },
+    ]);
+  });
+
+  it('falls back to username when the sender has no display name', () => {
+    const result = buildBotReplyHistory(
+      [{ sender: { _id: humanId, username: 'alice' }, body: 'hi' }],
+      botId,
+    );
+    expect(result).toEqual([{ role: 'user', content: 'alice: hi' }]);
   });
 
   it('drops attachment-only (empty body) messages', () => {
     const result = buildBotReplyHistory(
       [
-        { sender: humanId, body: 'look at this' },
-        { sender: humanId, body: '' },
+        { sender: human, body: 'look at this' },
+        { sender: human, body: '' },
       ],
       botId,
     );
-    expect(result).toEqual([{ role: 'user', content: 'look at this' }]);
+    expect(result).toEqual([{ role: 'user', content: 'Alice: look at this' }]);
   });
 
   it('caps history to the most recent MAX_BOT_REPLY_HISTORY entries', () => {
     const messages = Array.from({ length: 25 }, (_, i) => ({
-      sender: humanId,
+      sender: human,
       body: `msg-${i}`,
     }));
     const result = buildBotReplyHistory(messages, botId);
     expect(result).toHaveLength(20);
-    expect(result[0].content).toBe('msg-5');
-    expect(result.at(-1)?.content).toBe('msg-24');
+    expect(result[0].content).toBe('Alice: msg-5');
+    expect(result.at(-1)?.content).toBe('Alice: msg-24');
+  });
+});
+
+describe('getBotReplyPushRecipientIds', () => {
+  it('scopes a broadcast reply to just whoever sent the mention, ignoring the default (whole-audience) list', () => {
+    const result = getBotReplyPushRecipientIds('broadcast', humanId, [
+      humanId,
+      otherHumanId,
+    ]);
+    expect(result).toEqual([humanId]);
+  });
+
+  it('passes the default recipient list through unchanged for direct conversations', () => {
+    const result = getBotReplyPushRecipientIds('direct', humanId, [humanId]);
+    expect(result).toEqual([humanId]);
+  });
+
+  it('passes the default recipient list through unchanged for group conversations', () => {
+    const result = getBotReplyPushRecipientIds('group', humanId, [
+      humanId,
+      otherHumanId,
+    ]);
+    expect(result).toEqual([humanId, otherHumanId]);
   });
 });

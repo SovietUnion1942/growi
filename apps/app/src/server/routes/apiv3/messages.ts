@@ -263,6 +263,13 @@ export const setup = (crowi: Crowi): Router => {
           : 0;
 
       try {
+        // Lazily ensures the bot User exists before it could ever be
+        // searched for, mirroring findOrCreateBroadcast()'s own
+        // ensure-on-list-fetch pattern below: a user opens the Messages
+        // panel (which fetches this list) before they'd ever open "start a
+        // new conversation" and search for the bot by name.
+        await findOrCreateGrowiBotUser(User);
+
         const paginationResult = await Conversation.findByUser(
           user._id,
           offset,

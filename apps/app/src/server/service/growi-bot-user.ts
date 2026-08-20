@@ -22,5 +22,5 @@ export const findOrCreateGrowiBotUser = (
       },
     },
     { upsert: true, new: true },
-  );
+  ).exec();
 };

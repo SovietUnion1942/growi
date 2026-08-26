@@ -110,7 +110,15 @@ RUN set -eu; \
   ln -sfn "libquery_engine-${target}.so.node" "$dir/libquery_engine-active.so.node"
 
 # Stage artifacts into a clean directory for COPY --from
+# apps/app/tmp is just a set of empty runtime scratch dirs (cache/downloads/
+# googlecache/imports/plugins/uploads, each tracked only via a .keep file) --
+# turbo prune's dependency-graph-based file selection does not reliably carry
+# them into out/full/, so `cp -a apps/app/tmp` below can fail outright
+# (previously masked by a `| tail` in the caller, which hid the resulting
+# build failure). Recreate them defensively instead of depending on prune.
 RUN mkdir -p /tmp/release/apps/app && \
+  mkdir -p apps/app/tmp/cache apps/app/tmp/downloads apps/app/tmp/googlecache \
+    apps/app/tmp/imports apps/app/tmp/plugins apps/app/tmp/uploads && \
   cp package.json /tmp/release/ && \
   cp -a node_modules /tmp/release/ && \
   cp -a apps/app/.next apps/app/config apps/app/dist apps/app/public \

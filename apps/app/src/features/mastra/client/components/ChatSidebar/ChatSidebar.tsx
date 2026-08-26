@@ -42,6 +42,7 @@ import {
   ReasoningTrigger,
 } from '~/components/ai-elements/reasoning';
 import { Response } from '~/components/ai-elements/response';
+import { Suggestion, Suggestions } from '~/components/ai-elements/suggestion';
 import { Button } from '~/components/ui/button';
 import {
   PageMentionInput,
@@ -53,6 +54,9 @@ import {
   formatModelLabel,
   groupModelsByProvider,
 } from '~/features/mastra/utils/model-display';
+import { useSWRxWikiGapSuggestions } from '~/features/wiki-gap-suggestions/client/stores/wiki-gap-suggestions';
+import { useCurrentUser } from '~/states/global/global';
+import { useCurrentPagePath } from '~/states/page/hooks';
 
 import {
   useChatSidebarActions,
@@ -67,6 +71,7 @@ import {
   resolveChatErrorDetail,
   resolveChatHeaderLabel,
 } from './chat-sidebar-helpers';
+import { buildChatSuggestions } from './chat-suggestions';
 import { EditProposal } from './EditProposal';
 import { IncompleteResponseNotice } from './IncompleteResponseNotice';
 import { PageSources } from './PageSources';
@@ -250,6 +255,28 @@ export const ChatSidebar = (): JSX.Element => {
     setInput('');
   };
 
+  // Copilot-style suggestion chips shown above the empty chat — deterministic
+  // and rule-based (no extra AI call) from context already available
+  // client-side. See buildChatSuggestions's own doc comment for the sources.
+  const currentPagePath = useCurrentPagePath();
+  const currentUser = useCurrentUser();
+  const { data: wikiGapSuggestions } = useSWRxWikiGapSuggestions();
+  const chatSuggestions = useMemo(
+    () =>
+      buildChatSuggestions({
+        currentPagePath,
+        topWikiGapQuery: wikiGapSuggestions?.[0]?.query,
+        hasBadges: (currentUser?.badgeSummaryCached?.length ?? 0) > 0,
+      }),
+    [currentPagePath, wikiGapSuggestions, currentUser?.badgeSummaryCached],
+  );
+  const handleSuggestionClick = (prompt: string) => {
+    if (status === 'submitted' || status === 'streaming') {
+      return;
+    }
+    sendMessage({ text: prompt });
+  };
+
   return (
     <div
       className={`tw-root position-fixed top-0 end-0 h-100 border-start bg-body shadow-sm overflow-hidden ${moduleClass}`}
@@ -272,6 +299,19 @@ export const ChatSidebar = (): JSX.Element => {
           </div>
           <Conversation className="tw:h-full">
             <ConversationContent>
+              {messages.length === 0 && (
+                <Suggestions className="tw:px-1 tw:pb-2">
+                  {chatSuggestions.map((suggestion) => (
+                    <Suggestion
+                      key={suggestion.key}
+                      suggestion={suggestion.prompt}
+                      onClick={handleSuggestionClick}
+                    >
+                      {suggestion.label}
+                    </Suggestion>
+                  ))}
+                </Suggestions>
+              )}
               {messages.map((message) => (
                 <div key={message.id}>
                   {message.role === 'assistant' && (

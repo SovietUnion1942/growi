@@ -13,6 +13,7 @@ import { CopyIcon, RefreshCcwIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { v7 as uuid } from 'uuid';
 
+import { FloatingPanel } from '~/client/components/FloatingPanel';
 import { scheduleToPut } from '~/client/services/user-ui-settings';
 import { Action, Actions } from '~/components/ai-elements/actions';
 import {
@@ -80,6 +81,20 @@ import { extractPageSources } from './page-sources';
 import styles from './ChatSidebar.module.scss';
 
 const moduleClass = styles['grw-chat-sidebar'] ?? '';
+
+// Default geometry for the floating chat window: docked near the top-right
+// corner (roughly where the fixed right-hand sidebar used to sit) at a size
+// comfortable for a conversation. See FloatingPanel for how this is clamped
+// to the actual viewport on mount and on resize.
+const FLOATING_CHAT_DEFAULT_SIZE = { width: 420, height: 640 };
+const FLOATING_CHAT_MIN_SIZE = { width: 320, height: 360 };
+const FLOATING_CHAT_DEFAULT_POSITION = {
+  x:
+    typeof window === 'undefined'
+      ? 0
+      : window.innerWidth - FLOATING_CHAT_DEFAULT_SIZE.width - 24,
+  y: 72,
+};
 
 export const ChatSidebar = (): JSX.Element => {
   const { t } = useTranslation();
@@ -278,241 +293,246 @@ export const ChatSidebar = (): JSX.Element => {
   };
 
   return (
-    <div
-      className={`tw-root position-fixed top-0 end-0 h-100 border-start bg-body shadow-sm overflow-hidden ${moduleClass}`}
+    <FloatingPanel
+      className={`tw-root ${moduleClass}`}
+      storageKey="grw-ai-chat-sidebar-geometry"
+      defaultPosition={FLOATING_CHAT_DEFAULT_POSITION}
+      defaultSize={FLOATING_CHAT_DEFAULT_SIZE}
+      minSize={FLOATING_CHAT_MIN_SIZE}
+      header={
+        <div className="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:border-b tw:border-border">
+          <span className="growi-custom-icons fs-4">ai_chat</span>
+          <span className="tw:flex-1 tw:font-semibold tw:truncate">
+            {headerLabel}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost tw:p-1"
+            aria-label="Close"
+            onClick={close}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+      }
     >
-      <div className="tw:max-w-4xl tw:mx-auto tw:py-3 tw:relative tw:size-full">
-        <div className="tw:flex tw:flex-col tw:h-full">
-          <div className="tw:flex tw:items-center tw:gap-2 tw:shrink-0 tw:px-3 tw:pb-2 tw:border-b tw:border-border">
-            <span className="growi-custom-icons fs-4">ai_chat</span>
-            <span className="tw:flex-1 tw:font-semibold tw:truncate">
-              {headerLabel}
-            </span>
-            <button
-              type="button"
-              className="btn btn-ghost tw:p-1"
-              aria-label="Close"
-              onClick={close}
-            >
-              <XIcon size={16} />
-            </button>
-          </div>
-          <Conversation className="tw:h-full">
-            <ConversationContent>
-              {messages.length === 0 && (
-                <Suggestions className="tw:px-1 tw:pb-2">
-                  {chatSuggestions.map((suggestion) => (
-                    <Suggestion
-                      key={suggestion.key}
-                      suggestion={suggestion.prompt}
-                      onClick={handleSuggestionClick}
-                    >
-                      {suggestion.label}
-                    </Suggestion>
-                  ))}
-                </Suggestions>
-              )}
-              {messages.map((message) => (
-                <div key={message.id}>
-                  {message.role === 'assistant' && (
-                    <PageSources sources={extractPageSources(message.parts)} />
-                  )}
-                  {message.parts.map((part, i) => {
-                    switch (part.type) {
-                      case 'text':
-                        return (
-                          <Fragment
-                            // biome-ignore lint/suspicious/noArrayIndexKey: the text parts have no stable ID, but the index is sufficient for this static list
-                            key={`${message.id}-${i}`}
-                          >
-                            <Message from={message.role}>
-                              <MessageContent variant="flat">
-                                <Response
-                                  className={
-                                    message.role === 'assistant'
-                                      ? 'tw-prose'
-                                      : undefined
-                                  }
-                                  // Streamdown defaults to mode="streaming",
-                                  // which waits for further incremental
-                                  // updates before it ever flushes visible
-                                  // output. A part that isn't the tail of an
-                                  // in-flight stream (a completed message, a
-                                  // reloaded thread's history, a fast
-                                  // response that never produced more than
-                                  // one delta) never gets that follow-up
-                                  // update, so it rendered nothing at all.
-                                  // "static" renders whatever text is
-                                  // present immediately.
-                                  mode={
-                                    status === 'streaming' &&
-                                    i === message.parts.length - 1 &&
-                                    message.id === messages.at(-1)?.id
-                                      ? 'streaming'
-                                      : 'static'
-                                  }
+      <div className="tw:mx-auto tw:flex tw:h-full tw:max-w-4xl tw:flex-col">
+        <Conversation className="tw:h-full">
+          <ConversationContent>
+            {messages.length === 0 && (
+              <Suggestions className="tw:px-1 tw:pb-2">
+                {chatSuggestions.map((suggestion) => (
+                  <Suggestion
+                    key={suggestion.key}
+                    suggestion={suggestion.prompt}
+                    onClick={handleSuggestionClick}
+                  >
+                    {suggestion.label}
+                  </Suggestion>
+                ))}
+              </Suggestions>
+            )}
+            {messages.map((message) => (
+              <div key={message.id}>
+                {message.role === 'assistant' && (
+                  <PageSources sources={extractPageSources(message.parts)} />
+                )}
+                {message.parts.map((part, i) => {
+                  switch (part.type) {
+                    case 'text':
+                      return (
+                        <Fragment
+                          // biome-ignore lint/suspicious/noArrayIndexKey: the text parts have no stable ID, but the index is sufficient for this static list
+                          key={`${message.id}-${i}`}
+                        >
+                          <Message from={message.role}>
+                            <MessageContent variant="flat">
+                              <Response
+                                className={
+                                  message.role === 'assistant'
+                                    ? 'tw-prose'
+                                    : undefined
+                                }
+                                // Streamdown defaults to mode="streaming",
+                                // which waits for further incremental
+                                // updates before it ever flushes visible
+                                // output. A part that isn't the tail of an
+                                // in-flight stream (a completed message, a
+                                // reloaded thread's history, a fast
+                                // response that never produced more than
+                                // one delta) never gets that follow-up
+                                // update, so it rendered nothing at all.
+                                // "static" renders whatever text is
+                                // present immediately.
+                                mode={
+                                  status === 'streaming' &&
+                                  i === message.parts.length - 1 &&
+                                  message.id === messages.at(-1)?.id
+                                    ? 'streaming'
+                                    : 'static'
+                                }
+                              >
+                                {part.text}
+                              </Response>
+                            </MessageContent>
+                          </Message>
+                          {message.role === 'assistant' &&
+                            i === messages.length - 1 && (
+                              <Actions className="tw:mt-2">
+                                <Action
+                                  onClick={() => regenerate()}
+                                  label="Retry"
                                 >
-                                  {part.text}
-                                </Response>
-                              </MessageContent>
-                            </Message>
-                            {message.role === 'assistant' &&
-                              i === messages.length - 1 && (
-                                <Actions className="tw:mt-2">
-                                  <Action
-                                    onClick={() => regenerate()}
-                                    label="Retry"
-                                  >
-                                    <RefreshCcwIcon className="tw:size-3" />
-                                  </Action>
-                                  <Action
-                                    onClick={() =>
-                                      navigator.clipboard.writeText(part.text)
-                                    }
-                                    label="Copy"
-                                  >
-                                    <CopyIcon className="tw:size-3" />
-                                  </Action>
-                                </Actions>
-                              )}
-                          </Fragment>
-                        );
-                      case 'reasoning':
-                        return (
-                          <Reasoning
-                            // biome-ignore lint/suspicious/noArrayIndexKey: the reasoning parts have no stable ID, but the index is sufficient for this static list
-                            key={`${message.id}-${i}`}
-                            className="w-full"
-                            isStreaming={
-                              status === 'streaming' &&
-                              i === message.parts.length - 1 &&
-                              message.id === messages.at(-1)?.id
-                            }
-                          >
-                            <ReasoningTrigger />
-                            <ReasoningContent>{part.text}</ReasoningContent>
-                          </Reasoning>
-                        );
-                      case 'tool-proposePageEditTool':
-                        if (
-                          part.state !== 'output-available' ||
-                          part.output.result !== 'ok'
-                        ) {
-                          return null;
-                        }
-                        return (
-                          <EditProposal
-                            key={part.toolCallId}
-                            toolCallId={part.toolCallId}
-                            page={part.output.page}
-                          />
-                        );
-                      case 'tool-proposePageCreateTool':
-                        if (
-                          part.state !== 'output-available' ||
-                          part.output.result !== 'ok'
-                        ) {
-                          return null;
-                        }
-                        return (
-                          <CreatePageProposal
-                            key={part.toolCallId}
-                            toolCallId={part.toolCallId}
-                            page={part.output.page}
-                          />
-                        );
-                      default:
+                                  <RefreshCcwIcon className="tw:size-3" />
+                                </Action>
+                                <Action
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(part.text)
+                                  }
+                                  label="Copy"
+                                >
+                                  <CopyIcon className="tw:size-3" />
+                                </Action>
+                              </Actions>
+                            )}
+                        </Fragment>
+                      );
+                    case 'reasoning':
+                      return (
+                        <Reasoning
+                          // biome-ignore lint/suspicious/noArrayIndexKey: the reasoning parts have no stable ID, but the index is sufficient for this static list
+                          key={`${message.id}-${i}`}
+                          className="w-full"
+                          isStreaming={
+                            status === 'streaming' &&
+                            i === message.parts.length - 1 &&
+                            message.id === messages.at(-1)?.id
+                          }
+                        >
+                          <ReasoningTrigger />
+                          <ReasoningContent>{part.text}</ReasoningContent>
+                        </Reasoning>
+                      );
+                    case 'tool-proposePageEditTool':
+                      if (
+                        part.state !== 'output-available' ||
+                        part.output.result !== 'ok'
+                      ) {
                         return null;
-                    }
-                  })}
-                  {message.role === 'assistant' && (
-                    <IncompleteResponseNotice
-                      finishReason={message.metadata?.finishReason}
-                    />
-                  )}
-                </div>
-              ))}
-              {(() => {
-                // Keep the spinner up until *some* part of the assistant
-                // reply (reasoning trigger or text body) is mounted.
-                // `status === 'submitted'` covers the wait before the stream
-                // opens; `status === 'streaming'` with an empty assistant
-                // message covers the gap between stream open and the first
-                // chunk (notable for reasoning models that pause to think
-                // before emitting anything).
-                if (status !== 'submitted' && status !== 'streaming') {
-                  return null;
-                }
-                const last = messages.at(-1);
-                const awaitingFirstPart =
-                  last?.role !== 'assistant' || (last.parts?.length ?? 0) === 0;
-                return awaitingFirstPart ? <Loader /> : null;
-              })()}
-              {error != null && (
-                <div
-                  role="alert"
-                  className="tw:my-2 tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-destructive/40 tw:bg-destructive/10 tw:p-3 tw:text-sm"
-                >
-                  <div className="tw:flex tw:items-center tw:justify-between tw:gap-2">
-                    <p className="tw:font-medium tw:text-destructive">
-                      {t('ai_sidebar.error.title')}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="tw:-my-1"
-                      aria-label={t('ai_sidebar.error.dismiss')}
-                      onClick={() => clearError()}
-                    >
-                      <XIcon className="tw:size-3.5" />
-                    </Button>
-                  </div>
-                  {(() => {
-                    const detail = resolveChatErrorDetail(error);
-                    return detail == null ? null : (
-                      <p className="tw:break-words tw:text-muted-foreground">
-                        {detail}
-                      </p>
-                    );
-                  })()}
+                      }
+                      return (
+                        <EditProposal
+                          key={part.toolCallId}
+                          toolCallId={part.toolCallId}
+                          page={part.output.page}
+                        />
+                      );
+                    case 'tool-proposePageCreateTool':
+                      if (
+                        part.state !== 'output-available' ||
+                        part.output.result !== 'ok'
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <CreatePageProposal
+                          key={part.toolCallId}
+                          toolCallId={part.toolCallId}
+                          page={part.output.page}
+                        />
+                      );
+                    default:
+                      return null;
+                  }
+                })}
+                {message.role === 'assistant' && (
+                  <IncompleteResponseNotice
+                    finishReason={message.metadata?.finishReason}
+                  />
+                )}
+              </div>
+            ))}
+            {(() => {
+              // Keep the spinner up until *some* part of the assistant
+              // reply (reasoning trigger or text body) is mounted.
+              // `status === 'submitted'` covers the wait before the stream
+              // opens; `status === 'streaming'` with an empty assistant
+              // message covers the gap between stream open and the first
+              // chunk (notable for reasoning models that pause to think
+              // before emitting anything).
+              if (status !== 'submitted' && status !== 'streaming') {
+                return null;
+              }
+              const last = messages.at(-1);
+              const awaitingFirstPart =
+                last?.role !== 'assistant' || (last.parts?.length ?? 0) === 0;
+              return awaitingFirstPart ? <Loader /> : null;
+            })()}
+            {error != null && (
+              <div
+                role="alert"
+                className="tw:my-2 tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-destructive/40 tw:bg-destructive/10 tw:p-3 tw:text-sm"
+              >
+                <div className="tw:flex tw:items-center tw:justify-between tw:gap-2">
+                  <p className="tw:font-medium tw:text-destructive">
+                    {t('ai_sidebar.error.title')}
+                  </p>
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="tw:self-end"
-                    onClick={() => regenerate()}
+                    variant="ghost"
+                    size="icon-sm"
+                    className="tw:-my-1"
+                    aria-label={t('ai_sidebar.error.dismiss')}
+                    onClick={() => clearError()}
                   >
-                    <RefreshCcwIcon className="tw:mr-1 tw:size-3" />
-                    {t('ai_sidebar.error.retry')}
+                    <XIcon className="tw:size-3.5" />
                   </Button>
                 </div>
-              )}
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
-
-          <div className="tw:shrink-0 tw:px-6 tw:pt-4">
-            <PromptInput
-              onSubmit={handleSubmit}
-              inputGroupClassName="tw:rounded-xl"
-            >
-              <PromptInputBody>
-                <PageMentionInput
-                  ref={promptInputRef}
-                  value={input}
-                  onChange={setInput}
-                  placeholder={t('pageMention.placeholder')}
-                />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputModelSelect
-                  value={modelKey ?? ''}
-                  onValueChange={handleModelChange}
-                  disabled={models == null}
+                {(() => {
+                  const detail = resolveChatErrorDetail(error);
+                  return detail == null ? null : (
+                    <p className="tw:break-words tw:text-muted-foreground">
+                      {detail}
+                    </p>
+                  );
+                })()}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="tw:self-end"
+                  onClick={() => regenerate()}
                 >
-                  <PromptInputModelSelectTrigger>
-                    {/*
+                  <RefreshCcwIcon className="tw:mr-1 tw:size-3" />
+                  {t('ai_sidebar.error.retry')}
+                </Button>
+              </div>
+            )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+
+        <div className="tw:shrink-0 tw:px-6 tw:pt-4">
+          <PromptInput
+            onSubmit={handleSubmit}
+            inputGroupClassName="tw:rounded-xl"
+          >
+            <PromptInputBody>
+              <PageMentionInput
+                ref={promptInputRef}
+                value={input}
+                onChange={setInput}
+                placeholder={t('pageMention.placeholder')}
+              />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <PromptInputModelSelect
+                value={modelKey ?? ''}
+                onValueChange={handleModelChange}
+                disabled={models == null}
+              >
+                <PromptInputModelSelectTrigger>
+                  {/*
                       The grouped items render only the display name, so the
                       default <SelectValue/> would show a bare name — ambiguous
                       when two providers expose a same-named model. Render the
@@ -520,16 +540,16 @@ export const ChatSidebar = (): JSX.Element => {
                       the empty placeholder value before a selection resolves
                       (Req 4.2).
                     */}
-                    {selectedEntry != null ? (
-                      formatModelLabel(
-                        selectedEntry.provider,
-                        selectedEntry.displayName,
-                      )
-                    ) : (
-                      <PromptInputModelSelectValue />
-                    )}
-                  </PromptInputModelSelectTrigger>
-                  {/*
+                  {selectedEntry != null ? (
+                    formatModelLabel(
+                      selectedEntry.provider,
+                      selectedEntry.displayName,
+                    )
+                  ) : (
+                    <PromptInputModelSelectValue />
+                  )}
+                </PromptInputModelSelectTrigger>
+                {/*
                     The Radix Select dropdown is portaled to document.body — a
                     sibling of this position-fixed sidebar in the root stacking
                     context. The vendored content defaults to `tw:z-50`, which
@@ -546,43 +566,39 @@ export const ChatSidebar = (): JSX.Element => {
                     heavy. Pin it to the theme border token (`--border` =
                     `--bs-border-color`, the light gray used elsewhere in GROWI).
                   */}
-                  <PromptInputModelSelectContent className="tw:z-[1070] tw:border-border">
-                    {providerGroups.map((group) => (
-                      <PromptInputModelSelectGroup key={group.provider}>
-                        <PromptInputModelSelectLabel>
-                          {getProviderLabel(group.provider)}
-                        </PromptInputModelSelectLabel>
-                        {group.entries.map((entry) => (
-                          <PromptInputModelSelectItem
-                            key={entry.key}
-                            value={entry.key}
-                          >
-                            {entry.displayName}
-                          </PromptInputModelSelectItem>
-                        ))}
-                      </PromptInputModelSelectGroup>
-                    ))}
-                  </PromptInputModelSelectContent>
-                </PromptInputModelSelect>
-                <PromptInputSubmit
-                  disabled={!input && !status}
-                  status={status}
-                />
-              </PromptInputFooter>
-            </PromptInput>
-            {/* Persistent accuracy disclaimer, placed under the input like
+                <PromptInputModelSelectContent className="tw:z-[1070] tw:border-border">
+                  {providerGroups.map((group) => (
+                    <PromptInputModelSelectGroup key={group.provider}>
+                      <PromptInputModelSelectLabel>
+                        {getProviderLabel(group.provider)}
+                      </PromptInputModelSelectLabel>
+                      {group.entries.map((entry) => (
+                        <PromptInputModelSelectItem
+                          key={entry.key}
+                          value={entry.key}
+                        >
+                          {entry.displayName}
+                        </PromptInputModelSelectItem>
+                      ))}
+                    </PromptInputModelSelectGroup>
+                  ))}
+                </PromptInputModelSelectContent>
+              </PromptInputModelSelect>
+              <PromptInputSubmit disabled={!input && !status} status={status} />
+            </PromptInputFooter>
+          </PromptInput>
+          {/* Persistent accuracy disclaimer, placed under the input like
                 other AI chat products so it reads as a notice covering the
                 whole conversation and never scrolls out of view.
                 Spaced with PADDING, not margin: tailwind.css pins `.tw-root p`
                 margins to 0 with an UNLAYERED rule that outranks the
                 @layer-ed tw: margin utilities, so tw:mt-* can never win on a
                 <p> here — tw:pt-* is untouched by that rule. */}
-            <p className="tw:pt-2 tw:text-center tw:text-xs tw:text-muted-foreground/60">
-              {t('ai_sidebar.accuracy_notice')}
-            </p>
-          </div>
+          <p className="tw:pt-2 tw:text-center tw:text-xs tw:text-muted-foreground/60">
+            {t('ai_sidebar.accuracy_notice')}
+          </p>
         </div>
       </div>
-    </div>
+    </FloatingPanel>
   );
 };

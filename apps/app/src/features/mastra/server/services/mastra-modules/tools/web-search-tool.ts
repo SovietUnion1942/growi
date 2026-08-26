@@ -5,7 +5,7 @@ import loggerFactory from '~/utils/logger';
 
 const logger = loggerFactory('growi:tools:web-search-tool');
 
-const BRAVE_SEARCH_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
+const SERPAPI_ENDPOINT = 'https://serpapi.com/search.json';
 
 const inputSchema = z.object({
   query: z
@@ -41,14 +41,12 @@ const outputSchema = z.discriminatedUnion('result', [
 
 export type WebSearchToolOutput = z.infer<typeof outputSchema>;
 
-type BraveSearchResponse = {
-  web?: {
-    results?: {
-      title?: string;
-      url?: string;
-      description?: string;
-    }[];
-  };
+type SerpApiResponse = {
+  organic_results?: {
+    title?: string;
+    link?: string;
+    snippet?: string;
+  }[];
 };
 
 export const webSearchTool = createTool({
@@ -68,9 +66,9 @@ export const webSearchTool = createTool({
       };
     }
 
-    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+    const apiKey = process.env.SERPAPI_KEY;
     if (apiKey == null || apiKey.trim().length === 0) {
-      logger.warn('web-search-tool: BRAVE_SEARCH_API_KEY is not configured');
+      logger.warn('web-search-tool: SERPAPI_KEY is not configured');
       return {
         result: 'not_configured' as const,
         reason: 'web search is not configured on this GROWI instance',
@@ -78,20 +76,17 @@ export const webSearchTool = createTool({
     }
 
     try {
-      const url = new URL(BRAVE_SEARCH_ENDPOINT);
+      const url = new URL(SERPAPI_ENDPOINT);
       url.searchParams.set('q', query);
-      url.searchParams.set('count', String(limit));
+      url.searchParams.set('num', String(limit));
+      url.searchParams.set('engine', 'google');
+      url.searchParams.set('api_key', apiKey);
 
-      const response = await fetch(url, {
-        headers: {
-          Accept: 'application/json',
-          'X-Subscription-Token': apiKey,
-        },
-      });
+      const response = await fetch(url);
 
       if (!response.ok) {
         logger.error(
-          `web-search-tool: Brave Search API responded with ${response.status}`,
+          `web-search-tool: SerpApi responded with ${response.status}`,
         );
         return {
           result: 'error' as const,
@@ -99,18 +94,17 @@ export const webSearchTool = createTool({
         };
       }
 
-      const body: BraveSearchResponse = await response.json();
-      const hits = (body.web?.results ?? []).flatMap((entry) => {
-        if (typeof entry.title !== 'string' || typeof entry.url !== 'string') {
+      const body: SerpApiResponse = await response.json();
+      const hits = (body.organic_results ?? []).flatMap((entry) => {
+        if (typeof entry.title !== 'string' || typeof entry.link !== 'string') {
           return [];
         }
         return [
           {
             title: entry.title,
-            url: entry.url,
-            ...(typeof entry.description === 'string' &&
-            entry.description.length > 0
-              ? { snippet: entry.description }
+            url: entry.link,
+            ...(typeof entry.snippet === 'string' && entry.snippet.length > 0
+              ? { snippet: entry.snippet }
               : {}),
           },
         ];
@@ -118,7 +112,7 @@ export const webSearchTool = createTool({
 
       return {
         result: 'ok' as const,
-        hits,
+        hits: hits.slice(0, limit),
       };
     } catch (err) {
       logger.error('web-search-tool failed', err);

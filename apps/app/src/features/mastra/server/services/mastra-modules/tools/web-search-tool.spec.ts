@@ -33,18 +33,18 @@ const isValidationFailure = (
 ): r is { error: true } => 'error' in r && r.error === true;
 
 describe('webSearchTool', () => {
-  const originalApiKey = process.env.BRAVE_SEARCH_API_KEY;
+  const originalApiKey = process.env.SERPAPI_KEY;
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    process.env.BRAVE_SEARCH_API_KEY = 'test-api-key';
+    process.env.SERPAPI_KEY = 'test-api-key';
   });
 
   afterEach(() => {
     if (originalApiKey == null) {
-      delete process.env.BRAVE_SEARCH_API_KEY;
+      delete process.env.SERPAPI_KEY;
     } else {
-      process.env.BRAVE_SEARCH_API_KEY = originalApiKey;
+      process.env.SERPAPI_KEY = originalApiKey;
     }
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
@@ -58,8 +58,8 @@ describe('webSearchTool', () => {
   });
 
   describe('configuration guard', () => {
-    it('returns not_configured when BRAVE_SEARCH_API_KEY is unset', async () => {
-      delete process.env.BRAVE_SEARCH_API_KEY;
+    it('returns not_configured when SERPAPI_KEY is unset', async () => {
+      delete process.env.SERPAPI_KEY;
       const fetchMock = vi.fn();
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -73,21 +73,19 @@ describe('webSearchTool', () => {
   });
 
   describe('search', () => {
-    it('returns hits mapped from the Brave Search response', async () => {
+    it('returns hits mapped from the SerpApi organic_results', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          web: {
-            results: [
-              {
-                title: 'Physics Club Wikipedia',
-                url: 'https://en.wikipedia.org/wiki/Physics_club',
-                description: 'A club about physics.',
-              },
-              // Missing url — should be dropped defensively.
-              { title: 'No URL' },
-            ],
-          },
+          organic_results: [
+            {
+              title: 'Physics Club Wikipedia',
+              link: 'https://en.wikipedia.org/wiki/Physics_club',
+              snippet: 'A club about physics.',
+            },
+            // Missing link — should be dropped defensively.
+            { title: 'No URL' },
+          ],
         }),
       });
       globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -108,13 +106,9 @@ describe('webSearchTool', () => {
 
       const calledUrl = fetchMock.mock.calls[0][0] as URL;
       expect(calledUrl.toString()).toContain('q=physics+club');
-      expect(calledUrl.toString()).toContain('count=3');
-      const calledOptions = fetchMock.mock.calls[0][1] as {
-        headers: Record<string, string>;
-      };
-      expect(calledOptions.headers['X-Subscription-Token']).toBe(
-        'test-api-key',
-      );
+      expect(calledUrl.toString()).toContain('num=3');
+      expect(calledUrl.toString()).toContain('engine=google');
+      expect(calledUrl.toString()).toContain('api_key=test-api-key');
     });
 
     it('returns an error result when the API responds non-2xx', async () => {

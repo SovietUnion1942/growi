@@ -10,26 +10,35 @@ import type {
 } from './floating-panel-geometry';
 import { useFloatingPanel } from './use-floating-panel';
 
+export type FloatingPanelHeaderControls = {
+  isMaximized: boolean;
+  toggleMaximize: () => void;
+};
+
 export type FloatingPanelProps = {
   storageKey: string;
   defaultPosition: FloatingPanelPosition;
   defaultSize: FloatingPanelSize;
   minSize: FloatingPanelSize;
-  header: ReactNode;
+  // A function so the header can include its own maximize/restore button
+  // (placement and icon are entirely up to the consumer -- FloatingPanel
+  // only supplies the toggle and its current state).
+  header: (controls: FloatingPanelHeaderControls) => ReactNode;
   children: ReactNode;
   className?: string;
 };
 
 /**
- * A draggable, resizable, position-persisting floating window. Generic by
- * design so it can back more than one feature's panel (built first for the
- * AI chat sidebar; the Messages/DM panel is expected to move onto this same
- * primitive later rather than growing its own copy).
+ * A draggable, resizable, maximizable, position-persisting floating window.
+ * Generic by design so it can back more than one feature's panel (built
+ * first for the AI chat sidebar; the Messages/DM panel is expected to move
+ * onto this same primitive later rather than growing its own copy).
  *
  * `header` is the drag handle; a resize grip is rendered in the bottom-right
- * corner. Geometry re-clamps to the live viewport on every resize (see
- * useFloatingPanel), so a saved position/size from a larger screen never
- * strands the panel off-screen on a smaller one.
+ * corner (hidden while maximized, since a maximized panel's size is not
+ * user-controlled). Geometry re-clamps to the live viewport on every resize
+ * (see useFloatingPanel), so a saved position/size from a larger screen
+ * never strands the panel off-screen on a smaller one.
  */
 export const FloatingPanel = ({
   storageKey,
@@ -40,8 +49,13 @@ export const FloatingPanel = ({
   children,
   className,
 }: FloatingPanelProps): JSX.Element => {
-  const { geometry, onDragHandlePointerDown, onResizeHandlePointerDown } =
-    useFloatingPanel({ storageKey, defaultPosition, defaultSize, minSize });
+  const {
+    displayGeometry,
+    isMaximized,
+    toggleMaximize,
+    onDragHandlePointerDown,
+    onResizeHandlePointerDown,
+  } = useFloatingPanel({ storageKey, defaultPosition, defaultSize, minSize });
 
   return (
     <div
@@ -50,25 +64,30 @@ export const FloatingPanel = ({
         className,
       )}
       style={{
-        left: geometry.position.x,
-        top: geometry.position.y,
-        width: geometry.size.width,
-        height: geometry.size.height,
+        left: displayGeometry.position.x,
+        top: displayGeometry.position.y,
+        width: displayGeometry.size.width,
+        height: displayGeometry.size.height,
       }}
     >
       <div
-        className="tw:cursor-move tw:touch-none tw:shrink-0"
+        className={cn(
+          'tw:touch-none tw:shrink-0',
+          isMaximized ? 'tw:cursor-default' : 'tw:cursor-move',
+        )}
         onPointerDown={onDragHandlePointerDown}
       >
-        {header}
+        {header({ isMaximized, toggleMaximize })}
       </div>
       <div className="tw:min-h-0 tw:flex-1 tw:overflow-hidden">{children}</div>
-      <button
-        type="button"
-        aria-label="resize"
-        className="tw:absolute tw:right-0 tw:bottom-0 tw:size-4 tw:cursor-nwse-resize tw:touch-none tw:border-0 tw:bg-transparent tw:p-0"
-        onPointerDown={onResizeHandlePointerDown}
-      />
+      {!isMaximized && (
+        <button
+          type="button"
+          aria-label="resize"
+          className="tw:absolute tw:right-0 tw:bottom-0 tw:size-4 tw:cursor-nwse-resize tw:touch-none tw:border-0 tw:bg-transparent tw:p-0"
+          onPointerDown={onResizeHandlePointerDown}
+        />
+      )}
     </div>
   );
 };

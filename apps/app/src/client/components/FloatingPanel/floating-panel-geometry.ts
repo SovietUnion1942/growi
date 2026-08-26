@@ -46,3 +46,29 @@ export const clampSize = (
   width: Math.min(Math.max(size.width, min.width), viewport.width),
   height: Math.min(Math.max(size.height, min.height), viewport.height),
 });
+
+// Small inset so a maximized panel reads as "fills the window" without
+// literally touching the browser chrome/edges on every side.
+const MAXIMIZED_INSET = 8;
+
+/**
+ * The geometry actually rendered: the panel's own (draggable/resizable,
+ * clamped) geometry normally, or a viewport-filling geometry while
+ * maximized. `geometry` itself is left untouched by maximizing — restoring
+ * returns to exactly where the panel was before, not to some new position
+ * derived from the maximized state.
+ */
+export const computeDisplayGeometry = (
+  geometry: FloatingPanelGeometry,
+  isMaximized: boolean,
+  viewport: { width: number; height: number },
+): FloatingPanelGeometry => {
+  if (!isMaximized) return geometry;
+  return {
+    position: { x: MAXIMIZED_INSET, y: MAXIMIZED_INSET },
+    size: {
+      width: viewport.width - MAXIMIZED_INSET * 2,
+      height: viewport.height - MAXIMIZED_INSET * 2,
+    },
+  };
+};

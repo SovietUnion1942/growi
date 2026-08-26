@@ -16,6 +16,10 @@ fixed-position overlay can adopt it.
 - **Never gets stranded off-screen**: geometry is re-clamped against the
   live viewport on mount *and* on window resize, so a size/position saved
   on a bigger screen won't leave the panel unreachable on a smaller one.
+- **Maximize/restore**: `header` is a render-prop so you can put a
+  maximize button anywhere in your own header row; toggling it fills the
+  viewport (small inset) without touching the saved drag/resize geometry,
+  so restoring returns to exactly where the panel was.
 
 ## API
 
@@ -25,18 +29,26 @@ fixed-position overlay can adopt it.
   defaultPosition={{ x: 100, y: 72 }}  // top-left, px, before any save exists
   defaultSize={{ width: 420, height: 640 }}
   minSize={{ width: 320, height: 360 }}
-  header={<MyHeaderWithACloseButton />} // becomes the drag handle
+  header={({ isMaximized, toggleMaximize }) => (
+    <MyHeaderRow>
+      <MyMaximizeButton pressed={isMaximized} onClick={toggleMaximize} />
+      <MyCloseButton onClick={onClose} />
+    </MyHeaderRow>
+  )}
   className="my-extra-classes"          // optional, merged onto the root
 >
   <MyPanelContent />                    {/* fills the remaining space, own scroll */}
 </FloatingPanel>
 ```
 
-That's the whole surface — no imperative ref, no controlled position. If
-you need to read/react to the live geometry from outside, that's not
-exposed yet; ask before hacking around it (the underlying `useFloatingPanel`
-hook is not currently exported from the barrel on purpose, to keep this a
-single easy path until a second consumer needs more).
+`header` is called with `{ isMaximized, toggleMaximize }` on every render —
+render whatever button/icon you like from that (see ChatSidebar's
+Maximize2/Minimize2 icon swap below). No imperative ref, no controlled
+position. If you need to read/react to the live geometry from outside,
+that's not exposed yet; ask before hacking around it (the underlying
+`useFloatingPanel` hook is not currently exported from the barrel on
+purpose, to keep this a single easy path until a second consumer needs
+more).
 
 ## Worked example: ChatSidebar
 
@@ -66,7 +78,15 @@ return (
     defaultPosition={FLOATING_CHAT_DEFAULT_POSITION}
     defaultSize={FLOATING_CHAT_DEFAULT_SIZE}
     minSize={FLOATING_CHAT_MIN_SIZE}
-    header={<div className="...same header row...">...</div>}
+    header={({ isMaximized, toggleMaximize }) => (
+      <div className="...same header row...">
+        ...title...
+        <button onClick={toggleMaximize} aria-label={isMaximized ? 'Restore' : 'Maximize'}>
+          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
+        <button onClick={close} aria-label="Close"><XIcon size={16} /></button>
+      </div>
+    )}
   >
     <div className="tw:mx-auto tw:flex tw:h-full tw:max-w-4xl tw:flex-col">
       <Conversation>...</Conversation>
@@ -82,7 +102,9 @@ The mechanical steps were:
    `max-w-4xl mx-auto ...`) — `FloatingPanel` now owns fixed positioning
    and sizing.
 2. Pull the existing header markup (title + close button) out as the
-   `header` prop, unchanged — it already was the top row, so it just moved.
+   `header` render-prop, adding a maximize/restore button (icons swap on
+   `isMaximized`, action is just `toggleMaximize` — see `ChatSidebar.tsx`
+   for the working version).
 3. Keep one inner wrapper div (`flex h-full flex-col`, `max-w-4xl mx-auto`
    if you had one) around your actual content so it still fills the
    panel's content area and lays out top-to-bottom.

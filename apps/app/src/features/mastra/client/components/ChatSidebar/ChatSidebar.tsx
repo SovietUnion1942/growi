@@ -9,7 +9,13 @@ import {
   useState,
 } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { CopyIcon, RefreshCcwIcon, XIcon } from 'lucide-react';
+import {
+  CopyIcon,
+  Maximize2,
+  Minimize2,
+  RefreshCcwIcon,
+  XIcon,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { v7 as uuid } from 'uuid';
 
@@ -299,12 +305,20 @@ export const ChatSidebar = (): JSX.Element => {
       defaultPosition={FLOATING_CHAT_DEFAULT_POSITION}
       defaultSize={FLOATING_CHAT_DEFAULT_SIZE}
       minSize={FLOATING_CHAT_MIN_SIZE}
-      header={
+      header={({ isMaximized, toggleMaximize }) => (
         <div className="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:border-b tw:border-border">
           <span className="growi-custom-icons fs-4">ai_chat</span>
           <span className="tw:flex-1 tw:font-semibold tw:truncate">
             {headerLabel}
           </span>
+          <button
+            type="button"
+            className="btn btn-ghost tw:p-1"
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+            onClick={toggleMaximize}
+          >
+            {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
           <button
             type="button"
             className="btn btn-ghost tw:p-1"
@@ -314,7 +328,7 @@ export const ChatSidebar = (): JSX.Element => {
             <XIcon size={16} />
           </button>
         </div>
-      }
+      )}
     >
       <div className="tw:mx-auto tw:flex tw:h-full tw:max-w-4xl tw:flex-col">
         <Conversation className="tw:h-full">

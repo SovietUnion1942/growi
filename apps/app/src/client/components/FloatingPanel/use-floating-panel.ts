@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   clampPosition,
   clampSize,
+  computeDisplayGeometry,
   type FloatingPanelGeometry,
   type FloatingPanelPosition,
   type FloatingPanelSize,
@@ -20,7 +21,12 @@ type UseFloatingPanelParams = {
 };
 
 type UseFloatingPanelResult = {
-  geometry: FloatingPanelGeometry;
+  // The geometry actually rendered (viewport-filling while maximized) --
+  // consumers should render at this, not at some geometry they combine with
+  // isMaximized themselves.
+  displayGeometry: FloatingPanelGeometry;
+  isMaximized: boolean;
+  toggleMaximize: () => void;
   onDragHandlePointerDown: (e: React.PointerEvent) => void;
   onResizeHandlePointerDown: (e: React.PointerEvent) => void;
 };
@@ -90,6 +96,14 @@ export const useFloatingPanel = (
     return { position, size };
   });
 
+  // Maximized is orthogonal to `geometry`: toggling it never touches the
+  // saved position/size, so restoring always returns to exactly where the
+  // panel was (see computeDisplayGeometry's doc comment).
+  const [isMaximized, setIsMaximized] = useState(false);
+  const toggleMaximize = useCallback(() => {
+    setIsMaximized((current) => !current);
+  }, []);
+
   // Re-clamp (without discarding the saved geometry) whenever the browser
   // window itself is resized, so the panel never ends up stranded off the
   // now-smaller viewport.
@@ -123,8 +137,10 @@ export const useFloatingPanel = (
 
   const onDragHandlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      // Only the primary button/touch initiates a drag.
-      if (e.button !== 0) return;
+      // Only the primary button/touch initiates a drag. A maximized panel
+      // fills the viewport by definition, so dragging it is a no-op --
+      // restore first via toggleMaximize.
+      if (e.button !== 0 || isMaximized) return;
       dragStartRef.current = {
         pointerX: e.clientX,
         pointerY: e.clientY,
@@ -157,12 +173,12 @@ export const useFloatingPanel = (
       document.addEventListener('pointermove', onPointerMove);
       document.addEventListener('pointerup', onPointerUp);
     },
-    [geometry, storageKey],
+    [geometry, isMaximized, storageKey],
   );
 
   const onResizeHandlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || isMaximized) return;
       e.stopPropagation();
       resizeStartRef.current = {
         pointerX: e.clientX,
@@ -198,8 +214,20 @@ export const useFloatingPanel = (
       document.addEventListener('pointermove', onPointerMove);
       document.addEventListener('pointerup', onPointerUp);
     },
-    [geometry, minSize, storageKey],
+    [geometry, isMaximized, minSize, storageKey],
   );
 
-  return { geometry, onDragHandlePointerDown, onResizeHandlePointerDown };
+  const displayGeometry = computeDisplayGeometry(
+    geometry,
+    isMaximized,
+    typeof window === 'undefined' ? geometry.size : readViewport(),
+  );
+
+  return {
+    displayGeometry,
+    isMaximized,
+    toggleMaximize,
+    onDragHandlePointerDown,
+    onResizeHandlePointerDown,
+  };
 };

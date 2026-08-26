@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampPosition, clampSize } from './floating-panel-geometry';
+import {
+  clampPosition,
+  clampSize,
+  computeDisplayGeometry,
+} from './floating-panel-geometry';
 
 describe('clampPosition', () => {
   const size = { width: 400, height: 600 };
@@ -65,5 +69,31 @@ describe('clampSize', () => {
     expect(clampSize({ width: 5000, height: 5000 }, min, viewport)).toEqual(
       viewport,
     );
+  });
+});
+
+describe('computeDisplayGeometry', () => {
+  const geometry = {
+    position: { x: 100, y: 72 },
+    size: { width: 420, height: 640 },
+  };
+  const viewport = { width: 1200, height: 800 };
+
+  it('returns the panel geometry unchanged when not maximized', () => {
+    expect(computeDisplayGeometry(geometry, false, viewport)).toEqual(geometry);
+  });
+
+  it('returns a viewport-filling geometry (with a small inset) when maximized', () => {
+    const result = computeDisplayGeometry(geometry, true, viewport);
+    expect(result.position).toEqual({ x: 8, y: 8 });
+    expect(result.size).toEqual({ width: 1184, height: 784 });
+  });
+
+  it('does not mutate the original geometry object when maximized', () => {
+    computeDisplayGeometry(geometry, true, viewport);
+    expect(geometry).toEqual({
+      position: { x: 100, y: 72 },
+      size: { width: 420, height: 640 },
+    });
   });
 });

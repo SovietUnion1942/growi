@@ -3,6 +3,7 @@ import type { GetPageContentToolOutput } from '~/features/mastra/server/services
 import type { GetUserBadgesToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/get-user-badges-tool';
 import type { ProposePageCreateToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/propose-page-create-tool';
 import type { ProposePageEditToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/propose-page-edit-tool';
+import type { WebSearchToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/web-search-tool';
 
 /**
  * The GROWI agent's tool set, typed for the AI SDK `UIMessage` `TOOLS` generic.
@@ -28,4 +29,5 @@ export type GrowiChatTools = {
     input: unknown;
     output: ProposePageCreateToolOutput;
   };
+  webSearchTool: { input: unknown; output: WebSearchToolOutput };
 };

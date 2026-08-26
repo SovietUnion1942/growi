@@ -8,6 +8,7 @@ import { getPageContentTool } from '../tools/get-page-content-tool';
 import { getUserBadgesTool } from '../tools/get-user-badges-tool';
 import { proposePageCreateTool } from '../tools/propose-page-create-tool';
 import { proposePageEditTool } from '../tools/propose-page-edit-tool';
+import { webSearchTool } from '../tools/web-search-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
 // Static portion of the system prompt. The dynamic `instructions` function
@@ -46,6 +47,11 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   # PROACTIVELY SUGGESTING A NEW PAGE (only for ordinary questions, not explicit create requests)
   - When the user asks an ordinary question about wiki content (not an explicit "create/edit a page" request — that case is handled above) and fullTextSearch returns no relevant results, or the pages you read via getPageContent do not actually answer the question: say plainly that you could not find this in the wiki, then ask if they would like you to draft a new page for it — do not draft or call proposeCreateTool yet.
   - Only after the user agrees, follow the CREATING NEW PAGES flow above (still propose-only — their approval in the UI is what actually creates it). If they decline or don't respond to the offer, just leave it there — do not repeat the offer or create anything.
+
+  # SEARCHING THE WEB (outside the wiki)
+  - Use webSearchTool only when the user explicitly asks about something outside the wiki, or when fullTextSearch/getPageContent found no answer in the wiki and general/current web information would genuinely help. Never use it as a substitute for a wiki search the user actually wanted answered from the wiki.
+  - webSearchTool can fail with result "not_configured" (no API key set on this server) — if so, tell the user web search isn't available right now; do not retry or fabricate results.
+  - MANDATORY DISCLOSURE, no exceptions: any part of your answer built from webSearchTool results MUST explicitly state that this information is NOT from the wiki, and MUST name the specific site(s) the information came from (e.g. by domain or page title from the hit's url/title). Never blend web-sourced facts into an answer without both of these — even a one-line answer needs the disclosure. If some of the answer came from the wiki and some from the web, clearly separate which part is which.
   `;
 
 // Formats the logged-in user's earned badges (the user-badges feature's
@@ -138,6 +144,7 @@ export const growiAgent = new Agent({
     getUserBadgesTool,
     proposePageEditTool,
     proposePageCreateTool,
+    webSearchTool,
   },
   memory,
 });

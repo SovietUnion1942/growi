@@ -341,8 +341,8 @@ export const MessageThread = (props: Props): JSX.Element => {
   );
 
   return (
-    <div className="d-flex flex-column">
-      <div className="flex-grow-1 overflow-auto" style={{ maxHeight: '60vh' }}>
+    <div className="d-flex flex-column h-100 p-3">
+      <div className="flex-grow-1 overflow-auto">
         {isLoading && <div className="text-center py-3">Loading...</div>}
 
         {!isLoading && messages.length === 0 && (

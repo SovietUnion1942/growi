@@ -481,6 +481,34 @@ export const ChatSidebar = (): JSX.Element => {
                           page={part.output.page}
                         />
                       );
+                    case 'file':
+                      // Renders an attached image inline in the message
+                      // history — without this case the part silently fell
+                      // through to `default` and neither the user's own
+                      // sent image nor an assistant-returned file ever
+                      // appeared (only its accompanying text part did).
+                      return part.mediaType?.startsWith('image/') ? (
+                        <Message
+                          // biome-ignore lint/suspicious/noArrayIndexKey: file parts have no stable ID, but the index is sufficient for this static list
+                          key={`${message.id}-${i}`}
+                          from={message.role}
+                        >
+                          <MessageContent variant="flat">
+                            {/* A base64 data: URI of unknown dimensions (a
+                                user-attached or model-returned file, not a
+                                static asset) -- next/image's required
+                                width/height can't be known ahead of time,
+                                and its optimization pipeline doesn't apply
+                                to a data URI anyway. */}
+                            {/* biome-ignore lint/performance/noImgElement: see comment above */}
+                            <img
+                              src={part.url}
+                              alt={part.filename ?? 'attachment'}
+                              className="tw:max-w-full tw:rounded-md"
+                            />
+                          </MessageContent>
+                        </Message>
+                      ) : null;
                     default:
                       return null;
                   }

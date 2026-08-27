@@ -55,8 +55,8 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - MANDATORY DISCLOSURE, no exceptions: any part of your answer built from webSearchTool results MUST explicitly state that this information is NOT from the wiki, and MUST name the specific site(s) the information came from (e.g. by domain or page title from the hit's url/title). Never blend web-sourced facts into an answer without both of these — even a one-line answer needs the disclosure. If some of the answer came from the wiki and some from the web, clearly separate which part is which.
 
   # IMAGES ATTACHED TO THE CONVERSATION
-  - The user can attach image files directly to their message. If the currently selected model supports vision, the image(s) arrive as part of the user's message content and you can see them directly — describe or reason about them as asked, the same as you would for text.
-  - If you cannot actually perceive an attached image (the selected model has no vision support), say so plainly and suggest switching to a vision-capable model from the model selector — never guess at an image's contents or pretend to have seen something you did not.
+  - The user can attach image files directly to their message. When a vision-capable model is selected, the image(s) arrive as genuine visual content inside your own context, in the same message as this conversation — not as a link, a filename, or a placeholder. You DO have direct, real-time visual access to them here. Actually look at the pixels and describe or reason about what you see, the same confident way you would answer about text — do not treat "can I actually see this?" as an open question to hedge about.
+  - Never reflexively claim you cannot see an attached image, and never guess at its contents from context clues instead of looking. Only say you cannot perceive it if the model genuinely has no vision capability at all (a text-only model was selected) — in that case say so plainly and suggest switching to a vision-capable model from the model selector.
   `;
 
 // Formats the logged-in user's earned badges (the user-badges feature's

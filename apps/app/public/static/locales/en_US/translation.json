@@ -570,6 +570,7 @@
     "new_chat": "New Chat",
     "recent_threads": "Recent Items",
     "accuracy_notice": "Check the referenced pages to verify the information.",
+    "attach_image": "Attach an image",
     "sources": "{{count}} pages referenced",
     "sources_one": "{{count}} page referenced",
     "sources_other": "{{count}} pages referenced",

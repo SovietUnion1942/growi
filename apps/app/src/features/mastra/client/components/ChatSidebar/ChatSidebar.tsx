@@ -13,6 +13,7 @@ import {
   CopyIcon,
   Maximize2,
   Minimize2,
+  PaperclipIcon,
   RefreshCcwIcon,
   XIcon,
 } from 'lucide-react';
@@ -31,7 +32,10 @@ import { Loader } from '~/components/ai-elements/loader';
 import { Message, MessageContent } from '~/components/ai-elements/message';
 import {
   PromptInput,
+  PromptInputAttachment,
+  PromptInputAttachments,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
   type PromptInputMessage,
   PromptInputModelSelect,
@@ -42,6 +46,8 @@ import {
   PromptInputModelSelectTrigger,
   PromptInputModelSelectValue,
   PromptInputSubmit,
+  PromptInputTools,
+  usePromptInputAttachments,
 } from '~/components/ai-elements/prompt-input';
 import {
   Reasoning,
@@ -100,6 +106,23 @@ const FLOATING_CHAT_DEFAULT_POSITION = {
       ? 0
       : window.innerWidth - FLOATING_CHAT_DEFAULT_SIZE.width - 24,
   y: 72,
+};
+
+// Must be rendered as a descendant of <PromptInput> — usePromptInputAttachments
+// reads the context PromptInput establishes internally for its children (no
+// separate PromptInputProvider needed here, see prompt-input.tsx's "local
+// attachments" mode).
+const AttachImageButton = (): JSX.Element => {
+  const { t } = useTranslation();
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      onClick={attachments.openFileDialog}
+      aria-label={t('ai_sidebar.attach_image')}
+    >
+      <PaperclipIcon size={16} />
+    </PromptInputButton>
+  );
 };
 
 export const ChatSidebar = (): JSX.Element => {
@@ -265,14 +288,17 @@ export const ChatSidebar = (): JSX.Element => {
     if (status === 'submitted' || status === 'streaming') {
       return;
     }
-    // Nothing to send for an empty (or whitespace-only) message.
+    // Nothing to send for an empty (or whitespace-only) message with no
+    // image attached — an image-only message is valid (e.g. "what's in
+    // this picture?" is implicit).
     const text = message.text ?? '';
-    if (text.trim().length === 0) {
+    const files = message.files ?? [];
+    if (text.trim().length === 0 && files.length === 0) {
       return;
     }
     // The threadId rides on the transport body (see useChat above), so no
     // per-call body is needed here.
-    sendMessage({ text });
+    sendMessage({ text, files });
     setInput('');
   };
 
@@ -530,7 +556,12 @@ export const ChatSidebar = (): JSX.Element => {
           <PromptInput
             onSubmit={handleSubmit}
             inputGroupClassName="tw:rounded-xl"
+            accept="image/*"
+            multiple
           >
+            <PromptInputAttachments>
+              {(attachment) => <PromptInputAttachment data={attachment} />}
+            </PromptInputAttachments>
             <PromptInputBody>
               <PageMentionInput
                 ref={promptInputRef}
@@ -540,6 +571,9 @@ export const ChatSidebar = (): JSX.Element => {
               />
             </PromptInputBody>
             <PromptInputFooter>
+              <PromptInputTools>
+                <AttachImageButton />
+              </PromptInputTools>
               <PromptInputModelSelect
                 value={modelKey ?? ''}
                 onValueChange={handleModelChange}

@@ -562,6 +562,7 @@
     "new_chat": "新建对话",
     "recent_threads": "最近的项目",
     "accuracy_notice": "请查看参考页面以确认信息是否准确。",
+    "attach_image": "添加图片",
     "sources": "已参考 {{count}} 个页面",
     "error": {
       "title": "发生错误",

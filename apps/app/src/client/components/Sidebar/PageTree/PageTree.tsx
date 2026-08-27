@@ -7,9 +7,17 @@ import { PageTreeHeader } from './PageTreeSubstance';
 
 // PageTreeWithDnD uses HTML5Backend which accesses browser APIs on mount;
 // ssr: false prevents it from rendering on the server.
+//
+// NOTE: no `loading` option here on purpose. next/dynamic's own loading
+// state and the <Suspense> below (needed for the suspense: true SWR reads
+// deeper in the tree) both want to own the same fallback UI. Passing both
+// left the tree stuck on the skeleton intermittently even after every
+// underlying fetch had resolved with 200 -- the two mechanisms disagreed
+// about who was responsible for signaling "ready". A single Suspense
+// boundary handles both the code-split load and the data load.
 const PageTreeWithDnD = dynamic(
   () => import('./PageTreeSubstance').then((mod) => mod.PageTreeWithDnD),
-  { ssr: false, loading: ItemsTreeContentSkeleton },
+  { ssr: false },
 );
 
 export const PageTree = (): JSX.Element => {

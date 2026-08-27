@@ -165,6 +165,22 @@ const getUsernamesWithPageAtPrefix = async (
   return usernames;
 };
 
+/**
+ * 指定したユーザーが今月分の出欠回答ページ(/schedule/responses/{今月}/{username})を
+ * 一度でも作っているかどうかだけを見る(中身の妥当性は問わない)。
+ */
+export const hasAnsweredCurrentMonth = async (
+  username: string,
+): Promise<boolean> => {
+  const yearMonth = getCurrentYearMonth();
+  const Page = mongoose.model('Page');
+  const page = await Page.exists({
+    path: `${RESPONSES_PATH_PREFIX}/${yearMonth}/${username}`,
+    isEmpty: { $ne: true },
+  });
+  return page != null;
+};
+
 export type AttendanceReminderResult = {
   eventCount: number;
   remindedUserCount: number;

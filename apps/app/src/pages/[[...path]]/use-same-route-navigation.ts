@@ -34,19 +34,29 @@ export const useSameRouteNavigation = (): void => {
     previousPathRef.current = currentPath;
 
     // Skip on initial render (SSR data is already available)
-    if (previousPath === null) return;
+    if (previousPath === null) {
+      return;
+    }
 
     // Skip if path hasn't changed
-    if (previousPath === currentPath) return;
+    if (previousPath === currentPath) {
+      return;
+    }
 
     // Skip if this is an identical path page
-    if (isIdenticalPath) return;
+    if (isIdenticalPath) {
+      return;
+    }
 
     // CSR navigation detected - fetch page data
     const fetch = async () => {
-      const pageData = await fetchCurrentPage({ path: currentPath });
-      if (pageData?.revision?.body != null) {
-        setEditingMarkdown(pageData.revision.body);
+      try {
+        const pageData = await fetchCurrentPage({ path: currentPath });
+        if (pageData?.revision?.body != null) {
+          setEditingMarkdown(pageData.revision.body);
+        }
+      } catch {
+        // no-op: fetch failures are surfaced via the page's own error state
       }
     };
 

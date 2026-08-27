@@ -18,33 +18,38 @@ export interface AdminLayoutOptions<P extends AdminCommonProps> {
 export function createAdminPageLayout<P extends AdminCommonProps>(
   options: AdminLayoutOptions<P>,
 ) {
+  // Defined once, outside the returned getLayout closure: _app calls
+  // `Component.getLayout(page)` on every render, and a component defined
+  // inside that closure would be a new function identity each call — React
+  // would then treat it as a different component type and unmount/remount
+  // the whole subtree (losing unstated container state) on every _app
+  // re-render, not just on actual page navigation.
+  const Wrapper: React.FC<{ page: ReactElement<P> }> = ({ page }) => {
+    const { t } = useTranslation('admin');
+
+    const rawTitle =
+      typeof options.title === 'function'
+        ? options.title(page.props, t)
+        : options.title;
+    const title = useCustomTitle(rawTitle);
+
+    const factories = useMemo(() => options.containerFactories ?? [], []);
+    const containers = useUnstatedContainers(factories);
+
+    return (
+      <AdminPageFrame
+        title={title}
+        componentTitle={rawTitle}
+        isAccessDeniedForNonAdminUser={page.props.isAccessDeniedForNonAdminUser}
+        containers={containers}
+      >
+        {page}
+      </AdminPageFrame>
+    );
+  };
+
   return function getLayout(page: ReactElement<P>): ReactNode {
-    const Wrapper: React.FC = () => {
-      const { t } = useTranslation('admin');
-
-      const rawTitle =
-        typeof options.title === 'function'
-          ? options.title(page.props, t)
-          : options.title;
-      const title = useCustomTitle(rawTitle);
-
-      const factories = useMemo(() => options.containerFactories ?? [], []);
-      const containers = useUnstatedContainers(factories);
-
-      return (
-        <AdminPageFrame
-          title={title}
-          componentTitle={rawTitle}
-          isAccessDeniedForNonAdminUser={
-            page.props.isAccessDeniedForNonAdminUser
-          }
-          containers={containers}
-        >
-          {page}
-        </AdminPageFrame>
-      );
-    };
-    return <Wrapper />;
+    return <Wrapper page={page} />;
   };
 }
 

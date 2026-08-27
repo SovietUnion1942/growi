@@ -5,8 +5,10 @@ import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
 import { fullTextSearchTool } from '../tools/full-text-search-tool';
 import { getPageContentTool } from '../tools/get-page-content-tool';
+import { getUserBadgesTool } from '../tools/get-user-badges-tool';
 import { proposePageCreateTool } from '../tools/propose-page-create-tool';
 import { proposePageEditTool } from '../tools/propose-page-edit-tool';
+import { webSearchTool } from '../tools/web-search-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
 // Static portion of the system prompt. The dynamic `instructions` function
@@ -27,6 +29,7 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - The fullTextSearch query supports plain natural-language tokens combined with: "phrase", -term, -"phrase", prefix:/path, -prefix:/path, tag:foo, -tag:foo (all AND-combined). Use these operators only when the user intent maps to a subtree, tag, or exclusion.
   - When the user explicitly asks for newest or oldest pages (e.g. "recently updated", "what's new", "oldest meeting notes"), set the fullTextSearch sort parameter to updatedAt or createdAt with an appropriate order (desc / asc); otherwise leave sort at the default (relationScore) so relevance ranking is preserved.
   - Keep answers concise and well-structured with headings and lists where helpful.
+  - When asked about another member's badges/achievements (not the current user's own — those are already listed below if any), call getUserBadgesTool with their GROWI username. If you only have a display name, ask the user for the username or search for it first — do not guess a username.
 
   # EDITING PAGES (propose-only — you can NEVER save directly)
   - When the user asks you to edit, rewrite, fix, or otherwise change an EXISTING page's content, first call getPageContent to read its current full body (drill in with offset as needed until you have read every part you are about to change — never guess at content you have not read).
@@ -40,24 +43,81 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - Calling proposeCreateTool does NOT create anything. It only shows the user the proposed path and content with an approve/reject choice in the UI. After calling it, tell the user their proposal is ready for review and needs their approval — never say the page has been created, saved, or added, since only their own click in the UI can do that.
   - If you are unsure where in the wiki hierarchy the new page should live, say so and ask the user, or search for related pages first and propose a path consistent with where similar pages already live.
   - Some pages (e.g. "/メンバー/アカウント対応表") are administrator-managed and cannot be changed through proposeEditTool or proposeCreateTool at all — both tools refuse and return a forbidden result for them. If that happens, tell the user this specific page can only be edited directly by an administrator, and do not retry.
+
+  # PROACTIVELY SUGGESTING A NEW PAGE (only for ordinary questions, not explicit create requests)
+  - When the user asks an ordinary question about wiki content (not an explicit "create/edit a page" request — that case is handled above) and fullTextSearch returns no relevant results, or the pages you read via getPageContent do not actually answer the question: say plainly that you could not find this in the wiki, then ask if they would like you to draft a new page for it — do not draft or call proposeCreateTool yet.
+  - Only after the user agrees, follow the CREATING NEW PAGES flow above (still propose-only — their approval in the UI is what actually creates it). If they decline or don't respond to the offer, just leave it there — do not repeat the offer or create anything.
+
+  # SEARCHING THE WEB (outside the wiki)
+  - You DO have real-time internet access through webSearchTool. Ignore any trained instinct to say "I don't have real-time access" or "I cannot browse the internet" — that is false here. For any question needing current/live information (weather, news, prices, schedules of real-world events, "what is happening now", etc.) or general knowledge outside the wiki's scope, call webSearchTool BEFORE answering. Only say the information is unavailable after actually calling webSearchTool and getting no usable result.
+  - Use webSearchTool when the user explicitly asks about something outside the wiki, or when fullTextSearch/getPageContent found no answer in the wiki and general/current web information would genuinely help. Never use it as a substitute for a wiki search the user actually wanted answered from the wiki.
+  - webSearchTool can fail with result "not_configured" (no API key set on this server) — if so, tell the user web search isn't available right now; do not retry or fabricate results.
+  - MANDATORY DISCLOSURE, no exceptions: any part of your answer built from webSearchTool results MUST explicitly state that this information is NOT from the wiki, and MUST name the specific site(s) the information came from (e.g. by domain or page title from the hit's url/title). Never blend web-sourced facts into an answer without both of these — even a one-line answer needs the disclosure. If some of the answer came from the wiki and some from the web, clearly separate which part is which.
+
+  # IMAGES ATTACHED TO THE CONVERSATION
+  - The user can attach image files directly to their message. When a vision-capable model is selected, the image(s) arrive as genuine visual content inside your own context, in the same message as this conversation — not as a link, a filename, or a placeholder. You DO have direct, real-time visual access to them here. Actually look at the pixels and describe or reason about what you see, the same confident way you would answer about text — do not treat "can I actually see this?" as an open question to hedge about.
+  - Never reflexively claim you cannot see an attached image, and never guess at its contents from context clues instead of looking. Only say you cannot perceive it if the model genuinely has no vision capability at all (a text-only model was selected) — in that case say so plainly and suggest switching to a vision-capable model from the model selector.
   `;
+
+// Formats the logged-in user's earned badges (the user-badges feature's
+// `IUser.badgeSummaryCached`) as a trailing sentence for the identity note, so
+// the agent can answer "what badges do I have?" directly — `badgeSummaryCached`
+// is already the per-user display cache carried on `req.user` (see
+// MastraRequestContextShape's doc comment: the tool layer must not re-resolve
+// the user), so no new tool or DB lookup is needed. Returns '' when the user
+// has none, leaving the identity note unchanged for badge-less users.
+const formatBadgesSentence = (
+  badges: MastraRequestContextShape['user']['badgeSummaryCached'],
+): string => {
+  if (badges == null || badges.length === 0) return '';
+  const names = badges
+    .map((badge) =>
+      badge.level != null ? `${badge.name} (level ${badge.level})` : badge.name,
+    )
+    .join(', ');
+  return ` They have earned the following badge(s): ${names}. If asked about their badges or achievements, answer directly from this list — do not guess or say you don't know.`;
+};
+
+// Formats the current wall-clock date/time (JST — this wiki serves a
+// Japan-based club) as a system-prompt note. The LLM's own knowledge is
+// frozen at its training cutoff and carries no notion of "now", so without
+// this the agent cannot answer "what's today's date?" or reason about
+// relative dates ("next Wednesday", event scheduling) at all. Computed
+// fresh on every call (the enclosing instructions function is a
+// DynamicArgument re-run per request), never cached at agent-build time.
+const formatCurrentDateTimeNote = (): string => {
+  const formatted = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  return `\n\n  # CURRENT DATE AND TIME\n  - The current date and time is ${formatted} (Asia/Tokyo, JST). Treat this as "now" — use it when the user asks today's date, or asks you to reason about relative dates (e.g. "next Wednesday", "in 3 days", upcoming events/schedules). Never rely on your training data for the current date.\n  `;
+};
 
 export const growiAgent = new Agent({
   id: 'growiAgent',
   name: 'GROWI Agent',
   // A DynamicArgument function, same mechanism as `model` below: it re-runs
   // per request, so it never throws at construction time and always reflects
-  // the CURRENT requestContext's user (not one captured at agent-build time).
+  // the CURRENT requestContext's user (not one captured at agent-build time)
+  // and the CURRENT wall-clock time (not one frozen at agent-build time).
   instructions: ({
     requestContext,
   }: {
     requestContext: RequestContext<MastraRequestContextShape>;
   }) => {
-    const user = requestContext.get('user');
-    if (user == null) return STATIC_INSTRUCTIONS;
+    const dateTimeNote = formatCurrentDateTimeNote();
 
-    const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.\n  `;
-    return STATIC_INSTRUCTIONS + identityNote;
+    const user = requestContext.get('user');
+    if (user == null) return STATIC_INSTRUCTIONS + dateTimeNote;
+
+    const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.${formatBadgesSentence(user.badgeSummaryCached)}\n  `;
+    return STATIC_INSTRUCTIONS + dateTimeNote + identityNote;
   },
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the
@@ -86,8 +146,10 @@ export const growiAgent = new Agent({
   tools: {
     fullTextSearchTool,
     getPageContentTool,
+    getUserBadgesTool,
     proposePageEditTool,
     proposePageCreateTool,
+    webSearchTool,
   },
   memory,
 });

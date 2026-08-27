@@ -43,6 +43,13 @@ import {
  *   templateBody: 'Template content'
  * });
  */
+// Stable reference: `options?.templateTags ?? []` would otherwise allocate a
+// new array every render, and since the second useHydrateAtoms call below
+// uses dangerouslyForceHydrate (it re-sets atoms on every render, not just
+// once), a fresh array reference each time makes templateTagsAtom look
+// "changed" every render even when the logical value (no tags) is identical.
+const EMPTY_TEMPLATE_TAGS: string[] = [];
+
 export const useHydratePageAtoms = (
   page: IPagePopulatedToShowRevision | null | undefined,
   pageMeta: IPageNotFoundInfo | IPageInfo | undefined,
@@ -83,7 +90,7 @@ export const useHydratePageAtoms = (
       [isIdenticalPathAtom, options?.isIdenticalPath ?? false],
 
       // Template data - from options (not auto-extracted from page)
-      [templateTagsAtom, options?.templateTags ?? []],
+      [templateTagsAtom, options?.templateTags ?? EMPTY_TEMPLATE_TAGS],
       [templateBodyAtom, options?.templateBody ?? ''],
     ],
     { dangerouslyForceHydrate: true },

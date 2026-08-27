@@ -18,6 +18,7 @@ import { diffRouteHandlersFactory } from '~/features/revision-diff/server/routes
 import { setup as setupTemplates } from '~/features/templates/server/routes/apiv3';
 import { setup as setupBadgeType } from '~/features/user-badge/server/routes/badge-type';
 import { setup as setupUserBadge } from '~/features/user-badge/server/routes/user-badge';
+import { setup as setupWikiGapSuggestions } from '~/features/wiki-gap-suggestions/server/routes/wiki-gap-suggestions';
 import { allreadyInstalledMiddleware } from '~/server/middlewares/application-not-installed';
 import loggerFactory from '~/utils/logger';
 
@@ -180,6 +181,7 @@ export const setup = (crowi, app) => {
   }
 
   router.use('/messages', setupMessages(crowi));
+  router.use('/wiki-gap-suggestions', setupWikiGapSuggestions(crowi));
   router.use('/in-app-notification', setupInAppNotification(crowi));
   router.use('/news', newsRoute(crowi));
 

@@ -211,7 +211,13 @@ export const useSWRxRootPage = (
       }),
     {
       ...config,
-      keepPreviousData: true,
+      // NOTE: keepPreviousData is intentionally omitted here. SWR does not
+      // support combining it with suspense: true (ItemsTree.tsx passes
+      // { suspense: true }) — swr.data is never undefined in suspense mode,
+      // which breaks keepPreviousData's detection logic and can leave the
+      // component suspended indefinitely, showing the loading fallback
+      // forever even though the fetch already completed.
+      // See https://github.com/vercel/swr/discussions/2587
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
     },

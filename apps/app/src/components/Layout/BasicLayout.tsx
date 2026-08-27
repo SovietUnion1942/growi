@@ -51,6 +51,13 @@ const SearchModal = dynamic(
   () => import('~/features/search/client/components/SearchModal'),
   { ssr: false },
 );
+const AttendanceReminderModal = dynamic(
+  () =>
+    import('~/client/components/AttendanceReminderModal').then(
+      (mod) => mod.AttendanceReminderModal,
+    ),
+  { ssr: false },
+);
 // biome-ignore-end lint/style/noRestrictedImports: no-problem dynamic import
 
 type Props = {
@@ -94,6 +101,7 @@ export const BasicLayout = ({ children, className }: Props): JSX.Element => {
       <ShortcutsModalLazyLoaded />
       <PageBulkExportSelectModalLazyLoaded />
       <GrantedGroupsInheritanceSelectModalLazyLoaded />
+      <AttendanceReminderModal />
     </RawLayout>
   );
 };

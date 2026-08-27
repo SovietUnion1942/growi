@@ -16,6 +16,7 @@ import { generateAddActivityMiddleware } from '../../../middlewares/add-activity
 import { apiV3FormValidator } from '../../../middlewares/apiv3-form-validator';
 import EditorSettings from '../../../models/editor-settings';
 import InAppNotificationSettings from '../../../models/in-app-notification-settings';
+import { getAttendanceStatusHandlerFactory } from './attendance-status';
 import { deleteAccessTokenHandlersFactory } from './delete-access-token';
 import { deleteAllAccessTokensHandlersFactory } from './delete-all-access-tokens';
 import { generateAccessTokenHandlerFactory } from './generate-access-token';
@@ -978,6 +979,31 @@ export const setup = (crowi) => {
     '/push-notification/subscriptions',
     accessTokenParser([SCOPE.READ.USER_SETTINGS.PUSH_NOTIFICATION]),
     getPushSubscriptionsHandlerFactory(crowi),
+  );
+
+  /**
+   * @swagger
+   *
+   *    /personal-setting/attendance-status:
+   *      get:
+   *        tags: [GeneralSetting]
+   *        summary: /personal-setting/attendance-status
+   *        description: Get whether current user has answered this month's attendance
+   *        responses:
+   *          200:
+   *            description: attendance status
+   *            content:
+   *              application/json:
+   *                schema:
+   *                  properties:
+   *                    answered:
+   *                      type: boolean
+   *                      description: whether this month's attendance page exists for current user
+   */
+  router.get(
+    '/attendance-status',
+    accessTokenParser([SCOPE.READ.USER_SETTINGS.INFO], { acceptLegacy: true }),
+    getAttendanceStatusHandlerFactory(crowi),
   );
 
   return router;

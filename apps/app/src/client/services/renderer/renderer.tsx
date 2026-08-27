@@ -27,6 +27,7 @@ import {
   sanitizeOption as mermaidSanitizeOption,
 } from '~/features/mermaid/services';
 import * as plantuml from '~/features/plantuml';
+import * as wikiGapSuggestions from '~/features/wiki-gap-suggestions';
 import type { RendererOptions } from '~/interfaces/renderer-options';
 import type { RendererConfigExt } from '~/interfaces/services/renderer';
 import * as addLineNumberAttribute from '~/services/renderer/rehype-plugins/add-line-number-attribute';
@@ -83,6 +84,7 @@ export const generateViewOptions = (
     callout.remarkPlugin,
     lsxGrowiDirective.remarkPlugin,
     refsGrowiDirective.remarkPlugin,
+    wikiGapSuggestions.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -103,6 +105,7 @@ export const generateViewOptions = (
             lsxGrowiDirective.sanitizeOption,
             refsGrowiDirective.sanitizeOption,
             codeBlock.sanitizeOption,
+            wikiGapSuggestions.sanitizeOption,
           ),
         ]
       : () => {};
@@ -144,6 +147,7 @@ export const generateViewOptions = (
     components.callout = callout.CalloutViewer;
     components.attachment = RichAttachment;
     components.img = LightBox;
+    components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
   }
 
   if (config.isEnabledXssPrevention) {
@@ -374,6 +378,7 @@ export const generatePreviewOptions = (
     callout.remarkPlugin,
     lsxGrowiDirective.remarkPlugin,
     refsGrowiDirective.remarkPlugin,
+    wikiGapSuggestions.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -394,6 +399,7 @@ export const generatePreviewOptions = (
             refsGrowiDirective.sanitizeOption,
             addLineNumberAttribute.sanitizeOption,
             codeBlock.sanitizeOption,
+            wikiGapSuggestions.sanitizeOption,
           ),
         ]
       : () => {};
@@ -427,6 +433,7 @@ export const generatePreviewOptions = (
     components.callout = callout.CalloutViewer;
     components.attachment = RichAttachment;
     components.img = LightBox;
+    components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
   }
 
   if (config.isEnabledXssPrevention) {

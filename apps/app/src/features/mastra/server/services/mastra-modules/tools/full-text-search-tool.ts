@@ -3,6 +3,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 
 import ExternalUserGroupRelation from '~/features/external-user-group/server/models/external-user-group-relation';
+import { recordNoResultSearch } from '~/features/wiki-gap-suggestions/server/services/record-no-result-search';
 import { SORT_AXIS, SORT_ORDER } from '~/interfaces/search';
 import UserGroupRelation from '~/server/models/user-group-relation';
 import loggerFactory from '~/utils/logger';
@@ -196,6 +197,14 @@ export const fullTextSearchTool = createTool({
         }
         return [hit];
       });
+
+      // Best-effort, fire-and-forget, aggregate-only (no asker recorded --
+      // see recordNoResultSearch's doc comment): surfacing this to a member
+      // is the caller's job (growiAgent's proactive-create-page instructions
+      // and the WikiGapQuery aggregate report), not this tool's.
+      if (hits.length === 0) {
+        void recordNoResultSearch(query);
+      }
 
       return {
         result: 'ok' as const,

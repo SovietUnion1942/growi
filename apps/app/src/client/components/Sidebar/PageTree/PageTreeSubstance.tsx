@@ -29,8 +29,17 @@ export const PageTreeHeader = memo(
     const { t } = useTranslation();
     const wipToggleId = useId();
 
-    const { mutate: mutateRootPage } = useSWRxRootPage({ suspense: true });
-    useSWRxV5MigrationStatus({ suspense: true });
+    // NOTE: suspense is intentionally omitted here. This component only
+    // needs `mutate` (never reads `data`) and discards the migration-status
+    // result entirely, so there is nothing to block rendering on — but
+    // PageTreeContent (features/page-tree) calls both of these same-keyed
+    // hooks WITH suspense: true to actually consume their data. Two
+    // concurrent suspense: true callers for the same SWR key left the
+    // second one suspended forever even after the fetch resolved
+    // (reproduced: PageTreeContent's useSWRxV5MigrationStatus never
+    // returned, even though the underlying request completed with 200).
+    const { mutate: mutateRootPage } = useSWRxRootPage();
+    useSWRxV5MigrationStatus();
     const { notifyUpdateAllTrees } = usePageTreeInformationUpdate();
 
     const mutate = useCallback(() => {

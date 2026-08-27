@@ -46,6 +46,14 @@ vi.mock(
   }),
 );
 
+const recordNoResultSearchMock = vi.hoisted(() => vi.fn());
+vi.mock(
+  '~/features/wiki-gap-suggestions/server/services/record-no-result-search',
+  () => ({
+    recordNoResultSearch: recordNoResultSearchMock,
+  }),
+);
+
 // Helper to construct a typed RequestContext used by the tool.
 const buildRequestContext = (): RequestContext<MastraRequestContextShape> =>
   new RequestContext<MastraRequestContextShape>();
@@ -721,6 +729,54 @@ describe('fullTextSearchTool', () => {
         expect(result.validationErrors).toBeDefined();
       }
       expect(mockSearchService.searchKeyword).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('no-result search logging (wiki-gap-suggestions)', () => {
+    it('records the query when the search returns zero hits', async () => {
+      const requestContext = buildRequestContext();
+      const mockUser = buildMockUser();
+      const mockSearchService = buildMockSearchService();
+      mockSearchService.searchKeyword.mockResolvedValue([
+        { data: [], meta: { total: 0, hitsCount: 0 } },
+        SearchDelegatorName.DEFAULT,
+      ]);
+      mockSearchService.formatSearchResult.mockResolvedValue({
+        data: [],
+        meta: { total: 0, hitsCount: 0 },
+      });
+      requestContext.set('user', mockUser);
+      requestContext.set('searchService', mockSearchService);
+
+      await invokeExecute(
+        { query: 'nonexistent topic', limit: 5 },
+        requestContext,
+      );
+
+      expect(recordNoResultSearchMock).toHaveBeenCalledWith(
+        'nonexistent topic',
+      );
+    });
+
+    it('does not record the query when the search returns at least one hit', async () => {
+      const requestContext = buildRequestContext();
+      const mockUser = buildMockUser();
+      const mockSearchService = buildMockSearchService();
+      const pageDoc = { _id: 'abc', path: '/p1' } as unknown as IPageHasId;
+      mockSearchService.searchKeyword.mockResolvedValue([
+        { data: [], meta: { total: 1, hitsCount: 1 } },
+        SearchDelegatorName.DEFAULT,
+      ]);
+      mockSearchService.formatSearchResult.mockResolvedValue({
+        data: [{ data: pageDoc, meta: {} }],
+        meta: { total: 1, hitsCount: 1 },
+      });
+      requestContext.set('user', mockUser);
+      requestContext.set('searchService', mockSearchService);
+
+      await invokeExecute({ query: 'physics club', limit: 5 }, requestContext);
+
+      expect(recordNoResultSearchMock).not.toHaveBeenCalled();
     });
   });
 });

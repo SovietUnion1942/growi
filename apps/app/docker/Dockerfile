@@ -111,6 +111,8 @@ RUN set -eu; \
 
 # Stage artifacts into a clean directory for COPY --from
 RUN mkdir -p /tmp/release/apps/app && \
+  mkdir -p apps/app/tmp/cache apps/app/tmp/downloads apps/app/tmp/googlecache \
+    apps/app/tmp/imports apps/app/tmp/plugins apps/app/tmp/uploads && \
   cp package.json /tmp/release/ && \
   cp -a node_modules /tmp/release/ && \
   cp -a apps/app/.next apps/app/config apps/app/dist apps/app/public \

@@ -57,7 +57,7 @@
   - _Requirements: 1.3, 8.1_
   - _Boundary: RootHealthChecker_
   - _Depends: 1.2_
-- [ ] 2.4 NasStorageService を実装する
+- [x] 2.4 NasStorageService を実装する
   - 各メソッド冒頭で `ensureReady` を呼び、`unavailable` なら `STORAGE_UNAVAILABLE` を返す
   - `putFile` は非上書き＋宛先存在時に `CONFLICT` と一意な `suggestedName`（`name (1).ext` 形式で採番）を返す
   - `download` は対象がディレクトリ／不存在なら `IS_DIRECTORY` / `NOT_FOUND` を返す

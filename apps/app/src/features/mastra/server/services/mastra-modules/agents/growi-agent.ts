@@ -101,7 +101,7 @@ const formatCurrentDateTimeNote = (): string => {
 
 export const growiAgent = new Agent({
   id: 'growiAgent',
-  name: 'GROWI Agent',
+  name: 'Butsuri-Wikier',
   // A DynamicArgument function, same mechanism as `model` below: it re-runs
   // per request, so it never throws at construction time and always reflects
   // the CURRENT requestContext's user (not one captured at agent-build time)

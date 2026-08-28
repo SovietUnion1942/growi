@@ -45,18 +45,30 @@ export const shouldTriggerBotReply = (
 export type BotReplyHistoryEntry = {
   role: 'user' | 'assistant';
   content: string;
+  // Set only on the entry that carries an image attachment -- the caller
+  // (triggerBotReply) fills in the actual base64 data separately for the
+  // triggering message only (see growi-agent-dm-reply.ts); historical image
+  // messages are represented by the placeholder text below instead of
+  // re-sending their bytes on every later turn.
+  hasImageAttachment?: boolean;
 };
 
 export type HistorySourceMessage = {
   sender: { _id: Types.ObjectId; name?: string; username: string };
   body: string;
+  hasImageAttachment?: boolean;
 };
+
+// Placeholder body text for a historical (non-triggering) image-only turn --
+// keeps the entry non-empty and tells the agent an image was here, without
+// re-sending its bytes on every later reply.
+const IMAGE_ATTACHMENT_PLACEHOLDER = '(画像を送信しました)';
 
 // Converts stored messages (oldest-to-newest) into the plain role/content
 // shape the growiAgent integration expects, capped to the most recent
-// MAX_BOT_REPLY_HISTORY entries so the prompt doesn't grow unbounded.
-// Attachment-only messages (empty body) are dropped -- the agent only
-// reasons over text today.
+// MAX_BOT_REPLY_HISTORY entries so the prompt doesn't grow unbounded. A
+// message with neither body nor attachment (should not normally occur --
+// the route requires one or the other) is dropped as having nothing to say.
 //
 // Human turns are prefixed with the speaker's display name ("Alice: ...").
 // This is redundant in a 1-on-1 DM (only one possible human speaker) but
@@ -68,15 +80,25 @@ export const buildBotReplyHistory = (
   botUserId: Types.ObjectId,
 ): BotReplyHistoryEntry[] => {
   return messages
-    .filter((m) => m.body !== '')
+    .filter((m) => m.body !== '' || m.hasImageAttachment === true)
     .slice(-MAX_BOT_REPLY_HISTORY)
     .map((m) => {
+      const bodyOrPlaceholder =
+        m.body !== ''
+          ? m.body
+          : m.hasImageAttachment === true
+            ? IMAGE_ATTACHMENT_PLACEHOLDER
+            : m.body;
       const isBot = m.sender._id.equals(botUserId);
       if (isBot) {
-        return { role: 'assistant' as const, content: m.body };
+        return { role: 'assistant' as const, content: bodyOrPlaceholder };
       }
       const speakerLabel = m.sender.name ?? m.sender.username;
-      return { role: 'user' as const, content: `${speakerLabel}: ${m.body}` };
+      return {
+        role: 'user' as const,
+        content: `${speakerLabel}: ${bodyOrPlaceholder}`,
+        hasImageAttachment: m.hasImageAttachment,
+      };
     });
 };
 

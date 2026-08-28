@@ -111,7 +111,7 @@ describe('buildBotReplyHistory', () => {
     expect(result).toEqual([{ role: 'user', content: 'alice: hi' }]);
   });
 
-  it('drops attachment-only (empty body) messages', () => {
+  it('drops a message with neither body nor an image attachment', () => {
     const result = buildBotReplyHistory(
       [
         { sender: human, body: 'look at this' },
@@ -120,6 +120,40 @@ describe('buildBotReplyHistory', () => {
       botId,
     );
     expect(result).toEqual([{ role: 'user', content: 'Alice: look at this' }]);
+  });
+
+  it('keeps an image-only (empty body) message, using a placeholder body and flagging hasImageAttachment', () => {
+    const result = buildBotReplyHistory(
+      [{ sender: human, body: '', hasImageAttachment: true }],
+      botId,
+    );
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: 'Alice: (画像を送信しました)',
+        hasImageAttachment: true,
+      },
+    ]);
+  });
+
+  it("keeps a human message's actual body alongside hasImageAttachment when both text and an image are present", () => {
+    const result = buildBotReplyHistory(
+      [{ sender: human, body: 'これ見て', hasImageAttachment: true }],
+      botId,
+    );
+    expect(result).toEqual([
+      { role: 'user', content: 'Alice: これ見て', hasImageAttachment: true },
+    ]);
+  });
+
+  it('collapses a historical (bot-turn) image-only message to the placeholder without a hasImageAttachment flag', () => {
+    const result = buildBotReplyHistory(
+      [{ sender: bot, body: '', hasImageAttachment: true }],
+      botId,
+    );
+    expect(result).toEqual([
+      { role: 'assistant', content: '(画像を送信しました)' },
+    ]);
   });
 
   it('caps history to the most recent MAX_BOT_REPLY_HISTORY entries', () => {

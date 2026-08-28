@@ -1,3 +1,4 @@
+import { buffer as streamToBuffer } from 'node:stream/consumers';
 import type { IUserHasId } from '@growi/core';
 import { SCOPE } from '@growi/core/dist/interfaces';
 import { serializeUserSecurely } from '@growi/core/dist/models/serializers';
@@ -23,6 +24,7 @@ import {
 } from '~/server/service/socket-io/helper';
 import loggerFactory from '~/utils/logger';
 
+import type { IAttachmentDocument } from '../../models/attachment';
 import type { ConversationDocument } from '../../models/Conversation';
 import { Conversation } from '../../models/Conversation';
 import { Message } from '../../models/Message';
@@ -187,16 +189,68 @@ export const setup = (crowi: Crowi): Router => {
     })
       .sort({ createdAt: -1 })
       .limit(MAX_BOT_REPLY_HISTORY)
-      .select('sender body')
-      .populate('sender', 'name username');
+      .select('sender body attachment')
+      .populate('sender', 'name username')
+      // Populated fully (not projected) -- findDeliveryFile's storage-backend
+      // implementations (local/gridfs/s3/azure) each read different fields
+      // off the Attachment document, so this route can't know in advance
+      // which subset to request.
+      .populate<{ attachment?: IAttachmentDocument }>('attachment');
     // Mongoose's populate() doesn't change the statically-inferred type of a
-    // ref field (MessageDocument.sender stays typed as its un-populated
-    // Types.ObjectId), even though it genuinely holds the populated User
-    // subset requested above at runtime.
+    // ref field (MessageDocument.sender/attachment stay typed as their
+    // un-populated Types.ObjectId), even though they genuinely hold the
+    // populated subsets requested above at runtime.
+    const orderedMessages =
+      recentMessages.reverse() as unknown as (HistorySourceMessage & {
+        attachment?: IAttachmentDocument;
+      })[];
     const history = buildBotReplyHistory(
-      recentMessages.reverse() as unknown as HistorySourceMessage[],
+      orderedMessages.map((m) => ({
+        ...m,
+        hasImageAttachment:
+          m.attachment?.fileFormat.startsWith('image/') ?? false,
+      })),
       botUser._id,
     );
+
+    // Only the triggering message's own image is actually sent to growiAgent
+    // (see growi-agent-dm-reply.ts's DmConversationTurn doc comment) -- it is
+    // always the last entry, since orderedMessages is oldest-to-newest and
+    // this fires right after the message that triggered it was created.
+    const triggeringMessage = orderedMessages.at(-1);
+    const triggeringAttachment = triggeringMessage?.attachment;
+    let historyWithImage = history;
+    if (
+      triggeringAttachment != null &&
+      triggeringAttachment.fileFormat.startsWith('image/') &&
+      history.length > 0
+    ) {
+      try {
+        const readable =
+          await crowi.fileUploadService.findDeliveryFile(triggeringAttachment);
+        const fileBuffer = await streamToBuffer(readable);
+        const base64 = fileBuffer.toString('base64');
+        const lastIndex = history.length - 1;
+        historyWithImage = history.map((entry, i) =>
+          i === lastIndex
+            ? {
+                ...entry,
+                image: {
+                  mediaType: triggeringAttachment.fileFormat,
+                  dataUrl: `data:${triggeringAttachment.fileFormat};base64,${base64}`,
+                },
+              }
+            : entry,
+        );
+      } catch (err) {
+        // Best-effort: growiAgent still answers from the text (or the
+        // "(画像を送信しました)" placeholder) if the image can't be read.
+        logger.error(
+          'Failed to read message image attachment for growiAgent',
+          err,
+        );
+      }
+    }
 
     // factory pattern: the module receives crowi (e.g. crowi.searchService
     // for the agent's search tool) rather than importing the Crowi class --
@@ -205,7 +259,9 @@ export const setup = (crowi: Crowi): Router => {
       '~/features/mastra/server/services/growi-agent-dm-reply'
     );
     const getGrowiAgentReply = createGetGrowiAgentReply(crowi);
-    const replyBody = (await getGrowiAgentReply(history, askingUser)).trim();
+    const replyBody = (
+      await getGrowiAgentReply(historyWithImage, askingUser)
+    ).trim();
     if (replyBody === '') {
       return;
     }
@@ -242,7 +298,7 @@ export const setup = (crowi: Crowi): Router => {
     await sendPushNotificationToUsers(
       recipientIds.map((id) => id.toString()),
       {
-        title: 'GROWI AI からのメッセージ',
+        title: 'Butsuri-Wikier からのメッセージ',
         body: pushBody,
         url: '/',
         tag: conversation._id.toString(),

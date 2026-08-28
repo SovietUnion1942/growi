@@ -21,7 +21,7 @@ export const findOrCreateGrowiBotUser = (
     {
       $setOnInsert: {
         username: GROWI_BOT_USERNAME,
-        name: 'GROWI AI',
+        name: 'Butsuri-Wikier',
       },
     },
     { upsert: true, new: true },

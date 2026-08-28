@@ -1,11 +1,39 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { text } from 'node:stream/consumers';
 
 import { FsNasFileStore } from './fs-nas-file-store';
+import type { FsWritePrimitives } from './fs-write-ops';
+import { defaultFsWritePrimitives } from './fs-write-ops';
 
-describe('FsNasFileStore (read operations)', () => {
+const EXDEV = (): NodeJS.ErrnoException => {
+  return Object.assign(new Error('cross-device link not permitted'), {
+    code: 'EXDEV',
+  });
+};
+
+/** Primitives whose same-volume fast paths always report a cross-device move. */
+const exdevPrimitives = (
+  overrides?: Partial<FsWritePrimitives>,
+): FsWritePrimitives => ({
+  ...defaultFsWritePrimitives,
+  rename: () => Promise.reject(EXDEV()),
+  link: () => Promise.reject(EXDEV()),
+  ...overrides,
+});
+
+describe('FsNasFileStore', () => {
   let workDir: string;
   let root: string;
   let store: FsNasFileStore;
@@ -265,16 +293,366 @@ describe('FsNasFileStore (read operations)', () => {
     });
   });
 
-  describe('write operations are deferred to a later task', () => {
-    test('moveIntoRoot throws until implemented', async () => {
+  const tmpDirName = '.growi-nas-tmp';
+  const listTmpLeftovers = async (): Promise<string[]> => {
+    try {
+      return await readdir(path.join(root, tmpDirName));
+    } catch {
+      return [];
+    }
+  };
+
+  describe('moveIntoRoot', () => {
+    let src: string;
+
+    beforeEach(async () => {
+      src = path.join(workDir, 'upload.tmp');
+      await writeFile(src, 'payload-bytes');
+    });
+
+    test('same-volume happy path: dest appears, source consumed, entry returned', async () => {
+      const res = await store.moveIntoRoot({
+        dirLogicalPath: '/docs',
+        targetName: 'report.txt',
+        sourceTmpPath: src,
+        overwrite: false,
+      });
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value).toMatchObject({
+        name: 'report.txt',
+        type: 'file',
+        sizeBytes: 'payload-bytes'.length,
+      });
       await expect(
+        readFile(path.join(root, 'docs', 'report.txt'), 'utf8'),
+      ).resolves.toBe('payload-bytes');
+      await expect(stat(src)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+
+    test('non-overwrite CONFLICT: existing dest untouched', async () => {
+      await writeFile(path.join(root, 'keep.txt'), 'original');
+
+      const res = await store.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: 'keep.txt',
+        sourceTmpPath: src,
+        overwrite: false,
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('CONFLICT');
+      await expect(readFile(path.join(root, 'keep.txt'), 'utf8')).resolves.toBe(
+        'original',
+      );
+    });
+
+    test('overwrite=true replaces the existing dest', async () => {
+      await writeFile(path.join(root, 'keep.txt'), 'original');
+
+      const res = await store.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: 'keep.txt',
+        sourceTmpPath: src,
+        overwrite: true,
+      });
+
+      expect(res.ok).toBe(true);
+      await expect(readFile(path.join(root, 'keep.txt'), 'utf8')).resolves.toBe(
+        'payload-bytes',
+      );
+    });
+
+    test('EXDEV fallback (non-overwrite): dest correct, no .growi-nas-tmp leftovers', async () => {
+      const store2 = new FsNasFileStore(root, exdevPrimitives());
+
+      const res = await store2.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: 'moved.txt',
+        sourceTmpPath: src,
+        overwrite: false,
+      });
+
+      expect(res.ok).toBe(true);
+      await expect(
+        readFile(path.join(root, 'moved.txt'), 'utf8'),
+      ).resolves.toBe('payload-bytes');
+      expect(await listTmpLeftovers()).toEqual([]);
+    });
+
+    test('EXDEV fallback still detects a CONFLICT atomically', async () => {
+      await writeFile(path.join(root, 'taken.txt'), 'original');
+      const store2 = new FsNasFileStore(root, exdevPrimitives());
+
+      const res = await store2.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: 'taken.txt',
+        sourceTmpPath: src,
+        overwrite: false,
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('CONFLICT');
+      await expect(
+        readFile(path.join(root, 'taken.txt'), 'utf8'),
+      ).resolves.toBe('original');
+      expect(await listTmpLeftovers()).toEqual([]);
+    });
+
+    test('mid-copy read error: no partial dest, no tmp leftovers, {ok:false}', async () => {
+      const failingStream = (): NodeJS.ReadableStream => {
+        return new Readable({
+          read() {
+            this.push('half');
+            this.destroy(new Error('disk read blew up'));
+          },
+        });
+      };
+      const store2 = new FsNasFileStore(
+        root,
+        exdevPrimitives({ openReadStream: failingStream }),
+      );
+
+      const res = await store2.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: 'broken.txt',
+        sourceTmpPath: src,
+        overwrite: true,
+      });
+
+      expect(res.ok).toBe(false);
+      await expect(stat(path.join(root, 'broken.txt'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      expect(await listTmpLeftovers()).toEqual([]);
+    });
+
+    test('two concurrent non-overwrite writes to the same name: exactly one wins', async () => {
+      const srcA = path.join(workDir, 'a.tmp');
+      const srcB = path.join(workDir, 'b.tmp');
+      await writeFile(srcA, 'A');
+      await writeFile(srcB, 'B');
+
+      const [a, b] = await Promise.all([
         store.moveIntoRoot({
           dirLogicalPath: '/',
-          targetName: 'x',
-          sourceTmpPath: path.join(workDir, 'tmp'),
+          targetName: 'race.txt',
+          sourceTmpPath: srcA,
           overwrite: false,
         }),
-      ).rejects.toThrow(/later task/);
+        store.moveIntoRoot({
+          dirLogicalPath: '/',
+          targetName: 'race.txt',
+          sourceTmpPath: srcB,
+          overwrite: false,
+        }),
+      ]);
+
+      expect([a.ok, b.ok].sort()).toEqual([false, true]);
+      const loser = a.ok ? b : a;
+      if (loser.ok) return;
+      expect(loser.error.code).toBe('CONFLICT');
+    });
+
+    test('path escaping the root -> OUT_OF_ROOT, nothing written', async () => {
+      const res = await store.moveIntoRoot({
+        dirLogicalPath: '/',
+        targetName: '../escaped.txt',
+        sourceTmpPath: src,
+        overwrite: false,
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+      await expect(
+        stat(path.join(workDir, 'escaped.txt')),
+      ).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  });
+
+  describe('mkdir', () => {
+    test('creates the directory and returns its entry', async () => {
+      const res = await store.mkdir('/', 'new-folder');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value).toMatchObject({
+        name: 'new-folder',
+        type: 'directory',
+      });
+      expect((await stat(path.join(root, 'new-folder'))).isDirectory()).toBe(
+        true,
+      );
+    });
+
+    test('existing name -> CONFLICT', async () => {
+      await mkdir(path.join(root, 'dup'));
+
+      const res = await store.mkdir('/', 'dup');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('CONFLICT');
+    });
+
+    test('escaping path -> OUT_OF_ROOT', async () => {
+      const res = await store.mkdir('/', '../evil');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+  });
+
+  describe('move', () => {
+    test('renames a file, leaving no old path', async () => {
+      await writeFile(path.join(root, 'old.txt'), 'data');
+
+      const res = await store.move('/old.txt', '/renamed.txt', false);
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value.name).toBe('renamed.txt');
+      await expect(
+        readFile(path.join(root, 'renamed.txt'), 'utf8'),
+      ).resolves.toBe('data');
+      await expect(stat(path.join(root, 'old.txt'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    test('moves a directory into a subfolder', async () => {
+      await mkdir(path.join(root, 'a'));
+      await writeFile(path.join(root, 'a', 'inner.txt'), 'x');
+      await mkdir(path.join(root, 'dst'));
+
+      const res = await store.move('/a', '/dst/a', false);
+
+      expect(res.ok).toBe(true);
+      await expect(
+        readFile(path.join(root, 'dst', 'a', 'inner.txt'), 'utf8'),
+      ).resolves.toBe('x');
+      await expect(stat(path.join(root, 'a'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    test('non-overwrite over an existing dest -> CONFLICT, both paths intact', async () => {
+      await writeFile(path.join(root, 'from.txt'), 'from');
+      await writeFile(path.join(root, 'to.txt'), 'to');
+
+      const res = await store.move('/from.txt', '/to.txt', false);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('CONFLICT');
+      await expect(readFile(path.join(root, 'from.txt'), 'utf8')).resolves.toBe(
+        'from',
+      );
+      await expect(readFile(path.join(root, 'to.txt'), 'utf8')).resolves.toBe(
+        'to',
+      );
+    });
+
+    test('overwrite=true replaces the destination', async () => {
+      await writeFile(path.join(root, 'from.txt'), 'from');
+      await writeFile(path.join(root, 'to.txt'), 'to');
+
+      const res = await store.move('/from.txt', '/to.txt', true);
+
+      expect(res.ok).toBe(true);
+      await expect(readFile(path.join(root, 'to.txt'), 'utf8')).resolves.toBe(
+        'from',
+      );
+    });
+
+    test('missing source -> NOT_FOUND', async () => {
+      const res = await store.move('/nope.txt', '/wherever.txt', false);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('NOT_FOUND');
+    });
+
+    test('destination escaping the root -> OUT_OF_ROOT', async () => {
+      await writeFile(path.join(root, 'here.txt'), 'x');
+
+      const res = await store.move('/here.txt', '../escaped.txt', false);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+  });
+
+  describe('remove', () => {
+    test('removes a file', async () => {
+      await writeFile(path.join(root, 'gone.txt'), 'x');
+
+      const res = await store.remove('/gone.txt', false);
+
+      expect(res.ok).toBe(true);
+      await expect(stat(path.join(root, 'gone.txt'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    test('recursive remove drops a directory and everything under it', async () => {
+      await mkdir(path.join(root, 'tree', 'deep'), { recursive: true });
+      await writeFile(path.join(root, 'tree', 'deep', 'leaf.txt'), 'x');
+
+      const res = await store.remove('/tree', true);
+
+      expect(res.ok).toBe(true);
+      await expect(stat(path.join(root, 'tree'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    test('non-recursive remove of a non-empty directory -> error, dir kept', async () => {
+      await mkdir(path.join(root, 'full'));
+      await writeFile(path.join(root, 'full', 'a.txt'), 'x');
+
+      const res = await store.remove('/full', false);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('NOT_A_DIRECTORY');
+      expect((await stat(path.join(root, 'full'))).isDirectory()).toBe(true);
+    });
+
+    test('missing target -> NOT_FOUND', async () => {
+      const res = await store.remove('/absent', false);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('NOT_FOUND');
+    });
+
+    test('the root itself cannot be removed', async () => {
+      await writeFile(path.join(root, 'sentinel.txt'), 'x');
+
+      const res = await store.remove('/', true);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('PERMISSION_DENIED');
+      expect((await stat(root)).isDirectory()).toBe(true);
+      await expect(
+        readFile(path.join(root, 'sentinel.txt'), 'utf8'),
+      ).resolves.toBe('x');
+    });
+
+    test('escaping path -> OUT_OF_ROOT', async () => {
+      const res = await store.remove('../outside', true);
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
     });
   });
 });

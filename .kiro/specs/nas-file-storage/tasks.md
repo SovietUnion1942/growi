@@ -42,7 +42,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 4.1, 8.4_
   - _Boundary: FsNasFileStore_
   - _Depends: 1.1, 1.2, 1.3_
-- [ ] 2.2 FsNasFileStore の書き込み操作を実装する
+- [x] 2.2 FsNasFileStore の書き込み操作を実装する
   - `moveIntoRoot` は同一デバイスで `rename`、`EXDEV` 時のみ `${root}/.growi-nas-tmp/` 経由の copy+rename にフォールバックする
   - 非上書き時は宛先を `wx` フラグまたは `link` で排他生成し、`EEXIST` を `CONFLICT` に正規化する（事前 exists 確認は行わない）
   - `mkdir` / `move` / `remove`（recursive 指定でフォルダ配下ごと）を実装し、`remove` はルート自身を対象にできないようにする
@@ -180,3 +180,4 @@
 ## Implementation Notes
 
 - 1.3: パス封じ込めは「最近接の実在祖先を realpath」だけでは不十分。root 内の宙ぶらりんシンボリックリンク（ターゲット不在＝ENOENT）を「未作成の通常ディレクトリ」と誤認して素通りし脱出しうる。`realpath(root)` からトップダウンに各コンポーネントを lstat/realpath で解決し、宙ぶらりんリンクは readlink+realpath(dirname)、確認不能は fail-closed で OUT_OF_ROOT にする。全 store の書き込み経路はこの resolveSafePath 戻り値のみを使うこと。
+- 2.2: `move(overwrite=true)` が既存の非空ディレクトリに当たると `ENOTEMPTY`。`normalizeNasError` に ENOTEMPTY エントリがなく `UNKNOWN` になる。normalizeNasError 拡張は task 1.4 境界のため保留 → サービス/ルート層(2.4/3.2)で 409 相当に整えるか、後日 mapper に追加。

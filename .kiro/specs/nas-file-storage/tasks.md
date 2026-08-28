@@ -89,7 +89,7 @@
   - _Requirements: 1.3, 1.4, 8.2_
   - _Boundary: setupNasStorageAdmin_
   - _Depends: 2.3_
-- [ ] 3.4 非結合ドリフト spec を追加する
+- [x] 3.4 非結合ドリフト spec を追加する
   - feature 配下の全モジュールが `Attachment` モデル・`server/service/file-uploader`・添付 apiv3 ルート・共有リンク発行系を import しないことを静的に検査する
   - 完了状態: spec が緑で、禁止 import を一時的に追加すると失敗する（ミューテーション確認）
   - _Requirements: 1.5, 6.6, 7.1, 7.4_

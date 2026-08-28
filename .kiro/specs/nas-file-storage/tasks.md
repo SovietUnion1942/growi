@@ -83,7 +83,7 @@
   - 完了状態: 統合テストで各エンドポイントの正常系、範囲外パスの 422、機能無効時の全 404、サイズ超過の 413 が確認できる
   - _Requirements: 1.2, 2.1, 2.4, 3.1, 3.3, 4.1, 4.3, 5.1, 5.2, 5.3, 6.2, 6.5, 7.3, 8.3_
   - _Depends: 2.4, 3.1_
-- [ ] 3.3 (P) 管理者向け apiv3 ルーター setupNasStorageAdmin を実装する
+- [x] 3.3 (P) 管理者向け apiv3 ルーター setupNasStorageAdmin を実装する
   - `adminRequired` を適用した `GET /status` を実装し、`enabled` / `NasRootStatus`（misconfigured の reason 含む）/ `groupRestriction` / `maxFileSizeBytes` を返す
   - 完了状態: 統合テストで有効時・未設定時・不備時それぞれのステータス JSON が返ることが確認できる
   - _Requirements: 1.3, 1.4, 8.2_

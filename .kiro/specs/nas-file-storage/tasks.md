@@ -23,7 +23,7 @@
   - _Requirements: 2.5, 3.5, 4.3, 5.5, 6.5, 7.2_
   - _Boundary: resolveSafePath_
   - _Depends: 1.1_
-- [ ] 1.4 (P) エラー正規化 normalizeNasError を実装する
+- [x] 1.4 (P) エラー正規化 normalizeNasError を実装する
   - `fs` の errno（ENOENT / EEXIST / EACCES / EPERM / EISDIR / ENOTDIR など）を `NasErrorCode` に対応付ける
   - ルート自体への ENOENT / EACCES は `STORAGE_UNAVAILABLE` に分類する
   - 利用者向け `message` から絶対パス・errno・スタックを除去し、詳細は logger に渡せる形で保持する

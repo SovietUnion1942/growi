@@ -15,7 +15,7 @@
   - _Requirements: 1.1, 1.2, 3.3, 6.3, 8.4_
   - _Boundary: NasStorageConfig_
   - _Depends: 1.1_
-- [ ] 1.3 (P) パス封じ込め関数 resolveSafePath を実装する
+- [x] 1.3 (P) パス封じ込め関数 resolveSafePath を実装する
   - 論理パスを正規化し、`..` セグメントと絶対パス注入を除去する
   - `path.join` → `path.resolve` → `isPathWithinBase` で境界判定し、範囲外は `OUT_OF_ROOT` を返す
   - 実在する最近接祖先の `realpath` を取り、その結果に対しても境界判定を行う（シンボリックリンク脱出防止）
@@ -176,3 +176,7 @@
   - 完了状態: 上記の主要ユーザーフローが E2E で通る
   - _Requirements: 1.2, 1.3, 1.4, 2.1, 3.1, 4.1, 5.2, 5.6_
   - _Depends: 5.5, 5.6, 5.7_
+
+## Implementation Notes
+
+- 1.3: パス封じ込めは「最近接の実在祖先を realpath」だけでは不十分。root 内の宙ぶらりんシンボリックリンク（ターゲット不在＝ENOENT）を「未作成の通常ディレクトリ」と誤認して素通りし脱出しうる。`realpath(root)` からトップダウンに各コンポーネントを lstat/realpath で解決し、宙ぶらりんリンクは readlink+realpath(dirname)、確認不能は fail-closed で OUT_OF_ROOT にする。全 store の書き込み経路はこの resolveSafePath 戻り値のみを使うこと。

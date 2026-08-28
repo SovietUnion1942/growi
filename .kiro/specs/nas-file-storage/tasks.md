@@ -33,7 +33,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: ストア層とサービス層
-- [ ] 2.1 FsNasFileStore の読み取り操作を実装する
+- [x] 2.1 FsNasFileStore の読み取り操作を実装する
   - `list` は対象ディレクトリを全件 `readdir` → 名前昇順に安定ソート → `cursor` 以降を `limit`（既定 100 / 最大 500）件スライスして返す（早期打ち切りはしない）
   - エントリ総数が `maxEntriesPerDir`（既定 50,000）超のとき列挙せず `TOO_MANY_ENTRIES` を返す
   - `includeHidden=false` で `.` 始まりと既定除外名（`.growi-nas-tmp` / `.DS_Store` / `Thumbs.db` / `@eaDir`）を除外する

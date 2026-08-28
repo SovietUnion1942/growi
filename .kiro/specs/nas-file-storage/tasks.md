@@ -7,7 +7,7 @@
   - すべてクライアントからも import 可能な型のみで構成し、barrel から公開する
   - 完了状態: 型がコンパイルを通り、feature の interfaces barrel から名前付き export される
   - _Requirements: 2.1, 2.4, 8.2_
-- [ ] 1.2 (P) 環境変数アクセサ NasStorageConfig を実装する
+- [x] 1.2 (P) 環境変数アクセサ NasStorageConfig を実装する
   - `GROWI_NAS_ROOT` / `GROWI_NAS_GROUP` / `GROWI_NAS_MAX_FILE_SIZE` / `GROWI_NAS_SHOW_HIDDEN` / `GROWI_NAS_MAX_ENTRIES_PER_DIR` を `process.env` から型付きで読み出す（`configManager` は経由しない）
   - `resolveRoot()` は絶対パスに解決し、`isEnabled()` はルート設定有無を返す
   - 未設定・空文字は無効として扱う

@@ -50,7 +50,7 @@
   - 完了状態: 単体テストで EXDEV フォールバック時の中間物なし、途中失敗時の不完全ファイルなし、排他生成による衝突検出が確認できる
   - _Requirements: 3.1, 3.2, 3.4, 5.1, 5.2, 5.3, 7.2_
   - _Depends: 2.1_
-- [ ] 2.3 (P) RootHealthChecker を実装する
+- [x] 2.3 (P) RootHealthChecker を実装する
   - `probeOnBoot` でルートの存在・ディレクトリ判定・読み書き可否を判定し `unconfigured` / `misconfigured(reason)` / `ready` を確定する
   - `getStatus` は現在状態を返し、`ensureReady` は各操作の入口で軽量 `fs.access` を行い `ready` ↔ `unavailable` のみ遷移させる
   - 完了状態: 単体テストで missing / not-a-directory / not-writable の判定と、`misconfigured` が起動時判定を維持したまま `ready↔unavailable` のみ動くことが確認できる

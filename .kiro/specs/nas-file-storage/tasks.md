@@ -75,7 +75,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
   - _Boundary: nasAccess_
   - _Depends: 1.2_
-- [ ] 3.2 利用者向け apiv3 ルーター setupNasStorage を実装する
+- [x] 3.2 利用者向け apiv3 ルーター setupNasStorage を実装する
   - `GET /entries`（一覧・ページング）、`GET /file`（ダウンロード、元ファイル名を `Content-Disposition` で保持）、`POST /files`（multipart、`multer` の `limits.fileSize` を `maxFileSize()` に設定）、`POST /folders`、`PATCH /entries`（rename / move）、`DELETE /entries`（recursive 指定）を実装する
   - 全ルートに `nasAccess` を router レベルで適用する
   - `NasErrorCode` を HTTP ステータスへ機械マッピングする（CONFLICT→409＋suggestedName、TOO_LARGE→413＋limitBytes、TOO_MANY_ENTRIES→409＋limitEntries、OUT_OF_ROOT→422、STORAGE_UNAVAILABLE→503 など）
@@ -181,3 +181,5 @@
 
 - 1.3: パス封じ込めは「最近接の実在祖先を realpath」だけでは不十分。root 内の宙ぶらりんシンボリックリンク（ターゲット不在＝ENOENT）を「未作成の通常ディレクトリ」と誤認して素通りし脱出しうる。`realpath(root)` からトップダウンに各コンポーネントを lstat/realpath で解決し、宙ぶらりんリンクは readlink+realpath(dirname)、確認不能は fail-closed で OUT_OF_ROOT にする。全 store の書き込み経路はこの resolveSafePath 戻り値のみを使うこと。
 - 2.2: `move(overwrite=true)` が既存の非空ディレクトリに当たると `ENOTEMPTY`。`normalizeNasError` に ENOTEMPTY エントリがなく `UNKNOWN` になる。normalizeNasError 拡張は task 1.4 境界のため保留 → サービス/ルート層(2.4/3.2)で 409 相当に整えるか、後日 mapper に追加。
+- 3.2: `GET /file` は `stream.pipe(res)` のみで、クライアント切断/`res` エラー時に `stream` を destroy していない → 中断ダウンロードで fd リークの可能性。5.x のクライアント実装後、余力で `res.on('close')` で `stream.destroy()` を追加。
+- 3.2: design.md の INVALID_PATH は 400(L531/API表) と 422(L533) で矛盾。実装は 400 採用。spec-cleanup で解消すること。

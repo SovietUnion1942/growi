@@ -1165,7 +1165,8 @@
       "invalid_name_empty": "Enter a file name.",
       "invalid_name_dots": "\".\" and \"..\" cannot be used as a file name.",
       "invalid_name_separator": "A file name cannot contain path separators.",
-      "invalid_name_length": "The file name is too long."
+      "invalid_name_length": "The file name is too long.",
+      "size_hint": "Up to 100 MB per file (limited by the reverse proxy / CDN)."
     },
     "confirm": {
       "delete_title": "Delete item",

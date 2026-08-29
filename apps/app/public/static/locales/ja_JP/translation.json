@@ -1205,7 +1205,8 @@
       "invalid_name_empty": "ファイル名を入力してください。",
       "invalid_name_dots": "「.」および「..」はファイル名として使用できません。",
       "invalid_name_separator": "ファイル名にパス区切り文字は使用できません。",
-      "invalid_name_length": "ファイル名が長すぎます。"
+      "invalid_name_length": "ファイル名が長すぎます。",
+      "size_hint": "1ファイルあたり最大100MBまで（リバースプロキシ／CDN の制限による）。"
     },
     "confirm": {
       "delete_title": "項目を削除",

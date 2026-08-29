@@ -147,7 +147,7 @@
   - _Requirements: 1.2_
   - _Boundary: pages/nas, PrimaryItems, NasStorageNavItem_
   - _Depends: 5.2, 4.2_
-- [ ] 5.6 (P) 管理画面のステータス表示を実装する
+- [x] 5.6 (P) 管理画面のステータス表示を実装する
   - 管理画面に `NasStorageAdminStatus` を追加し、有効状態・ルート解決結果・`misconfigured` の理由を読み取り表示する
   - 完了状態: 管理画面で `ready` / `unconfigured` / `misconfigured(reason)` が正しく表示される
   - _Requirements: 1.3, 1.4_

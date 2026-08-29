@@ -4,11 +4,14 @@ import { mock } from 'vitest-mock-extended';
 import type { Logger } from '~/utils/logger';
 
 import type {
+  BeginChunkedUploadInput,
   NasEntry,
   NasFileStore,
   NasListQuery,
   PutFileInput,
 } from '../../interfaces';
+import type { NasStorageConfig } from '../config/nas-storage-config';
+import type { ChunkedUploadRegistry } from './chunked-upload-registry';
 import { createNasStorageService } from './nas-storage-service';
 import type { RootHealthChecker } from './root-health-checker';
 
@@ -36,19 +39,44 @@ const putInput = (overrides?: Partial<PutFileInput>): PutFileInput => ({
   ...overrides,
 });
 
-const setup = (rootReady = true) => {
+const beginInput = (
+  overrides?: Partial<BeginChunkedUploadInput>,
+): BeginChunkedUploadInput => ({
+  userId: 'user-1',
+  dirLogicalPath: '/docs',
+  targetName: 'big.zip',
+  totalBytes: 42,
+  overwrite: false,
+  ...overrides,
+});
+
+const setup = (rootReady = true, maxFileSize?: number) => {
   const store = mock<NasFileStore>();
   const health = mock<RootHealthChecker>();
   const logger = mock<Logger>();
+  const registry = mock<ChunkedUploadRegistry>();
+  const config = mock<Pick<NasStorageConfig, 'maxFileSize'>>();
 
+  config.maxFileSize.mockReturnValue(maxFileSize);
   health.ensureReady.mockResolvedValue(
     rootReady
       ? { state: 'ready', resolvedRoot: '/nas' }
       : { state: 'unavailable', resolvedRoot: '/nas' },
   );
+  // A resolvable-but-absent destination is the common case for `begin`.
+  store.statEntry.mockResolvedValue({
+    ok: false,
+    error: { code: 'NOT_FOUND', message: 'nas_storage.error.not_found' },
+  });
 
-  const service = createNasStorageService({ store, health, logger });
-  return { store, health, logger, service };
+  const service = createNasStorageService({
+    store,
+    health,
+    logger,
+    registry,
+    config,
+  });
+  return { store, health, logger, registry, config, service };
 };
 
 describe('createNasStorageService', () => {
@@ -442,6 +470,227 @@ describe('createNasStorageService', () => {
 
       expect(store.remove).toHaveBeenCalledWith('/docs/a.pdf', true);
       expect(result.ok).toBe(true);
+    });
+  });
+
+  describe('beginChunkedUpload', () => {
+    it('delegates to registry.begin with the mapped session args and returns its result', async () => {
+      const { registry, store, service } = setup();
+      registry.begin.mockResolvedValue({
+        ok: true,
+        value: { uploadId: 'up-1', chunkSize: 8 * 1024 * 1024 },
+      });
+
+      const result = await service.beginChunkedUpload(beginInput());
+
+      expect(store.statEntry).toHaveBeenCalledWith('/docs/big.zip');
+      expect(registry.begin).toHaveBeenCalledWith({
+        userId: 'user-1',
+        dirLogicalPath: '/docs',
+        targetName: 'big.zip',
+        totalBytes: 42,
+        overwrite: false,
+      });
+      expect(result).toEqual({
+        ok: true,
+        value: { uploadId: 'up-1', chunkSize: 8 * 1024 * 1024 },
+      });
+    });
+
+    it('rejects a declared size over the configured limit with TOO_LARGE + limitBytes and never calls the registry', async () => {
+      const { registry, service } = setup(true, 100);
+
+      const result = await service.beginChunkedUpload(
+        beginInput({ totalBytes: 200 }),
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('TOO_LARGE');
+        expect(result.error.limitBytes).toBe(100);
+      }
+      expect(registry.begin).not.toHaveBeenCalled();
+    });
+
+    it('allows a declared size exactly at the limit', async () => {
+      const { registry, service } = setup(true, 100);
+      registry.begin.mockResolvedValue({
+        ok: true,
+        value: { uploadId: 'up-1', chunkSize: 1 },
+      });
+
+      const result = await service.beginChunkedUpload(
+        beginInput({ totalBytes: 100 }),
+      );
+
+      expect(result.ok).toBe(true);
+      expect(registry.begin).toHaveBeenCalled();
+    });
+
+    it('rejects a destination path that escapes the root and never calls the registry', async () => {
+      const { registry, store, service } = setup();
+      store.statEntry.mockResolvedValue({
+        ok: false,
+        error: {
+          code: 'OUT_OF_ROOT',
+          message: 'nas_storage.error.out_of_root',
+        },
+      });
+
+      const result = await service.beginChunkedUpload(
+        beginInput({ dirLogicalPath: '/../etc', targetName: 'passwd' }),
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('OUT_OF_ROOT');
+      }
+      expect(registry.begin).not.toHaveBeenCalled();
+    });
+
+    it('proceeds when the destination already exists (conflict is handled on complete)', async () => {
+      const { registry, store, service } = setup();
+      store.statEntry.mockResolvedValue({
+        ok: true,
+        value: fileEntry('big.zip'),
+      });
+      registry.begin.mockResolvedValue({
+        ok: true,
+        value: { uploadId: 'up-1', chunkSize: 1 },
+      });
+
+      const result = await service.beginChunkedUpload(beginInput());
+
+      expect(result.ok).toBe(true);
+      expect(registry.begin).toHaveBeenCalled();
+    });
+
+    it('returns STORAGE_UNAVAILABLE without touching the registry when the root is not ready', async () => {
+      const { registry, store, service } = setup(false);
+
+      const result = await service.beginChunkedUpload(beginInput());
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('STORAGE_UNAVAILABLE');
+      }
+      expect(store.statEntry).not.toHaveBeenCalled();
+      expect(registry.begin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('appendChunk', () => {
+    it('delegates to registry.append with the same args', async () => {
+      const { registry, service } = setup();
+      const chunk = new PassThrough();
+      registry.append.mockResolvedValue({
+        ok: true,
+        value: { receivedBytes: 16 },
+      });
+
+      const result = await service.appendChunk('up-1', 'user-1', 0, chunk);
+
+      expect(registry.append).toHaveBeenCalledWith('up-1', 'user-1', 0, chunk);
+      expect(result).toEqual({ ok: true, value: { receivedBytes: 16 } });
+    });
+
+    it('returns STORAGE_UNAVAILABLE without touching the registry when the root is not ready', async () => {
+      const { registry, service } = setup(false);
+
+      const result = await service.appendChunk(
+        'up-1',
+        'user-1',
+        0,
+        new PassThrough(),
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('STORAGE_UNAVAILABLE');
+      }
+      expect(registry.append).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('completeChunkedUpload', () => {
+    it('passes a successful finalized entry through', async () => {
+      const { registry, service } = setup();
+      const entry = fileEntry('big.zip');
+      registry.complete.mockResolvedValue({ ok: true, value: entry });
+
+      const result = await service.completeChunkedUpload('up-1', 'user-1');
+
+      expect(registry.complete).toHaveBeenCalledWith('up-1', 'user-1');
+      expect(result).toEqual({ ok: true, value: entry });
+    });
+
+    it('passes a CONFLICT from the registry through', async () => {
+      const { registry, service } = setup();
+      registry.complete.mockResolvedValue({
+        ok: false,
+        error: { code: 'CONFLICT', message: 'nas_storage.error.conflict' },
+      });
+
+      const result = await service.completeChunkedUpload('up-1', 'user-1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('CONFLICT');
+      }
+    });
+
+    it('returns STORAGE_UNAVAILABLE without touching the registry when the root is not ready', async () => {
+      const { registry, service } = setup(false);
+
+      const result = await service.completeChunkedUpload('up-1', 'user-1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('STORAGE_UNAVAILABLE');
+      }
+      expect(registry.complete).not.toHaveBeenCalled();
+    });
+
+    it('logs an error when the registry returns a failure', async () => {
+      const { registry, logger, service } = setup();
+      registry.complete.mockResolvedValue({
+        ok: false,
+        error: {
+          code: 'UPLOAD_SESSION_NOT_FOUND',
+          message: 'nas_storage.error.upload_session_not_found',
+        },
+      });
+
+      await service.completeChunkedUpload('up-1', 'user-1');
+
+      expect(logger.error).toHaveBeenCalled();
+      const [detail, message] = logger.error.mock.calls[0];
+      expect(String(message)).toContain('completeChunkedUpload');
+      expect(detail).toMatchObject({ errorCode: 'UPLOAD_SESSION_NOT_FOUND' });
+    });
+  });
+
+  describe('abortChunkedUpload', () => {
+    it('delegates to registry.abort with the same args', async () => {
+      const { registry, service } = setup();
+      registry.abort.mockResolvedValue({ ok: true, value: undefined });
+
+      const result = await service.abortChunkedUpload('up-1', 'user-1');
+
+      expect(registry.abort).toHaveBeenCalledWith('up-1', 'user-1');
+      expect(result.ok).toBe(true);
+    });
+
+    it('returns STORAGE_UNAVAILABLE without touching the registry when the root is not ready', async () => {
+      const { registry, service } = setup(false);
+
+      const result = await service.abortChunkedUpload('up-1', 'user-1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('STORAGE_UNAVAILABLE');
+      }
+      expect(registry.abort).not.toHaveBeenCalled();
     });
   });
 

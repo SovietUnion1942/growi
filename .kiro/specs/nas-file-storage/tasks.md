@@ -259,7 +259,7 @@
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7_
   - _Boundary: ChunkedUploadRegistry_
   - _Depends: 9.1, 2.4_
-- [ ] 9.3 サービスに分割アップロード調停を追加する
+- [x] 9.3 サービスに分割アップロード調停を追加する
   - サービスに開始・追記・完了・中止のユースケースを追加し、レジストリへ委譲する薄いラッパとする。開始時に宛先パスの範囲検証と宣言サイズの上限チェックを行う
   - 完了状態: 単体テストで開始時に範囲外パスを弾き、宣言サイズが上限超で拒否、各ユースケースがレジストリを正しく呼ぶ
   - _Requirements: 10.1, 10.5_
@@ -377,3 +377,5 @@
 - 9.2: `complete` の `CONFLICT` は `suggestedName` 無しのプレーン返却。task 9.3 の `completeChunkedUpload` ラッパで `putFile` と同様に `suggestedName` を付与すること（`NasStorageService` の採番ロジックは private クロージャなので、9.3 で共有ヘルパー抽出 or ラッパで再現）。
 - 9.2: サイズ不一致は `{ code: 'UNKNOWN', message: 'nas_storage.error.chunk_size_mismatch' }`。i18n キー `nas_storage.error.chunk_size_mismatch` を task 11.7 で追加すること。
 - 9.2: `chunkedUploadRegistry` シングルトンは `rootHealthChecker` と同様モジュール読み込み時に生成。sweeper の boot/interval 起動は task 10.1。
+- 9.3: `completeChunkedUpload` は現状プレーン `CONFLICT` を素通し（session が drop 済みで宛先名が分からないため in-boundary で `suggestedName` 付与不可）。design の API 契約は `409 (CONFLICT + suggestedName)`。**task 9.4 で対応**: `ChunkedUploadRegistry.complete` の CONFLICT エラーに `dirLogicalPath`+`targetName`（または算出済み `suggestedName`）を載せ、`completeChunkedUpload` が共有ヘルパー `suggestNonConflictingName` で enrich する。共有ヘルパーは 9.3 で抽出済み。
+- 9.3: `splitFileName`（`lastIndexOf('.')` ベース）は `..foo` のような病的名で旧 `path.extname` ベースと分岐（`. (1).foo` vs `..foo (1)`）。実害ほぼ無し。

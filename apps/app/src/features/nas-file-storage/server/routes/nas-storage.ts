@@ -20,6 +20,7 @@ import loggerFactory from '~/utils/logger';
 
 import { nasStorageConfig } from '../config/nas-storage-config';
 import { createNasAccessMiddleware } from '../middlewares/nas-access';
+import { nasContentDisposition } from '../services/nas-content-disposition';
 import type { NasStorageService } from '../services/nas-storage-service';
 import { getNasStorageService } from '../services/nas-storage-service';
 import type { RootHealthChecker } from '../services/root-health-checker';
@@ -107,13 +108,25 @@ const clampLimit = (raw: unknown): number => {
 };
 
 /**
- * Build a `Content-Disposition: attachment` value that keeps the original name
- * (RFC 5987 `filename*` for non-ASCII, plus a quote-stripped ASCII fallback).
+ * Build a `Content-Disposition` value that keeps the original name (RFC 5987
+ * `filename*` for non-ASCII, plus a quote-stripped ASCII fallback). The kind is
+ * `attachment` (download) unless the delivery decision granted `inline`.
  */
-const contentDisposition = (name: string): string => {
+const contentDisposition = (
+  name: string,
+  kind: 'inline' | 'attachment' = 'attachment',
+): string => {
   const asciiFallback = name.replace(/["\\]/g, '').replace(/[\r\n]/g, '');
-  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+  return `${kind}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 };
+
+/**
+ * XSS hardening for every `GET /file` response (Req 9.6): a locked-down CSP plus
+ * `nosniff`, so an uploaded file served from the wiki's own origin can never
+ * execute — matching GROWI's attachment-delivery policy.
+ */
+const DELIVERY_CSP =
+  "default-src 'none'; media-src 'self'; img-src 'self'; style-src 'unsafe-inline'; object-src 'none';";
 
 export interface SetupNasStorageDeps {
   /** Injectable for tests; defaults to the env-wired singleton service. */
@@ -188,29 +201,46 @@ export const setupNasStorage = (
 
   router.get('/file', async (req: Request, res: ApiV3Response) => {
     const logicalPath = asString(req.query.path) ?? '';
+    const inlineRequested = parseBool(req.query.inline);
 
-    const result = await service.download(logicalPath);
+    const result = await service.resolveContent(logicalPath);
     if (!result.ok) {
       respondNasError(res, result.error);
       return;
     }
 
-    const { stream, entry } = result.value;
-    res.setHeader('Content-Disposition', contentDisposition(entry.name));
-    res.setHeader('Content-Type', 'application/octet-stream');
-    if (entry.sizeBytes > 0) {
-      res.setHeader('Content-Length', String(entry.sizeBytes));
-    }
+    const { absolutePath, entry } = result.value;
+    const delivery = nasContentDisposition(entry.name, { inlineRequested });
 
-    stream.on('error', (err) => {
-      logger.error('nas-storage download stream failed', err);
-      if (!res.headersSent) {
+    // Headers before sendFile: `send` keeps a Content-Type we already set, so our
+    // extension-derived (and deliberately non-executable) type wins over its own
+    // mime sniffing. CSP + nosniff ride on every response (Req 9.6).
+    res.setHeader('Content-Type', delivery.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      contentDisposition(entry.name, delivery.disposition),
+    );
+    res.setHeader('Content-Security-Policy', DELIVERY_CSP);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Range / conditional-GET / 206 are delegated to Express (design invariant:
+    // the route never builds a path — it forwards `resolveContent`'s absolute one).
+    res.sendFile(
+      absolutePath,
+      { acceptRanges: true, cacheControl: false, lastModified: true },
+      (err) => {
+        if (err == null) {
+          return;
+        }
+        if (res.headersSent) {
+          logger.error({ err }, 'nas-storage sendFile failed after headers');
+          res.destroy(err instanceof Error ? err : undefined);
+          return;
+        }
+        logger.error({ err }, 'nas-storage sendFile failed');
         res.apiv3Err(new ErrorV3('nas_storage.error.unknown', 'UNKNOWN'), 500);
-        return;
-      }
-      res.destroy(err instanceof Error ? err : undefined);
-    });
-    stream.pipe(res);
+      },
+    );
   });
 
   router.post(

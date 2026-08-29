@@ -134,7 +134,11 @@ export const setup = (crowi, app) => {
   // vault admin API (GET /status, POST /bootstrap, PUT /enabled, POST /reconcile)
   routerForAdmin.use('/vault', createVaultAdminRouterWithDeps(crowi));
   // NAS file storage admin API (GET /status)
-  routerForAdmin.use('/nas-storage', setupNasStorageAdmin(crowi));
+  // Mounted under /admin/ so the endpoint is /_api/v3/admin/nas-storage/status,
+  // matching the client hook (use-nas-admin-status) and the integration tests.
+  // A bare '/nas-storage' here would collide with the non-admin apiV3Router
+  // mount of the same name and never reach this handler.
+  routerForAdmin.use('/admin/nas-storage', setupNasStorageAdmin(crowi));
 
   // auth
   const applicationInstalled = setupApplicationInstalled(crowi);

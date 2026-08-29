@@ -217,6 +217,12 @@ export const NasUploadDropzone = ({
             ? t('nas_storage.upload.drop_active')
             : t('nas_storage.upload.drop_here')}
         </p>
+        <p
+          className="mb-0 mt-1 small text-muted"
+          data-testid="nas-upload-size-hint"
+        >
+          {t('nas_storage.upload.size_hint')}
+        </p>
       </div>
 
       {items.length > 0 && (

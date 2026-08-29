@@ -3,6 +3,12 @@ import loggerFactory from '~/utils/logger';
 
 import { rootHealthChecker } from './services/root-health-checker';
 
+export {
+  type ChunkedUploadRegistry,
+  chunkedUploadRegistry,
+  createChunkedUploadRegistry,
+} from './services/chunked-upload-registry';
+
 /**
  * Feature-enabled verdict for the client: true only when the boot-fixed root
  * health status is `ready`. Kept in the Express realm (called via the crowi

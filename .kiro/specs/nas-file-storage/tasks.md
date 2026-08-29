@@ -250,7 +250,7 @@
   - _Requirements: 10.1, 10.4_
   - _Boundary: FsNasFileStore_
   - _Depends: 2.2_
-- [ ] 9.2 分割アップロードセッションレジストリを実装する
+- [x] 9.2 分割アップロードセッションレジストリを実装する
   - 在メモリでセッションを管理する。開始で一時ファイルを作成、追記でオフセット・開始ユーザー・セッション存在を検証、完了で受信量と宣言サイズの一致および 1 ファイル上限を検証してから既存の原子的移動でルートへ確定する
   - 完了時の宛先衝突は単発アップロードと同じ扱い（利用者の指定なしに上書きしない）
   - 受信量が宣言サイズと一致しない場合は保存せず一時ファイルを破棄する
@@ -374,3 +374,6 @@
 - POST-IMPL: `GROWI_NAS_ENABLED` master スイッチをユーザー要望で追加（既定 false・明示 opt-in）。`RootHealthChecker` に `disabled` 状態を追加（`unconfigured` と区別）。admin パネル・i18n・requirements.md Req 1・design.md（NasRootStatus / 状態図 / env 一覧）更新。テストは注入 config が `enabled` を持たない場合は opted-in 扱いで後方互換。`growi-docker-compose` の `feat/nas-file-storage` ブランチに `GROWI_NAS_ENABLED` / `GROWI_NAS_HOST_PATH` の compose 配線 + `.env.example` を追加。
 - 9.1: `normalize-nas-error.ts` の `KNOWN_CODES` に `UPLOAD_SESSION_NOT_FOUND` / `CHUNK_OUT_OF_ORDER` が無いため、store が `logicalNasError` ヘルパーでメッセージ形式を局所再現している（`normalizeNasError` と byte 一致を確認済み）。task 9.2 でこの 2 コードを `KNOWN_CODES` に追加し `logicalNasError` を削除して単一情報源に戻すこと。
 - 9.1: `.part` の containment は語彙チェック（`isTmpPartPath`）＋ `appendChunk`/`discardPart` の `lstat` シンボリックリンク拒否で対応。`createPart` は `open(..., 'wx')`（O_EXCL）でシンボリックリンク経由の作成を弾く。design Security §パス封じ込めの「realpath 再チェック」までは未実装（tmp ディレクトリはアプリ作成・partPath は UUID 由来のため実害低）。
+- 9.2: `complete` の `CONFLICT` は `suggestedName` 無しのプレーン返却。task 9.3 の `completeChunkedUpload` ラッパで `putFile` と同様に `suggestedName` を付与すること（`NasStorageService` の採番ロジックは private クロージャなので、9.3 で共有ヘルパー抽出 or ラッパで再現）。
+- 9.2: サイズ不一致は `{ code: 'UNKNOWN', message: 'nas_storage.error.chunk_size_mismatch' }`。i18n キー `nas_storage.error.chunk_size_mismatch` を task 11.7 で追加すること。
+- 9.2: `chunkedUploadRegistry` シングルトンは `rootHealthChecker` と同様モジュール読み込み時に生成。sweeper の boot/interval 起動は task 10.1。

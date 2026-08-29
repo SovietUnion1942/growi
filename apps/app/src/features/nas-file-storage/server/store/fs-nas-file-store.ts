@@ -17,8 +17,6 @@ import { pipeline } from 'node:stream/promises';
 import type {
   AppendChunkInput,
   NasEntry,
-  NasError,
-  NasErrorCode,
   NasFileStore,
   NasListPage,
   NasListQuery,
@@ -84,16 +82,6 @@ const entryFromStat = (name: string, stats: Stats): NasEntry => {
     sizeBytes: type === 'directory' ? 0 : stats.size,
     modifiedAt: stats.mtime.toISOString(),
   };
-};
-
-/**
- * Build a `NasError` for a purely logical failure that has no underlying errno.
- * `normalizeNasError` only recognises fs errnos and pre-classified path codes, so
- * the chunked-upload logical codes (`CHUNK_OUT_OF_ORDER`,
- * `UPLOAD_SESSION_NOT_FOUND`) are constructed here in the same stable shape.
- */
-const logicalNasError = (code: NasErrorCode): NasError => {
-  return { code, message: `nas_storage.error.${code.toLowerCase()}` };
 };
 
 /** A single path segment safe to place inside `.growi-nas-tmp/` (defense in depth). */
@@ -354,7 +342,7 @@ export class FsNasFileStore implements NasFileStore {
       if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') {
         return {
           ok: false,
-          error: logicalNasError('UPLOAD_SESSION_NOT_FOUND'),
+          error: normalizeNasError({ code: 'UPLOAD_SESSION_NOT_FOUND' }),
         };
       }
       return { ok: false, error: normalizeNasError(err) };
@@ -362,7 +350,10 @@ export class FsNasFileStore implements NasFileStore {
 
     // Sequential-append guard: a gap, overlap or reorder is rejected without writing.
     if (currentSize !== expectedOffset) {
-      return { ok: false, error: logicalNasError('CHUNK_OUT_OF_ORDER') };
+      return {
+        ok: false,
+        error: normalizeNasError({ code: 'CHUNK_OUT_OF_ORDER' }),
+      };
     }
 
     try {

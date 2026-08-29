@@ -285,6 +285,7 @@
     "not_found_global_notification_triggerid": "Not found the global notification id"
   },
   "elasticsearch_management": "Elasticsearch management",
+  "nas_storage_management": "NAS Storage",
   "page_data_index_management": {
     "page_data_management": "Page Data Management",
     "connection_status": "Connection status",

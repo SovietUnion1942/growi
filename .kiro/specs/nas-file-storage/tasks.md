@@ -159,7 +159,7 @@
   - _Requirements: 8.2_
   - _Boundary: locales_
   - _Depends: 5.2, 5.3, 5.4, 5.6_
-- [ ] 5.8 管理画面セクションのマウント（設計ギャップ補完・明示的統合タスク）
+- [x] 5.8 管理画面セクションのマウント（設計ギャップ補完・明示的統合タスク）
   - `apps/app/src/pages/admin/nas-storage.page.tsx` を `src/pages/admin/vault.page.tsx` に倣って追加（`NextPageWithLayout` + `AdminLayout` の `getLayout` + `getServerSideProps` で common/admin props 組み立て）し `<NasStorageAdminStatus />` を描画する
   - `apps/app/src/components/Admin/Common/AdminNavigation.tsx` にアイコン `case` / `MenuLink` / `MenuLabel` の3点を追加し `AdminNavigation.spec.tsx` を更新する
   - `admin` ロケール名前空間に該当セクションのラベルを追加する

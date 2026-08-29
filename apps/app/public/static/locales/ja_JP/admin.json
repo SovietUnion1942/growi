@@ -294,6 +294,7 @@
     "not_found_global_notification_triggerid": "アクセス先の通知設定は見つかりませんでした"
   },
   "elasticsearch_management": "Elasticsearch 管理",
+  "nas_storage_management": "NAS ストレージ",
   "page_data_index_management": {
     "page_data_management": "ページデータ管理",
     "connection_status": "接続の状態",

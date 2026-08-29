@@ -284,8 +284,9 @@ describe('NasStorageBrowser', () => {
   });
 
   describe('toolbar composition', () => {
-    it('creates a folder from the New Folder control and closes the input', async () => {
-      mocks.useNasList.mockReturnValue(makeResult({ entries: [] }));
+    it('creates a folder, refreshes the listing, and closes the input', async () => {
+      const reload = vi.fn().mockResolvedValue(undefined);
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [], reload }));
 
       render(<NasStorageBrowser />);
 
@@ -299,9 +300,29 @@ describe('NasStorageBrowser', () => {
       await userEvent.click(screen.getByTestId('nas-new-folder-submit'));
 
       expect(mocks.createFolder).toHaveBeenCalledWith('designs');
-      // The hook self-revalidates on success — no explicit reload() here.
+      // Regression: a created folder must appear without a manual page reload.
+      expect(reload).toHaveBeenCalled();
       expect(screen.queryByTestId('nas-new-folder-input')).toBeNull();
       expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
+
+    it('does not refresh the listing when the folder create fails', async () => {
+      const reload = vi.fn().mockResolvedValue(undefined);
+      mocks.createFolder.mockRejectedValueOnce({
+        code: 'CONFLICT',
+        message: 'nas_storage.error.conflict',
+      });
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [], reload }));
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.new_folder' }),
+      );
+      await userEvent.type(screen.getByTestId('nas-new-folder-input'), 'dup');
+      await userEvent.click(screen.getByTestId('nas-new-folder-submit'));
+
+      expect(reload).not.toHaveBeenCalled();
+      expect(screen.getByTestId('nas-action-error')).toBeInTheDocument();
     });
 
     it('reveals the upload dropzone from the Upload control', async () => {
@@ -355,7 +376,10 @@ describe('NasStorageBrowser', () => {
 
   describe('row actions', () => {
     it('deletes a row only after the confirm dialog resolves true, with the recursive flag for a directory', async () => {
-      mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));
+      const reload = vi.fn().mockResolvedValue(undefined);
+      mocks.useNasList.mockReturnValue(
+        makeResult({ entries: [dirEntry], reload }),
+      );
       mocks.confirm.mockResolvedValue(true);
 
       render(<NasStorageBrowser />);
@@ -364,8 +388,8 @@ describe('NasStorageBrowser', () => {
       );
 
       expect(mocks.confirm).toHaveBeenCalled();
-      // `remove` self-revalidates the listing in the hook — no explicit reload().
       expect(mocks.remove).toHaveBeenCalledWith('/documents', true);
+      expect(reload).toHaveBeenCalled();
       expect(screen.queryByTestId('nas-action-error')).toBeNull();
     });
 
@@ -383,7 +407,10 @@ describe('NasStorageBrowser', () => {
     });
 
     it('moves without overwrite first, then confirms and retries with overwrite on CONFLICT', async () => {
-      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      const reload = vi.fn().mockResolvedValue(undefined);
+      mocks.useNasList.mockReturnValue(
+        makeResult({ entries: [fileEntry], reload }),
+      );
       mocks.move
         .mockRejectedValueOnce(
           Object.assign(new Error('conflict'), {
@@ -414,7 +441,7 @@ describe('NasStorageBrowser', () => {
         '/renamed.pdf',
         true,
       );
-      // move self-revalidates in the hook — no explicit reload().
+      expect(reload).toHaveBeenCalled();
       expect(screen.queryByTestId('nas-action-error')).toBeNull();
     });
   });

@@ -1,30 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { mutate } from 'swr';
 
 import type { NasEntry } from '~/features/nas-file-storage/interfaces';
 
-import { NAS_LIST_ENDPOINT, nasApiRequest } from './use-nas-list';
-
-/**
- * Revalidate every `useNasList` page series whose key targets `dirPath`. The
- * SWR-Infinite per-page cache keys are the raw `NasListKey` tuples, so a key
- * matcher on `[endpoint, dirPath]` reaches all of them regardless of cursor,
- * `includeHidden`, or page size.
- */
-const revalidateListFor = (dirPath: string): Promise<unknown> =>
-  mutate(
-    (key) =>
-      Array.isArray(key) && key[0] === NAS_LIST_ENDPOINT && key[1] === dirPath,
-    undefined,
-    { revalidate: true },
-  );
-
-/** Parent directory of a full path (`/a/b/c.txt` -> `/a/b`, `/a` -> `/`). */
-const parentDirOf = (fullPath: string): string => {
-  const trimmed = fullPath.replace(/\/+$/, '');
-  const idx = trimmed.lastIndexOf('/');
-  return idx <= 0 ? '/' : trimmed.slice(0, idx);
-};
+import { nasApiRequest } from './use-nas-list';
 
 export interface UseNasEntryActionsResult {
   /**
@@ -44,9 +22,13 @@ export interface UseNasEntryActionsResult {
 }
 
 /**
- * Mutations against the NAS storage API. Every action revalidates the current
- * folder's listing on success (a move also revalidates the destination
- * folder). Failures reject with `NasRequestError` — callers branch on `.code`.
+ * Mutations against the NAS storage API. Failures reject with `NasRequestError`
+ * — callers branch on `.code`.
+ *
+ * These do NOT revalidate any listing. `useNasList` is a `useSWRInfinite` hook,
+ * and a cross-instance `mutate(key-matcher)` does not reach its per-page cache
+ * entries; refreshing the view is the caller's job via `useNasList().reload()`
+ * after a successful action.
  */
 export const useNasEntryActions = (
   currentDirPath: string,
@@ -60,7 +42,7 @@ export const useNasEntryActions = (
   );
 
   const uploadFile = useCallback(
-    async (
+    (
       file: File,
       opts?: { name?: string; overwrite?: boolean },
     ): Promise<NasEntry> => {
@@ -74,56 +56,32 @@ export const useNasEntryActions = (
         form.append('overwrite', String(opts.overwrite));
       }
 
-      const entry = await nasApiRequest<NasEntry>('post', '/files', {
+      return nasApiRequest<NasEntry>('post', '/files', {
         data: form,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      await revalidateListFor(currentDirPath);
-      return entry;
     },
     [currentDirPath],
   );
 
   const createFolder = useCallback(
-    async (name: string): Promise<NasEntry> => {
-      const entry = await nasApiRequest<NasEntry>('post', '/folders', {
+    (name: string): Promise<NasEntry> =>
+      nasApiRequest<NasEntry>('post', '/folders', {
         data: { parentDir: currentDirPath, name },
-      });
-      await revalidateListFor(currentDirPath);
-      return entry;
-    },
+      }),
     [currentDirPath],
   );
 
   const rename = useCallback(
-    async (
-      from: string,
-      to: string,
-      overwrite?: boolean,
-    ): Promise<NasEntry> => {
-      const entry = await patchEntry(from, to, overwrite);
-      await revalidateListFor(currentDirPath);
-      return entry;
-    },
-    [currentDirPath, patchEntry],
+    (from: string, to: string, overwrite?: boolean): Promise<NasEntry> =>
+      patchEntry(from, to, overwrite),
+    [patchEntry],
   );
 
   const move = useCallback(
-    async (
-      from: string,
-      to: string,
-      overwrite?: boolean,
-    ): Promise<NasEntry> => {
-      const entry = await patchEntry(from, to, overwrite);
-      const destDir = parentDirOf(to);
-      await Promise.all(
-        destDir === currentDirPath
-          ? [revalidateListFor(currentDirPath)]
-          : [revalidateListFor(currentDirPath), revalidateListFor(destDir)],
-      );
-      return entry;
-    },
-    [currentDirPath, patchEntry],
+    (from: string, to: string, overwrite?: boolean): Promise<NasEntry> =>
+      patchEntry(from, to, overwrite),
+    [patchEntry],
   );
 
   const remove = useCallback(
@@ -131,9 +89,8 @@ export const useNasEntryActions = (
       await nasApiRequest<{ ok: true }>('delete', '/entries', {
         params: { path, recursive },
       });
-      await revalidateListFor(currentDirPath);
     },
-    [currentDirPath],
+    [],
   );
 
   return useMemo(

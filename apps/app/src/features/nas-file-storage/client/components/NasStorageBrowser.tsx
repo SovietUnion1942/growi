@@ -91,13 +91,13 @@ export const NasStorageBrowser = ({
   );
 
   // Close the new-folder input on both success and failure — a failed create
-  // should be retried from scratch, not from a half-filled field. The hook
-  // revalidates the listing itself on success (no explicit `reload()` needed).
+  // should be retried from scratch, not from a half-filled field.
   const handleCreateFolder = useCallback(async () => {
     const name = newFolderName.trim();
     if (name === '') return;
     try {
       await actions.createFolder(name);
+      await reload();
       setActionError(null);
     } catch (err) {
       setActionError(extractNasErrorMessage(err));
@@ -105,7 +105,7 @@ export const NasStorageBrowser = ({
       setNewFolderName('');
       setNewFolderOpen(false);
     }
-  }, [newFolderName, actions]);
+  }, [newFolderName, actions, reload]);
 
   // Delete always routes through `useNasConfirm` — no destructive action without
   // an explicit answer (Req 5.6).
@@ -121,12 +121,13 @@ export const NasStorageBrowser = ({
           entryPathOf(entry.name),
           entry.type === 'directory',
         );
+        await reload();
         setActionError(null);
       } catch (err) {
         setActionError(extractNasErrorMessage(err));
       }
     },
-    [confirm, actions, entryPathOf, t],
+    [confirm, actions, entryPathOf, reload, t],
   );
 
   // Move without overwrite first; a CONFLICT is the only case that needs the
@@ -141,8 +142,7 @@ export const NasStorageBrowser = ({
       const from = entryPathOf(entry.name);
       const to = entryPathOf(nextName);
       // Close the input on every terminating branch (success or failure): the op
-      // is done and any retry starts fresh. The hook self-revalidates the
-      // listing on a successful move, so there is no explicit `reload()`.
+      // is done and any retry starts fresh.
       const closeInput = (): void => {
         setRenamingName(null);
         setRenameValue('');
@@ -174,10 +174,11 @@ export const NasStorageBrowser = ({
           return;
         }
       }
+      await reload();
       setActionError(null);
       closeInput();
     },
-    [renameValue, entryPathOf, actions, confirm, t],
+    [renameValue, entryPathOf, actions, confirm, reload, t],
   );
 
   // The hook returns a fresh `loadMore` identity on every render (new closure

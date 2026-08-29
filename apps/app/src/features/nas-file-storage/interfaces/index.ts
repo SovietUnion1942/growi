@@ -19,4 +19,8 @@ export {
   NAS_PREVIEW_TABLE,
   resolveNasPreviewEntry,
 } from './nas-preview';
-export type { NasFileStore, PutFileInput } from './nas-store';
+export type {
+  AppendChunkInput,
+  NasFileStore,
+  PutFileInput,
+} from './nas-store';

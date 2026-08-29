@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { Stats } from 'node:fs';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import {
+  lstat,
   mkdir,
   open,
   readdir,
@@ -11,9 +12,13 @@ import {
   stat,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 import type {
+  AppendChunkInput,
   NasEntry,
+  NasError,
+  NasErrorCode,
   NasFileStore,
   NasListPage,
   NasListQuery,
@@ -27,6 +32,7 @@ import {
   defaultFsWritePrimitives,
   moveExclusive,
   moveOverwriting,
+  nasTmpDir,
   tmpPathUnder,
 } from './fs-write-ops';
 import { resolveSafePath } from './resolve-safe-path';
@@ -78,6 +84,28 @@ const entryFromStat = (name: string, stats: Stats): NasEntry => {
     sizeBytes: type === 'directory' ? 0 : stats.size,
     modifiedAt: stats.mtime.toISOString(),
   };
+};
+
+/**
+ * Build a `NasError` for a purely logical failure that has no underlying errno.
+ * `normalizeNasError` only recognises fs errnos and pre-classified path codes, so
+ * the chunked-upload logical codes (`CHUNK_OUT_OF_ORDER`,
+ * `UPLOAD_SESSION_NOT_FOUND`) are constructed here in the same stable shape.
+ */
+const logicalNasError = (code: NasErrorCode): NasError => {
+  return { code, message: `nas_storage.error.${code.toLowerCase()}` };
+};
+
+/** A single path segment safe to place inside `.growi-nas-tmp/` (defense in depth). */
+const isSafeSegment = (segment: string): boolean => {
+  return (
+    segment.length > 0 &&
+    segment !== '.' &&
+    segment !== '..' &&
+    !segment.includes('/') &&
+    !segment.includes('\\') &&
+    !segment.includes('\0')
+  );
 };
 
 /**
@@ -282,6 +310,115 @@ export class FsNasFileStore implements NasFileStore {
     } catch (err) {
       return { ok: false, error: normalizeNasError(err) };
     }
+  }
+
+  // --- chunked-upload .part operations -------------------------------------
+
+  async createPart(uploadId: string): Promise<NasResult<{ partPath: string }>> {
+    if (!isSafeSegment(uploadId)) {
+      return { ok: false, error: normalizeNasError({ code: 'INVALID_PATH' }) };
+    }
+
+    const tmpDir = nasTmpDir(this.root);
+    const partPath = path.join(tmpDir, `${uploadId}.part`);
+    try {
+      await mkdir(tmpDir, { recursive: true });
+      // Exclusive create: a duplicate uploadId (never expected with a UUID) is a CONFLICT.
+      const handle = await open(partPath, 'wx');
+      await handle.close();
+      return { ok: true, value: { partPath } };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
+  async appendChunk({
+    partPath,
+    expectedOffset,
+    chunk,
+  }: AppendChunkInput): Promise<NasResult<{ size: number }>> {
+    if (!this.isTmpPartPath(partPath)) {
+      return { ok: false, error: normalizeNasError({ code: 'OUT_OF_ROOT' }) };
+    }
+
+    let currentSize: number;
+    try {
+      // lstat, not stat: a symlink planted at partPath must never be followed
+      // (design Security §パス封じ込め — .part ops take the same guard as resolveSafePath).
+      const link = await lstat(partPath);
+      if (link.isSymbolicLink()) {
+        return { ok: false, error: normalizeNasError({ code: 'OUT_OF_ROOT' }) };
+      }
+      currentSize = link.size;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') {
+        return {
+          ok: false,
+          error: logicalNasError('UPLOAD_SESSION_NOT_FOUND'),
+        };
+      }
+      return { ok: false, error: normalizeNasError(err) };
+    }
+
+    // Sequential-append guard: a gap, overlap or reorder is rejected without writing.
+    if (currentSize !== expectedOffset) {
+      return { ok: false, error: logicalNasError('CHUNK_OUT_OF_ORDER') };
+    }
+
+    try {
+      // O_APPEND: every write lands at the current end regardless of races.
+      await pipeline(chunk, createWriteStream(partPath, { flags: 'a' }));
+      const size = (await stat(partPath)).size;
+      return { ok: true, value: { size } };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
+  async discardPart(partPath: string): Promise<void> {
+    if (!this.isTmpPartPath(partPath)) {
+      return;
+    }
+    // Refuse to unlink through a symlink planted at partPath.
+    const link = await lstat(partPath).catch(() => null);
+    if (link?.isSymbolicLink()) {
+      return;
+    }
+    // force: true swallows ENOENT, so a missing .part never throws.
+    await rm(partPath, { force: true });
+  }
+
+  async listStaleParts(cutoff: Date): Promise<string[]> {
+    const tmpDir = nasTmpDir(this.root);
+    let names: string[];
+    try {
+      names = await readdir(tmpDir);
+    } catch {
+      return [];
+    }
+
+    const candidates = await Promise.all(
+      names
+        .filter((name) => name.endsWith('.part'))
+        .map(async (name) => {
+          const abs = path.join(tmpDir, name);
+          try {
+            return (await stat(abs)).mtime < cutoff ? abs : null;
+          } catch {
+            return null;
+          }
+        }),
+    );
+    return candidates.filter((p): p is string => p != null);
+  }
+
+  /** A `.part` path that sits directly inside `${root}/.growi-nas-tmp/`. */
+  private isTmpPartPath(candidate: string): boolean {
+    const resolved = path.resolve(candidate);
+    return (
+      resolved.endsWith('.part') &&
+      path.dirname(resolved) === nasTmpDir(this.root)
+    );
   }
 
   async mkdir(parentDir: string, name: string): Promise<NasResult<NasEntry>> {

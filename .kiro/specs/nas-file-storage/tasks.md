@@ -243,7 +243,7 @@
   - _Depends: 8.1, 8.3, 3.2_
 
 - [ ] 9. Core: 大容量ファイルの分割アップロード
-- [ ] 9.1 ストアに一時パートファイル操作を追加する
+- [x] 9.1 ストアに一時パートファイル操作を追加する
   - ルート内の隠しディレクトリに 0 バイトの一時ファイルを作る操作、指定オフセットが現在サイズと一致するときだけ追記する操作、一時ファイルを破棄する操作、期限切れの一時ファイルを列挙する操作を追加する
   - オフセット不一致は追記せずチャンク順序違反を返す
   - 完了状態: 単体テストで順序どおりの追記でサイズが伸び、オフセットがずれると順序違反エラーになり、破棄でファイルが消える
@@ -372,3 +372,5 @@
 - 5.6: `NasStorageAdminStatus` はコンポーネント+SWR フックのみ。管理画面へのマウントは design.md の File Structure Plan / Modified Files に記載漏れ（設計ギャップ）→ task 5.8 として追加。Req 1.4 は 5.8 完了まで end-to-end では未達。design.md も spec-cleanup で「pages/admin/nas-storage.page.tsx + AdminNavigation 追加」を追記すること。
 - 5.6: `NasRootStatus` がサーバー(`root-health-checker.ts`)とクライアント(`use-nas-admin-status.ts`)で二重宣言。`interfaces/` に client-safe な `NasRootStatus` を昇格して両者で import するのが望ましい（drift 防止、非ブロッキング）。
 - POST-IMPL: `GROWI_NAS_ENABLED` master スイッチをユーザー要望で追加（既定 false・明示 opt-in）。`RootHealthChecker` に `disabled` 状態を追加（`unconfigured` と区別）。admin パネル・i18n・requirements.md Req 1・design.md（NasRootStatus / 状態図 / env 一覧）更新。テストは注入 config が `enabled` を持たない場合は opted-in 扱いで後方互換。`growi-docker-compose` の `feat/nas-file-storage` ブランチに `GROWI_NAS_ENABLED` / `GROWI_NAS_HOST_PATH` の compose 配線 + `.env.example` を追加。
+- 9.1: `normalize-nas-error.ts` の `KNOWN_CODES` に `UPLOAD_SESSION_NOT_FOUND` / `CHUNK_OUT_OF_ORDER` が無いため、store が `logicalNasError` ヘルパーでメッセージ形式を局所再現している（`normalizeNasError` と byte 一致を確認済み）。task 9.2 でこの 2 コードを `KNOWN_CODES` に追加し `logicalNasError` を削除して単一情報源に戻すこと。
+- 9.1: `.part` の containment は語彙チェック（`isTmpPartPath`）＋ `appendChunk`/`discardPart` の `lstat` シンボリックリンク拒否で対応。`createPart` は `open(..., 'wx')`（O_EXCL）でシンボリックリンク経由の作成を弾く。design Security §パス封じ込めの「realpath 再チェック」までは未実装（tmp ディレクトリはアプリ作成・partPath は UUID 由来のため実害低）。

@@ -28,9 +28,14 @@ const errno = (err: unknown): string | undefined => {
   return (err as NodeJS.ErrnoException | null)?.code;
 };
 
+/** The feature's hidden scratch directory inside the NAS root. */
+export const nasTmpDir = (root: string): string => {
+  return path.join(root, '.growi-nas-tmp');
+};
+
 /** A path under `<root>/.growi-nas-tmp/` (caller ensures the dir exists). */
 export const tmpPathUnder = (root: string, randomToken: string): string => {
-  return path.join(root, '.growi-nas-tmp', randomToken);
+  return path.join(nasTmpDir(root), randomToken);
 };
 
 /** Lazily creates `<root>/.growi-nas-tmp/` on first use only. */

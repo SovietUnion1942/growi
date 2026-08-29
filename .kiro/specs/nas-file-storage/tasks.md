@@ -159,6 +159,14 @@
   - _Requirements: 8.2_
   - _Boundary: locales_
   - _Depends: 5.2, 5.3, 5.4, 5.6_
+- [ ] 5.8 管理画面セクションのマウント（設計ギャップ補完・明示的統合タスク）
+  - `apps/app/src/pages/admin/nas-storage.page.tsx` を `src/pages/admin/vault.page.tsx` に倣って追加（`NextPageWithLayout` + `AdminLayout` の `getLayout` + `getServerSideProps` で common/admin props 組み立て）し `<NasStorageAdminStatus />` を描画する
+  - `apps/app/src/components/Admin/Common/AdminNavigation.tsx` にアイコン `case` / `MenuLink` / `MenuLabel` の3点を追加し `AdminNavigation.spec.tsx` を更新する
+  - `admin` ロケール名前空間に該当セクションのラベルを追加する
+  - 完了状態: 管理者が管理画面のナビから NAS セクションを開くと `NasStorageAdminStatus` が表示される（Req 1.4 を end-to-end で満たす）
+  - _Requirements: 1.4_
+  - _Boundary: pages/admin/nas-storage, AdminNavigation_
+  - _Depends: 5.6_
 
 - [ ] 6. Validation
 - [ ] 6.1 サーバー統合テストを追加する
@@ -175,7 +183,7 @@
   - 管理画面で `misconfigured` の理由が表示される
   - 完了状態: 上記の主要ユーザーフローが E2E で通る
   - _Requirements: 1.2, 1.3, 1.4, 2.1, 3.1, 4.1, 5.2, 5.6_
-  - _Depends: 5.5, 5.6, 5.7_
+  - _Depends: 5.5, 5.6, 5.7, 5.8_
 
 ## Implementation Notes
 
@@ -188,3 +196,5 @@
 - 5.1: カスタム axios の `convertStringsToDates` が `modifiedAt` を実行時に `Date` へ強制変換(型は `string`)。5.2 の行コンポーネントは防御的にフォーマットすること。
 - 5.2: 無限スクロールの `loadMore` は hook が毎レンダー新クロージャを返すため、`loadMoreRef` + `lastRequestedLenRef`(entries.length ベース)で once-per-intersection ガード。`loadMore` フェッチが `entries` を増やさず失敗すると `hasMore` true のままガードが閉じたまま → SWR error ブランチ表示 + sentinel unmount で回復(手動 refresh)。スクロール再試行が要るなら follow-up。
 - 5.4: `useNasConfirm()` は命令的ゲート(`confirm(): Promise<boolean>`)。pending 中に第2の `confirm()` は `false` 即解決(破壊的安全側)。consumer がダイアログを pending 中に unmount すると promise 未解決 → 5.5 の配線で dialogProps を常時マウントすること。
+- 5.6: `NasStorageAdminStatus` はコンポーネント+SWR フックのみ。管理画面へのマウントは design.md の File Structure Plan / Modified Files に記載漏れ（設計ギャップ）→ task 5.8 として追加。Req 1.4 は 5.8 完了まで end-to-end では未達。design.md も spec-cleanup で「pages/admin/nas-storage.page.tsx + AdminNavigation 追加」を追記すること。
+- 5.6: `NasRootStatus` がサーバー(`root-health-checker.ts`)とクライアント(`use-nas-admin-status.ts`)で二重宣言。`interfaces/` に client-safe な `NasRootStatus` を昇格して両者で import するのが望ましい（drift 防止、非ブロッキング）。

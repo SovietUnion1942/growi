@@ -1187,7 +1187,11 @@
       "too_many_entries": "このフォルダには項目が多すぎて表示できません。",
       "unknown": "予期しないエラーが発生しました。しばらくしてからもう一度お試しください。",
       "file_required": "アップロードするファイルを選択してください。",
-      "upload_failed": "アップロードに失敗しました。もう一度お試しください。"
+      "upload_failed": "アップロードに失敗しました。もう一度お試しください。",
+      "chunk_size_mismatch": "アップロードした断片が宣言サイズと一致しませんでした。もう一度アップロードしてください。",
+      "invalid_content_range": "アップロード要求の範囲ヘッダが不正です。",
+      "upload_session_not_found": "アップロードセッションが見つかりません。期限切れの可能性があります。最初からやり直してください。",
+      "chunk_out_of_order": "アップロードの断片が順序どおりに届きませんでした。もう一度お試しください。"
     },
     "upload": {
       "drop_active": "ファイルをドロップしてアップロード",
@@ -1195,6 +1199,7 @@
       "overwrite": "上書き",
       "save_as": "「{{name}}」として保存",
       "skip": "スキップ",
+      "select_folder": "フォルダをアップロード",
       "conflict": "同じ名前の項目がすでに存在します。",
       "status_pending": "待機中",
       "status_uploading": "アップロード中...",
@@ -1207,6 +1212,26 @@
       "invalid_name_separator": "ファイル名にパス区切り文字は使用できません。",
       "invalid_name_length": "ファイル名が長すぎます。",
       "size_hint": "1ファイルあたり最大100MBまで（リバースプロキシ／CDN の制限による）。"
+    },
+    "preview": {
+      "action": "プレビュー",
+      "loading": "プレビューを読み込み中…",
+      "error": "プレビューを読み込めませんでした。",
+      "truncated": "ファイルの先頭のみ表示しています。全体はダウンロードしてください。",
+      "not_supported": "このファイル形式はプレビューできません。",
+      "download": "ダウンロード"
+    },
+    "folder_upload": {
+      "policy_title": "フォルダのアップロード",
+      "policy_message": "このフォルダ内で名前が重複した場合の扱いを選んでください。",
+      "policy_overwrite": "すべて上書き",
+      "policy_skip": "すべてスキップ",
+      "policy_rename": "すべて別名で保存",
+      "cancel": "キャンセル",
+      "in_progress": "フォルダをアップロード中…",
+      "summary": "{{succeeded}} 件アップロード、{{skipped}} 件スキップ、{{failed}} 件失敗。",
+      "failures_title": "アップロードに失敗したファイル",
+      "invalid_path": "使用できない名前が含まれていたためスキップしました。"
     },
     "confirm": {
       "delete_title": "項目を削除",

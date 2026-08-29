@@ -81,6 +81,15 @@ export const NasStorageBrowser = ({
     [currentPath],
   );
 
+  // Native browser download: the <a> GET carries the session cookie, and the
+  // server sends `Content-Disposition: attachment` (Req 4.1). Files only — a
+  // directory has no downloadable content.
+  const downloadUrlOf = useCallback(
+    (name: string): string =>
+      `/_api/v3/nas-storage/file?path=${encodeURIComponent(entryPathOf(name))}`,
+    [entryPathOf],
+  );
+
   // Close the new-folder input on both success and failure — a failed create
   // should be retried from scratch, not from a half-filled field. The hook
   // revalidates the listing itself on success (no explicit `reload()` needed).
@@ -264,6 +273,23 @@ export const NasStorageBrowser = ({
                 </span>
               ) : (
                 <span className="d-flex align-items-center gap-1">
+                  {entry.type === 'file' && (
+                    <a
+                      className="btn btn-sm btn-outline-secondary"
+                      href={downloadUrlOf(entry.name)}
+                      download
+                    >
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
+                        download
+                      </span>
+                      <span className="visually-hidden">
+                        {t('nas_storage.download')}
+                      </span>
+                    </a>
+                  )}
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-secondary"

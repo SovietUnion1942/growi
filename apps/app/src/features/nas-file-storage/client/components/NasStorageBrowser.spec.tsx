@@ -318,6 +318,41 @@ describe('NasStorageBrowser', () => {
     });
   });
 
+  describe('download affordance (Req 4.1)', () => {
+    it('renders a download link on a file row pointing at the file endpoint with the logical path', () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+
+      render(<NasStorageBrowser />);
+
+      const link = screen.getByRole('link', { name: 'nas_storage.download' });
+      expect(link).toHaveAttribute(
+        'href',
+        `/_api/v3/nas-storage/file?path=${encodeURIComponent('/report.pdf')}`,
+      );
+      expect(link).toHaveAttribute('download');
+    });
+
+    it('composes the logical path from a nested current folder without a double slash', () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+
+      render(<NasStorageBrowser initialPath="/a/b" />);
+
+      const link = screen.getByRole('link', { name: 'nas_storage.download' });
+      const url = new URL(link.getAttribute('href') ?? '', 'http://localhost');
+      expect(url.searchParams.get('path')).toBe('/a/b/report.pdf');
+    });
+
+    it('does not render a download control on a directory row', () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));
+
+      render(<NasStorageBrowser />);
+
+      expect(
+        screen.queryByRole('link', { name: 'nas_storage.download' }),
+      ).toBeNull();
+    });
+  });
+
   describe('row actions', () => {
     it('deletes a row only after the confirm dialog resolves true, with the recursive flag for a directory', async () => {
       mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));

@@ -1129,6 +1129,7 @@
     "upload_button": "Upload",
     "rename": "Rename",
     "delete": "Delete",
+    "download": "Download",
     "dismiss_error": "Dismiss",
     "login_required": "Please log in to access NAS storage.",
     "forbidden": "You do not have permission to access NAS storage.",

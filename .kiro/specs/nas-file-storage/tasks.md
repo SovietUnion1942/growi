@@ -168,7 +168,7 @@
   - _Boundary: pages/admin/nas-storage, AdminNavigation_
   - _Depends: 5.6_
 
-- [ ] 5.9 エントリのダウンロード導線を追加する（タスク計画ギャップ補完）
+- [x] 5.9 エントリのダウンロード導線を追加する（タスク計画ギャップ補完）
   - `NasEntryRow` にファイル用のダウンロードアクション（`GET /api/v3/nas-storage/file?path=` を開く `<a download>` またはボタン）を追加する。ディレクトリ行には出さない
   - `NasStorageBrowser` の行アクションスロットに配線し、`currentPath` + `entry.name` から正しい論理パスを組み立てる
   - 完了状態: ブラウザ画面でファイル行のダウンロード操作から実ファイルが取得できる（Req 4.1 を UI で満たす）

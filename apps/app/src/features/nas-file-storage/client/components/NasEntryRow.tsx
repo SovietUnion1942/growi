@@ -12,8 +12,9 @@ type Props = {
 
 /**
  * One row of the NAS folder listing: type icon, name, size and modified date.
- * A directory name is a button (opens the child folder); a file name is inert
- * here — download lands in a later task.
+ * A directory name is a button (opens the child folder); a file name is plain
+ * text — the row-action slot carries the file download control (see
+ * `NasStorageBrowser`, which owns `currentPath`).
  */
 export const NasEntryRow = ({
   entry,

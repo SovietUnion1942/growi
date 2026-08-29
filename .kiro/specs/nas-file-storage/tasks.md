@@ -168,6 +168,14 @@
   - _Boundary: pages/admin/nas-storage, AdminNavigation_
   - _Depends: 5.6_
 
+- [ ] 5.9 エントリのダウンロード導線を追加する（タスク計画ギャップ補完）
+  - `NasEntryRow` にファイル用のダウンロードアクション（`GET /api/v3/nas-storage/file?path=` を開く `<a download>` またはボタン）を追加する。ディレクトリ行には出さない
+  - `NasStorageBrowser` の行アクションスロットに配線し、`currentPath` + `entry.name` から正しい論理パスを組み立てる
+  - 完了状態: ブラウザ画面でファイル行のダウンロード操作から実ファイルが取得できる（Req 4.1 を UI で満たす）
+  - _Requirements: 4.1_
+  - _Boundary: NasEntryRow, NasStorageBrowser_
+  - _Depends: 5.5_
+
 - [ ] 6. Validation
 - [x] 6.1 サーバー統合テストを追加する
   - `nasAccess`：未認証 401 / グループ非所属 403 / 所属 200
@@ -183,7 +191,7 @@
   - 管理画面で `misconfigured` の理由が表示される
   - 完了状態: 上記の主要ユーザーフローが E2E で通る
   - _Requirements: 1.2, 1.3, 1.4, 2.1, 3.1, 4.1, 5.2, 5.6_
-  - _Depends: 5.5, 5.6, 5.7, 5.8_
+  - _Depends: 5.5, 5.6, 5.7, 5.8, 5.9_
 
 ## Implementation Notes
 

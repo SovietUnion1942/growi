@@ -1,3 +1,4 @@
+import type { IUser } from '@growi/core';
 import { ErrorV3 } from '@growi/core/dist/models';
 import type {
   ErrorRequestHandler,
@@ -6,6 +7,7 @@ import type {
   Router,
 } from 'express';
 import express from 'express';
+import type { HydratedDocument } from 'mongoose';
 import multer from 'multer';
 import autoReap from 'multer-autoreap';
 
@@ -93,6 +95,36 @@ const respondNasError = (res: ApiV3Response, error: NasError): void => {
 
 const parseBool = (value: unknown): boolean => {
   return value === 'true' || value === '1' || value === true;
+};
+
+/** Request with the `nasAccess`-populated authenticated user (mirrors `nas-access`). */
+type NasRequest = Request & { user?: HydratedDocument<IUser> };
+
+const currentUserId = (req: NasRequest): string => String(req.user?._id);
+
+/**
+ * Parse a `Content-Range: bytes <start>-<end>/<total>` header for the chunked
+ * append endpoint. Returns `null` on anything malformed (missing, wrong unit,
+ * non-numeric, `end < start`, `end` past `total`, unknown `*` total), which the
+ * route maps to 400.
+ */
+export const parseContentRange = (
+  header: string | undefined,
+): { start: number; end: number; total: number } | null => {
+  if (header == null) {
+    return null;
+  }
+  const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(header.trim());
+  if (match == null) {
+    return null;
+  }
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const total = Number(match[3]);
+  if (end < start || end >= total) {
+    return null;
+  }
+  return { start, end, total };
 };
 
 const asString = (value: unknown): string | undefined => {
@@ -332,6 +364,104 @@ export const setupNasStorage = (
     }
     res.apiv3({ ok: true });
   });
+
+  // --- Chunked upload (Req 10). Same router => `nasAccess` + `featureEnabledGate`
+  // apply automatically (Req 6.7). The append chunk is the raw request body
+  // stream: `express.json()` only consumes JSON content types, so a binary
+  // chunk passes through untouched and is piped straight to the store.
+
+  router.post('/uploads', async (req: NasRequest, res: ApiV3Response) => {
+    const dir = asString(req.body?.dir);
+    const name = asString(req.body?.name);
+    const totalBytes: unknown = req.body?.totalBytes;
+    if (
+      dir == null ||
+      dir.length === 0 ||
+      name == null ||
+      name.length === 0 ||
+      typeof totalBytes !== 'number' ||
+      !Number.isInteger(totalBytes) ||
+      totalBytes <= 0
+    ) {
+      res.apiv3Err(
+        new ErrorV3('nas_storage.error.invalid_path', 'INVALID_PATH'),
+        400,
+      );
+      return;
+    }
+
+    const result = await service.beginChunkedUpload({
+      userId: currentUserId(req),
+      dirLogicalPath: dir,
+      targetName: name,
+      totalBytes,
+      overwrite: parseBool(req.body?.overwrite),
+    });
+    if (!result.ok) {
+      respondNasError(res, result.error);
+      return;
+    }
+    res.apiv3(result.value, 201);
+  });
+
+  router.patch(
+    '/uploads/:uploadId',
+    async (req: NasRequest, res: ApiV3Response) => {
+      const range = parseContentRange(req.headers['content-range']);
+      if (range == null) {
+        res.apiv3Err(
+          new ErrorV3(
+            'nas_storage.error.invalid_content_range',
+            'INVALID_PATH',
+          ),
+          400,
+        );
+        return;
+      }
+
+      const result = await service.appendChunk(
+        req.params.uploadId,
+        currentUserId(req),
+        range.start,
+        req,
+      );
+      if (!result.ok) {
+        respondNasError(res, result.error);
+        return;
+      }
+      res.status(204).end();
+    },
+  );
+
+  router.post(
+    '/uploads/:uploadId/complete',
+    async (req: NasRequest, res: ApiV3Response) => {
+      const result = await service.completeChunkedUpload(
+        req.params.uploadId,
+        currentUserId(req),
+      );
+      if (!result.ok) {
+        respondNasError(res, result.error);
+        return;
+      }
+      res.apiv3(result.value, 201);
+    },
+  );
+
+  router.delete(
+    '/uploads/:uploadId',
+    async (req: NasRequest, res: ApiV3Response) => {
+      const result = await service.abortChunkedUpload(
+        req.params.uploadId,
+        currentUserId(req),
+      );
+      if (!result.ok) {
+        respondNasError(res, result.error);
+        return;
+      }
+      res.apiv3({ ok: true });
+    },
+  );
 
   // multer limit rejection -> TOO_LARGE 413 with the configured limit (Req 3.3).
   const onUploadError: ErrorRequestHandler = (err, _req, res, next) => {

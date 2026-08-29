@@ -15,6 +15,13 @@ import type { NasStorageConfig } from '../config/nas-storage-config';
 import { nasStorageConfig } from '../config/nas-storage-config';
 import { FsNasFileStore } from '../store/fs-nas-file-store';
 import { normalizeNasError } from './normalize-nas-error';
+import { suggestNonConflictingName } from './suggest-non-conflicting-name';
+
+/** Join a directory logical path and a single entry name into a logical path. */
+const joinLogical = (dir: string, name: string): string => {
+  const normalizedDir = dir.endsWith('/') ? dir.slice(0, -1) : dir;
+  return `${normalizedDir}/${name}`;
+};
 
 /**
  * In-memory session registry for the single-file chunked upload protocol
@@ -61,6 +68,24 @@ export const createChunkedUploadRegistry = (
 ): ChunkedUploadRegistry => {
   const { store, config } = deps;
   const now = deps.now ?? (() => new Date());
+
+  /**
+   * `name (n).ext` suggestion for a non-overwrite CONFLICT on finalization
+   * (Req 10.6). The session is about to be dropped, so this must run while its
+   * `dirLogicalPath` / `targetName` are still in hand. A candidate is free only
+   * when the store positively reports `NOT_FOUND`; any other probe outcome is
+   * treated as taken (mirrors `NasStorageService.putFile`).
+   */
+  const suggestNameFor = (
+    session: ChunkedUploadSession,
+  ): Promise<string | undefined> => {
+    return suggestNonConflictingName(session.targetName, async (candidate) => {
+      const stat = await store.statEntry(
+        joinLogical(session.dirLogicalPath, candidate),
+      );
+      return !(!stat.ok && stat.error.code === 'NOT_FOUND');
+    });
+  };
 
   const sessions = new Map<string, ChunkedUploadSession>();
   /** Per-session promise chain serialising concurrent `append` calls. */
@@ -205,6 +230,14 @@ export const createChunkedUploadRegistry = (
         // On any failure path (CONFLICT included) the `.part` was not consumed
         // by the move, so drop it rather than leaking a scratch file.
         await store.discardPart(session.partPath);
+        if (moved.error.code === 'CONFLICT' && !session.overwrite) {
+          const suggestedName = await suggestNameFor(session).catch(
+            () => undefined,
+          );
+          if (suggestedName != null) {
+            return { ok: false, error: { ...moved.error, suggestedName } };
+          }
+        }
         return moved;
       }
       return moved;

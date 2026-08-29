@@ -207,6 +207,9 @@ describe('createChunkedUploadRegistry', () => {
       expect(done.ok).toBe(false);
       if (done.ok) return;
       expect(done.error.code).toBe('CONFLICT');
+      // Req 10.6 — the finalization CONFLICT carries the same `name (n).ext`
+      // suggestion a single-shot upload would.
+      expect(done.error.suggestedName).toBe('out (1).bin');
       expect(await listParts(root)).toEqual([]);
       expect(await readFile(path.join(root, 'out.bin'), 'utf8')).toBe(
         'existing',

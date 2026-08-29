@@ -265,7 +265,7 @@
   - _Requirements: 10.1, 10.5_
   - _Boundary: NasStorageService_
   - _Depends: 9.2_
-- [ ] 9.4 分割アップロードのエンドポイント群を実装する
+- [x] 9.4 分割アップロードのエンドポイント群を実装する
   - 開始（宛先・名前・合計サイズ・上書き可否を受け取りセッション識別子とチャンクサイズを返す）、追記（範囲ヘッダで位置を指定し 1 チャンクを送る）、完了、中止のエンドポイントを追加し、すべてに共通のアクセス制御を適用する
   - エラーを HTTP ステータスへ機械マッピングする（順序違反 409、セッション不明 404、別ユーザー 403、上限超 413 など）
   - 完了状態: 統合テストで開始→順次追記→完了で単発アップロードと同一内容のファイルができ、順序違反 409・上限超 413・完了前の中止で一時ファイルが消える
@@ -379,3 +379,6 @@
 - 9.2: `chunkedUploadRegistry` シングルトンは `rootHealthChecker` と同様モジュール読み込み時に生成。sweeper の boot/interval 起動は task 10.1。
 - 9.3: `completeChunkedUpload` は現状プレーン `CONFLICT` を素通し（session が drop 済みで宛先名が分からないため in-boundary で `suggestedName` 付与不可）。design の API 契約は `409 (CONFLICT + suggestedName)`。**task 9.4 で対応**: `ChunkedUploadRegistry.complete` の CONFLICT エラーに `dirLogicalPath`+`targetName`（または算出済み `suggestedName`）を載せ、`completeChunkedUpload` が共有ヘルパー `suggestNonConflictingName` で enrich する。共有ヘルパーは 9.3 で抽出済み。
 - 9.3: `splitFileName`（`lastIndexOf('.')` ベース）は `..foo` のような病的名で旧 `path.extname` ベースと分岐（`. (1).foo` vs `..foo (1)`）。実害ほぼ無し。
+- 9.4: i18n キー `nas_storage.error.invalid_content_range`（`PATCH /uploads/:id` の Content-Range 不正時）を task 11.7 で追加。code は `INVALID_PATH`。
+- 9.4: `PATCH /uploads/:id` はチャンク本体サイズを検証しない（`Content-Range` の宣言長・`totalBytes` 残量チェック無し）。認証済みユーザーが `complete` を呼ばず `.growi-nas-tmp` を膨らませられる低severity DoS 窓（24h で sweeper が回収）。follow-up: route で `Content-Length` vs `range.end-range.start+1` と残量チェック。
+- 9.x: `suggestedName` enrichment は task 9.4 で `ChunkedUploadRegistry.complete` 側に実装済み（session drop 前に probe）。9.2/9.3 の follow-up note は解決済み。

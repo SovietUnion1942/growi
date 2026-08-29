@@ -1,7 +1,12 @@
 import type Crowi from '~/server/crowi';
 import loggerFactory from '~/utils/logger';
 
+import { chunkedUploadRegistry } from './services/chunked-upload-registry';
 import { rootHealthChecker } from './services/root-health-checker';
+import {
+  type ChunkedUploadSweeperHandle,
+  startChunkedUploadSweeper,
+} from './services/start-chunked-upload-sweeper';
 
 export {
   type ChunkedUploadRegistry,
@@ -22,6 +27,12 @@ export { setupNasStorage } from './routes/nas-storage';
 export { setupNasStorageAdmin } from './routes/nas-storage-admin';
 
 const logger = loggerFactory('growi:nas-storage');
+
+/**
+ * Live sweeper handle. Module-scoped so a second `initializeNasFileStorage` call
+ * (only expected in tests) stops the previous interval instead of stacking one.
+ */
+let chunkedUploadSweeper: ChunkedUploadSweeperHandle | undefined;
 
 /**
  * Initialize the NAS file storage feature during the Crowi boot sequence.
@@ -54,6 +65,10 @@ export const initializeNasFileStorage = async (
 
   if (status.state === 'ready') {
     logger.info(`NAS file storage: ${detail}`);
+    // Orphan `.part` cleanup: one sweep now (Req 10.3) + a periodic sweep after.
+    chunkedUploadSweeper?.stop();
+    chunkedUploadSweeper = startChunkedUploadSweeper(chunkedUploadRegistry);
+    await chunkedUploadSweeper.initialSweep;
   } else {
     logger.warn(`NAS file storage: ${detail}; feature disabled`);
   }

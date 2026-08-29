@@ -1,4 +1,4 @@
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import prettyBytes from 'pretty-bytes';
 
 import type { NasEntry } from '~/features/nas-file-storage/interfaces';
@@ -6,6 +6,8 @@ import type { NasEntry } from '~/features/nas-file-storage/interfaces';
 type Props = {
   entry: NasEntry;
   onOpenDir: (name: string) => void;
+  /** Optional row-action controls (rename / delete) rendered at the row end. */
+  actions?: ReactNode;
 };
 
 /**
@@ -13,7 +15,11 @@ type Props = {
  * A directory name is a button (opens the child folder); a file name is inert
  * here — download lands in a later task.
  */
-export const NasEntryRow = ({ entry, onOpenDir }: Props): JSX.Element => {
+export const NasEntryRow = ({
+  entry,
+  onOpenDir,
+  actions,
+}: Props): JSX.Element => {
   const isDirectory = entry.type === 'directory';
 
   // `modifiedAt` is typed as an ISO string, but the custom axios instance may
@@ -50,6 +56,7 @@ export const NasEntryRow = ({ entry, onOpenDir }: Props): JSX.Element => {
       >
         {modifiedLabel}
       </span>
+      {actions}
     </li>
   );
 };

@@ -5,6 +5,7 @@ import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { NotAvailable } from '~/client/components/NotAvailable';
+import { NasStorageNavItem } from '~/features/nas-file-storage/client/nav/NasStorageNavItem';
 import { SidebarContentsType } from '~/interfaces/ui';
 import { useIsAdmin, useIsGuestUser } from '~/states/context';
 import { aiEnabledAtom } from '~/states/server-configurations';
@@ -132,6 +133,7 @@ export const PrimaryItems = memo((props: Props) => {
           onHover={onItemHover}
         />
       </NotAvailable>
+      <NasStorageNavItem />
     </div>
   );
 });

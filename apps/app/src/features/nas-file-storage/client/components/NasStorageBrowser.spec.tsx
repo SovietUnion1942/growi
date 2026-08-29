@@ -6,9 +6,39 @@ import type { NasEntry } from '~/features/nas-file-storage/interfaces';
 import type { NasRequestError, UseNasListResult } from '../hooks/use-nas-list';
 import { NasStorageBrowser } from './NasStorageBrowser';
 
-const mocks = vi.hoisted(() => ({ useNasList: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  useNasList: vi.fn(),
+  createFolder: vi.fn(),
+  remove: vi.fn(),
+  move: vi.fn(),
+  rename: vi.fn(),
+  uploadFile: vi.fn(),
+  confirm: vi.fn(),
+}));
 
 vi.mock('../hooks/use-nas-list', () => ({ useNasList: mocks.useNasList }));
+
+vi.mock('../hooks/use-nas-entry-actions', () => ({
+  useNasEntryActions: () => ({
+    createFolder: mocks.createFolder,
+    remove: mocks.remove,
+    move: mocks.move,
+    rename: mocks.rename,
+    uploadFile: mocks.uploadFile,
+  }),
+}));
+
+vi.mock('../hooks/use-nas-confirm', () => ({
+  useNasConfirm: () => ({
+    confirm: mocks.confirm,
+    dialogProps: {
+      isOpen: false,
+      message: '',
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+    },
+  }),
+}));
 
 vi.mock('next-i18next', () => ({
   useTranslation: () => ({
@@ -50,6 +80,10 @@ beforeEach(() => {
   ioCallback = undefined;
   observe.mockClear();
   disconnect.mockClear();
+  mocks.createFolder.mockResolvedValue(undefined);
+  mocks.remove.mockResolvedValue(undefined);
+  mocks.move.mockResolvedValue(undefined);
+  mocks.confirm.mockResolvedValue(true);
   vi.stubGlobal(
     'IntersectionObserver',
     class {
@@ -247,5 +281,213 @@ describe('NasStorageBrowser', () => {
     render(<NasStorageBrowser />);
 
     expect(screen.getByText('nas_storage.empty_folder')).toBeInTheDocument();
+  });
+
+  describe('toolbar composition', () => {
+    it('creates a folder from the New Folder control and closes the input', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [] }));
+
+      render(<NasStorageBrowser />);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.new_folder' }),
+      );
+      await userEvent.type(
+        screen.getByTestId('nas-new-folder-input'),
+        'designs',
+      );
+      await userEvent.click(screen.getByTestId('nas-new-folder-submit'));
+
+      expect(mocks.createFolder).toHaveBeenCalledWith('designs');
+      // The hook self-revalidates on success — no explicit reload() here.
+      expect(screen.queryByTestId('nas-new-folder-input')).toBeNull();
+      expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
+
+    it('reveals the upload dropzone from the Upload control', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [] }));
+
+      render(<NasStorageBrowser />);
+      expect(screen.queryByTestId('nas-upload-dropzone')).toBeNull();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.upload_button' }),
+      );
+
+      expect(screen.getByTestId('nas-upload-dropzone')).toBeInTheDocument();
+    });
+  });
+
+  describe('row actions', () => {
+    it('deletes a row only after the confirm dialog resolves true, with the recursive flag for a directory', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));
+      mocks.confirm.mockResolvedValue(true);
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.delete' }),
+      );
+
+      expect(mocks.confirm).toHaveBeenCalled();
+      // `remove` self-revalidates the listing in the hook — no explicit reload().
+      expect(mocks.remove).toHaveBeenCalledWith('/documents', true);
+      expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
+
+    it('does not delete when the confirm dialog resolves false', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.confirm.mockResolvedValue(false);
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.delete' }),
+      );
+
+      expect(mocks.confirm).toHaveBeenCalled();
+      expect(mocks.remove).not.toHaveBeenCalled();
+    });
+
+    it('moves without overwrite first, then confirms and retries with overwrite on CONFLICT', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.move
+        .mockRejectedValueOnce(
+          Object.assign(new Error('conflict'), {
+            code: 'CONFLICT',
+          }),
+        )
+        .mockResolvedValueOnce(undefined);
+      mocks.confirm.mockResolvedValue(true);
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.rename' }),
+      );
+      const input = screen.getByTestId('nas-rename-input');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'renamed.pdf');
+      await userEvent.click(screen.getByTestId('nas-rename-submit'));
+
+      expect(mocks.move).toHaveBeenNthCalledWith(
+        1,
+        '/report.pdf',
+        '/renamed.pdf',
+      );
+      expect(mocks.confirm).toHaveBeenCalled();
+      expect(mocks.move).toHaveBeenNthCalledWith(
+        2,
+        '/report.pdf',
+        '/renamed.pdf',
+        true,
+      );
+      // move self-revalidates in the hook — no explicit reload().
+      expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
+  });
+
+  describe('action error surfacing (Req 8.1, 8.3)', () => {
+    const renameAndSubmit = async (to: string): Promise<void> => {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.rename' }),
+      );
+      const input = screen.getByTestId('nas-rename-input');
+      await userEvent.clear(input);
+      await userEvent.type(input, to);
+      await userEvent.click(screen.getByTestId('nas-rename-submit'));
+    };
+
+    it('surfaces a rejected remove in a role="alert" banner without an unhandled rejection', async () => {
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.confirm.mockResolvedValue(true);
+      mocks.remove.mockRejectedValue({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'nas_storage.error.storage_unavailable',
+      });
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.delete' }),
+      );
+
+      const banner = await screen.findByRole('alert');
+      expect(banner).toHaveTextContent('nas_storage.error.storage_unavailable');
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(unhandled).not.toHaveBeenCalled();
+      process.off('unhandledRejection', unhandled);
+    });
+
+    it('dismisses the action error banner when the close control is clicked', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.confirm.mockResolvedValue(true);
+      mocks.remove.mockRejectedValue({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'nas_storage.error.storage_unavailable',
+      });
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.delete' }),
+      );
+      expect(await screen.findByTestId('nas-action-error')).toBeInTheDocument();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.dismiss_error' }),
+      );
+      expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
+
+    it('surfaces a rejected createFolder and closes the new-folder input', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [] }));
+      mocks.createFolder.mockRejectedValue({
+        code: 'PERMISSION_DENIED',
+        message: 'nas_storage.error.permission_denied',
+      });
+
+      render(<NasStorageBrowser />);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'nas_storage.new_folder' }),
+      );
+      await userEvent.type(screen.getByTestId('nas-new-folder-input'), 'x');
+      await userEvent.click(screen.getByTestId('nas-new-folder-submit'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'nas_storage.error.permission_denied',
+      );
+      expect(screen.queryByTestId('nas-new-folder-input')).toBeNull();
+    });
+
+    it('surfaces a non-CONFLICT move rejection, closes the rename input, and does not throw', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.move.mockRejectedValue({
+        code: 'PERMISSION_DENIED',
+        message: 'nas_storage.error.permission_denied',
+      });
+
+      render(<NasStorageBrowser />);
+      await renameAndSubmit('renamed.pdf');
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'nas_storage.error.permission_denied',
+      );
+      expect(screen.queryByTestId('nas-rename-input')).toBeNull();
+      expect(mocks.move).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call move a second time when the overwrite confirm is declined', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [fileEntry] }));
+      mocks.move.mockRejectedValueOnce(
+        Object.assign(new Error('conflict'), { code: 'CONFLICT' }),
+      );
+      mocks.confirm.mockResolvedValue(false);
+
+      render(<NasStorageBrowser />);
+      await renameAndSubmit('renamed.pdf');
+
+      expect(mocks.move).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('nas-rename-input')).toBeNull();
+      expect(screen.queryByTestId('nas-action-error')).toBeNull();
+    });
   });
 });

@@ -139,7 +139,7 @@
   - _Requirements: 5.6_
   - _Boundary: NasConfirmDialog_
   - _Depends: 5.1_
-- [ ] 5.5 NASページとサイドバーナビ項目を追加する
+- [x] 5.5 NASページとサイドバーナビ項目を追加する
   - `/nas` の `*.page.tsx` を `getLayout` 付きで追加し `NasStorageBrowser` を描画する
   - `PrimaryItems.tsx` に `NasStorageNavItem` を差し込み、`nasStorageEnabledAtom` が真かつ非ゲストのときのみ表示する
   - 機能無効時は `/nas` 自体も 404 相当にする

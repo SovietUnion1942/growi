@@ -3,8 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingSpinner } from '@growi/ui/dist/components';
 import { useTranslation } from 'next-i18next';
 
+import type { NasEntry } from '~/features/nas-file-storage/interfaces';
+
+import { useNasConfirm } from '../hooks/use-nas-confirm';
+import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
 import { useNasList } from '../hooks/use-nas-list';
+import { NasConfirmDialog } from './NasConfirmDialog';
 import { NasEntryRow } from './NasEntryRow';
+import { NasUploadDropzone } from './NasUploadDropzone';
 
 type Props = {
   /** Folder to open first. Defaults to the NAS root. */
@@ -14,6 +20,26 @@ type Props = {
 const toSegments = (path: string): string[] => path.split('/').filter(Boolean);
 
 const buildPath = (segments: string[]): string => `/${segments.join('/')}`;
+
+/**
+ * True when `err` carries the `{ code, message }` shape of a `NasRequestError`
+ * (its class lives in the hook module; a structural check keeps this component
+ * decoupled from it).
+ */
+const isNasErrorShape = (
+  err: unknown,
+): err is { code: string; message: string } =>
+  typeof err === 'object' &&
+  err !== null &&
+  typeof (err as { code?: unknown }).code === 'string' &&
+  typeof (err as { message?: unknown }).message === 'string';
+
+/**
+ * The user-facing i18n key summarising a failed action (Req 8.3 — 理由の要約).
+ * Falls back to a generic key for anything that is not a NAS request error.
+ */
+const extractNasErrorMessage = (err: unknown): string =>
+  isNasErrorShape(err) ? err.message : 'nas_storage.error.unknown';
 
 /**
  * File browser for the NAS storage root: breadcrumb + toolbar + entry list with
@@ -36,6 +62,114 @@ export const NasStorageBrowser = ({
   const handleOpenDir = useCallback((name: string) => {
     setCurrentPath((prev) => buildPath([...toSegments(prev), name]));
   }, []);
+
+  const actions = useNasEntryActions(currentPath);
+  const { confirm, dialogProps } = useNasConfirm();
+
+  const [isNewFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isUploadOpen, setUploadOpen] = useState(false);
+  const [renamingName, setRenamingName] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Error surface for action (mutation) failures — distinct from `error`, which
+  // is the list-load failure from the hook. Dismissible inline banner (Req 8.3).
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const entryPathOf = useCallback(
+    (name: string): string => buildPath([...toSegments(currentPath), name]),
+    [currentPath],
+  );
+
+  // Close the new-folder input on both success and failure — a failed create
+  // should be retried from scratch, not from a half-filled field. The hook
+  // revalidates the listing itself on success (no explicit `reload()` needed).
+  const handleCreateFolder = useCallback(async () => {
+    const name = newFolderName.trim();
+    if (name === '') return;
+    try {
+      await actions.createFolder(name);
+      setActionError(null);
+    } catch (err) {
+      setActionError(extractNasErrorMessage(err));
+    } finally {
+      setNewFolderName('');
+      setNewFolderOpen(false);
+    }
+  }, [newFolderName, actions]);
+
+  // Delete always routes through `useNasConfirm` — no destructive action without
+  // an explicit answer (Req 5.6).
+  const handleDelete = useCallback(
+    async (entry: NasEntry) => {
+      const ok = await confirm({
+        title: t('nas_storage.confirm.delete_title'),
+        message: t('nas_storage.confirm.delete_message', { name: entry.name }),
+      });
+      if (!ok) return;
+      try {
+        await actions.remove(
+          entryPathOf(entry.name),
+          entry.type === 'directory',
+        );
+        setActionError(null);
+      } catch (err) {
+        setActionError(extractNasErrorMessage(err));
+      }
+    },
+    [confirm, actions, entryPathOf, t],
+  );
+
+  // Move without overwrite first; a CONFLICT is the only case that needs the
+  // confirm dialog, and only then do we retry with `overwrite: true` (Req 5.6).
+  const handleRenameSubmit = useCallback(
+    async (entry: NasEntry) => {
+      const nextName = renameValue.trim();
+      if (nextName === '' || nextName === entry.name) {
+        setRenamingName(null);
+        return;
+      }
+      const from = entryPathOf(entry.name);
+      const to = entryPathOf(nextName);
+      // Close the input on every terminating branch (success or failure): the op
+      // is done and any retry starts fresh. The hook self-revalidates the
+      // listing on a successful move, so there is no explicit `reload()`.
+      const closeInput = (): void => {
+        setRenamingName(null);
+        setRenameValue('');
+      };
+      try {
+        await actions.move(from, to);
+      } catch (err) {
+        const code = (err as { code?: string } | null)?.code;
+        if (code !== 'CONFLICT') {
+          setActionError(extractNasErrorMessage(err));
+          closeInput();
+          return;
+        }
+        const ok = await confirm({
+          title: t('nas_storage.confirm.overwrite_title'),
+          message: t('nas_storage.confirm.overwrite_message', {
+            name: nextName,
+          }),
+        });
+        if (!ok) {
+          closeInput();
+          return;
+        }
+        try {
+          await actions.move(from, to, true);
+        } catch (retryErr) {
+          setActionError(extractNasErrorMessage(retryErr));
+          closeInput();
+          return;
+        }
+      }
+      setActionError(null);
+      closeInput();
+    },
+    [renameValue, entryPathOf, actions, confirm, t],
+  );
 
   // The hook returns a fresh `loadMore` identity on every render (new closure
   // over `swr.setSize`). Keeping it in a ref lets the observer effect depend on
@@ -103,6 +237,67 @@ export const NasStorageBrowser = ({
             key={`${entry.type}:${entry.name}`}
             entry={entry}
             onOpenDir={handleOpenDir}
+            actions={
+              renamingName === entry.name ? (
+                <span className="d-flex align-items-center gap-1">
+                  <input
+                    className="form-control form-control-sm"
+                    data-testid="nas-rename-input"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        void handleRenameSubmit(entry);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    data-testid="nas-rename-submit"
+                    onClick={() => {
+                      void handleRenameSubmit(entry);
+                    }}
+                  >
+                    {t('nas_storage.rename')}
+                  </button>
+                </span>
+              ) : (
+                <span className="d-flex align-items-center gap-1">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    aria-label={t('nas_storage.rename')}
+                    onClick={() => {
+                      setRenamingName(entry.name);
+                      setRenameValue(entry.name);
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
+                      edit
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    aria-label={t('nas_storage.delete')}
+                    onClick={() => {
+                      void handleDelete(entry);
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
+                      delete
+                    </span>
+                  </button>
+                </span>
+              )
+            }
           />
         ))}
         {hasMore && (
@@ -176,9 +371,89 @@ export const NasStorageBrowser = ({
             refresh
           </span>
         </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          aria-label={t('nas_storage.new_folder')}
+          onClick={() => setNewFolderOpen((v) => !v)}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            create_new_folder
+          </span>
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          aria-label={t('nas_storage.upload_button')}
+          onClick={() => setUploadOpen((v) => !v)}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            upload
+          </span>
+        </button>
       </div>
 
+      {actionError != null && (
+        <div
+          className="alert alert-danger d-flex align-items-center justify-content-between py-2 mb-2"
+          role="alert"
+          data-testid="nas-action-error"
+        >
+          <span>{t(actionError)}</span>
+          <button
+            type="button"
+            className="btn-close"
+            aria-label={t('nas_storage.dismiss_error')}
+            onClick={() => setActionError(null)}
+          />
+        </div>
+      )}
+
+      {isNewFolderOpen && (
+        <div
+          className="d-flex align-items-center gap-2 mb-2"
+          data-testid="nas-new-folder"
+        >
+          <input
+            className="form-control form-control-sm"
+            data-testid="nas-new-folder-input"
+            placeholder={t('nas_storage.new_folder')}
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                void handleCreateFolder();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            data-testid="nas-new-folder-submit"
+            onClick={() => {
+              void handleCreateFolder();
+            }}
+          >
+            {t('nas_storage.new_folder')}
+          </button>
+        </div>
+      )}
+
+      {isUploadOpen && (
+        <div className="mb-2">
+          <NasUploadDropzone
+            currentDirPath={currentPath}
+            onUploaded={() => {
+              void reload();
+            }}
+          />
+        </div>
+      )}
+
       {body}
+
+      {/* Mounted unconditionally so a pending confirm() is never lost on unmount. */}
+      <NasConfirmDialog {...dialogProps} />
     </div>
   );
 };

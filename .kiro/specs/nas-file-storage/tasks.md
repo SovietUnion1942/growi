@@ -288,7 +288,7 @@
   - _Requirements: 9.4_
   - _Boundary: nas-preview-kind client util_
   - _Depends: 7.1_
-- [ ] 11.2 プレビューモーダルを実装する
+- [x] 11.2 プレビューモーダルを実装する
   - 種別に応じて画像・動画（再生と途中シーク）・音声・PDF・テキストを表示するモーダルを実装する。配信は inline 要求付きのファイルエンドポイントを使う
   - テキストは先頭の一定サイズだけを範囲取得して表示し、全体がそれを超える場合は「先頭のみ・全体はダウンロード」を明示する
   - 完了状態: 画像・動画・PDF・テキストがモーダル内で表示され、動画をシークでき、大きいテキストで打ち切り表示になる
@@ -383,3 +383,5 @@
 - 9.4: `PATCH /uploads/:id` はチャンク本体サイズを検証しない（`Content-Range` の宣言長・`totalBytes` 残量チェック無し）。認証済みユーザーが `complete` を呼ばず `.growi-nas-tmp` を膨らませられる低severity DoS 窓（24h で sweeper が回収）。follow-up: route で `Content-Length` vs `range.end-range.start+1` と残量チェック。
 - 9.x: `suggestedName` enrichment は task 9.4 で `ChunkedUploadRegistry.complete` 側に実装済み（session drop 前に probe）。9.2/9.3 の follow-up note は解決済み。
 - 9.x: `chunkedUploadRegistry` シングルトンは `GROWI_NAS_ROOT` 未設定時に `FsNasFileStore('')` を作るため、シングルトンを触るテストが cwd 相対 `.growi-nas-tmp/` を作ってしまう。`.gitignore` に追加済み。follow-up: シングルトン生成を遅延化 or unconfigured 時は no-op にする。
+- 11.2: i18n キー `nas_storage.preview.{loading,error,truncated,not_supported,download}` を task 11.7 で追加。
+- 11.2: `NasPreviewModal` の `dynamic({ ssr: false })` ラップは consumer（task 11.3 の NasEntryRow/NasStorageBrowser）の責務。

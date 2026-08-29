@@ -92,13 +92,16 @@ describe('nas-file-storage server barrel (wiring)', () => {
   });
 
   describe('apiv3 route registration', () => {
-    it('registers the user router at /nas-storage and the admin router at /nas-storage', async () => {
+    it('registers the user router at /nas-storage and the admin router at /admin/nas-storage', async () => {
       const source = await readFile(APIV3_INDEX, 'utf8');
       expect(source).toMatch(
         /router\.use\(\s*['"]\/nas-storage['"],\s*setupNasStorage\(crowi\)\)/,
       );
+      // routerForAdmin is mounted at /_api/v3, so the admin status endpoint is
+      // /_api/v3/admin/nas-storage/status — matching the client hook. A bare
+      // '/nas-storage' here would collide with the user router (fix 934160be91).
       expect(source).toMatch(
-        /routerForAdmin\.use\(\s*['"]\/nas-storage['"],\s*setupNasStorageAdmin\(crowi\)\)/,
+        /routerForAdmin\.use\(\s*['"]\/admin\/nas-storage['"],\s*setupNasStorageAdmin\(crowi\)\)/,
       );
     });
   });

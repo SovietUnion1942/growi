@@ -9,6 +9,13 @@ import type { RendererConfig } from '~/interfaces/services/renderer';
 export const aiEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atom for NAS file storage feature enabled status.
+ * Populated from the server config props (same route as aiEnabledAtom); the
+ * value is derived from RootHealthChecker.getStatus() being `ready`.
+ */
+export const nasStorageEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

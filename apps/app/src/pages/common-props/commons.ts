@@ -25,6 +25,7 @@ export type CommonInitialProps = {
   growiAppIdForGrowiCloud: number | undefined;
   forcedColorScheme?: ColorScheme;
   aiEnabled: boolean;
+  nasStorageEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -68,6 +69,11 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // client bundle. The verdict (= enabled && configured) mirrors the mastra
       // route guard, keeping UI and API aligned.
       aiEnabled: crowi.isAiReady(),
+      // Routed through crowi for the same realm-safety reason as aiEnabled: the
+      // NAS root health-checker singleton is populated by `probeOnBoot` only in
+      // the Express realm. Verdict mirrors the admin `enabled` field
+      // (`state === 'ready'`), keeping the UI affordance and API aligned.
+      nasStorageEnabled: crowi.isNasStorageReady(),
     } satisfies CommonInitialProps,
   };
 };

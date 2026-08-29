@@ -105,7 +105,7 @@
   - _Requirements: 2.4, 3.5, 7.3, 7.4_
   - _Boundary: crowi boot, apiv3 index, nas-file-storage server barrel_
   - _Depends: 3.2, 3.3_
-- [ ] 4.2 クライアント有効フラグを供給する
+- [x] 4.2 クライアント有効フラグを供給する
   - `RootHealthChecker.getStatus()` から機能有効フラグを導出し、`_app` のサーバー設定 props 経由で `nasStorageEnabledAtom` に供給する（既存の `aiEnabledAtom` と同じ経路）
   - 完了状態: 有効/無効を切り替えるとクライアントの atom 値が追随することが確認できる
   - _Requirements: 1.2, 1.4_

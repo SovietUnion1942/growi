@@ -3,6 +3,15 @@ import loggerFactory from '~/utils/logger';
 
 import { rootHealthChecker } from './services/root-health-checker';
 
+/**
+ * Feature-enabled verdict for the client: true only when the boot-fixed root
+ * health status is `ready`. Kept in the Express realm (called via the crowi
+ * instance from getServerSideProps) so the module-scoped health status is the
+ * one `probeOnBoot` actually populated -- see `Crowi#isNasStorageReady`.
+ */
+export const isNasStorageReady = (): boolean =>
+  rootHealthChecker.getStatus().state === 'ready';
+
 export { setupNasStorage } from './routes/nas-storage';
 export { setupNasStorageAdmin } from './routes/nas-storage-admin';
 

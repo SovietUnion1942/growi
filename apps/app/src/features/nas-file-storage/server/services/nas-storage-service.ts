@@ -32,9 +32,23 @@ import { rootHealthChecker } from './root-health-checker';
  */
 export interface NasStorageService {
   listFolder(dir: string, query: NasListQuery): Promise<NasResult<NasListPage>>;
+  /**
+   * Retained for the legacy stream-based delivery path (`store.openRead`).
+   * Prefer `resolveContent` for delivery: it resolves an absolute path without
+   * opening a stream so the route layer can hand it to `res.sendFile`.
+   */
   download(
     logicalPath: string,
   ): Promise<NasResult<{ stream: NodeJS.ReadableStream; entry: NasEntry }>>;
+  /**
+   * Resolve an absolute filesystem path for delivery (Req 9.1). Rejects a
+   * directory / missing / out-of-root target as `IS_DIRECTORY` / `NOT_FOUND` /
+   * `OUT_OF_ROOT` (Req 9.7). No stream is opened; the route layer serves the
+   * returned `absolutePath` via `res.sendFile`.
+   */
+  resolveContent(
+    logicalPath: string,
+  ): Promise<NasResult<{ absolutePath: string; entry: NasEntry }>>;
   putFile(input: PutFileInput): Promise<NasResult<NasEntry>>;
   createFolder(parentDir: string, name: string): Promise<NasResult<NasEntry>>;
   rename(
@@ -156,6 +170,12 @@ export const createNasStorageService = (
     download(logicalPath) {
       return run('download', { logicalPath }, () =>
         store.openRead(logicalPath),
+      );
+    },
+
+    resolveContent(logicalPath) {
+      return run('resolveContent', { logicalPath }, () =>
+        store.resolveContentPath(logicalPath),
       );
     },
 

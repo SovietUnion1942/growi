@@ -59,6 +59,7 @@ describe('createNasStorageService', () => {
       const results = await Promise.all([
         service.listFolder('/docs', listQuery),
         service.download('/docs/a.pdf'),
+        service.resolveContent('/docs/a.pdf'),
         service.putFile(putInput()),
         service.createFolder('/docs', 'sub'),
         service.rename('/docs/a.pdf', '/docs/b.pdf', false),
@@ -77,6 +78,7 @@ describe('createNasStorageService', () => {
 
       expect(store.list).not.toHaveBeenCalled();
       expect(store.openRead).not.toHaveBeenCalled();
+      expect(store.resolveContentPath).not.toHaveBeenCalled();
       expect(store.moveIntoRoot).not.toHaveBeenCalled();
       expect(store.mkdir).not.toHaveBeenCalled();
       expect(store.move).not.toHaveBeenCalled();
@@ -169,6 +171,103 @@ describe('createNasStorageService', () => {
       if (!result.ok) {
         expect(result.error.code).toBe('NOT_FOUND');
       }
+    });
+  });
+
+  describe('resolveContent', () => {
+    it('returns the absolute path and entry from the store on success', async () => {
+      const { store, service } = setup();
+      const entry = fileEntry('a.pdf');
+      store.resolveContentPath.mockResolvedValue({
+        ok: true,
+        value: { absolutePath: '/nas/docs/a.pdf', entry },
+      });
+
+      const result = await service.resolveContent('/docs/a.pdf');
+
+      expect(store.resolveContentPath).toHaveBeenCalledWith('/docs/a.pdf');
+      expect(result).toEqual({
+        ok: true,
+        value: { absolutePath: '/nas/docs/a.pdf', entry },
+      });
+    });
+
+    it('passes an IS_DIRECTORY error through', async () => {
+      const { store, service } = setup();
+      store.resolveContentPath.mockResolvedValue({
+        ok: false,
+        error: {
+          code: 'IS_DIRECTORY',
+          message: 'nas_storage.error.is_directory',
+        },
+      });
+
+      const result = await service.resolveContent('/docs');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('IS_DIRECTORY');
+      }
+    });
+
+    it('passes a NOT_FOUND error through', async () => {
+      const { store, service } = setup();
+      store.resolveContentPath.mockResolvedValue({
+        ok: false,
+        error: { code: 'NOT_FOUND', message: 'nas_storage.error.not_found' },
+      });
+
+      const result = await service.resolveContent('/docs/missing.pdf');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('passes an OUT_OF_ROOT error through', async () => {
+      const { store, service } = setup();
+      store.resolveContentPath.mockResolvedValue({
+        ok: false,
+        error: {
+          code: 'OUT_OF_ROOT',
+          message: 'nas_storage.error.out_of_root',
+        },
+      });
+
+      const result = await service.resolveContent('/../etc/passwd');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('OUT_OF_ROOT');
+      }
+    });
+
+    it('returns STORAGE_UNAVAILABLE without touching the store when the root is not ready', async () => {
+      const { store, service } = setup(false);
+
+      const result = await service.resolveContent('/docs/a.pdf');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('STORAGE_UNAVAILABLE');
+      }
+      expect(store.resolveContentPath).not.toHaveBeenCalled();
+    });
+
+    it('logs an error when the store returns a failure', async () => {
+      const { store, logger, service } = setup();
+      store.resolveContentPath.mockResolvedValue({
+        ok: false,
+        error: { code: 'NOT_FOUND', message: 'nas_storage.error.not_found' },
+      });
+
+      await service.resolveContent('/docs/missing.pdf');
+
+      expect(logger.error).toHaveBeenCalled();
+      const [detail, message] = logger.error.mock.calls[0];
+      expect(String(message)).toContain('resolveContent');
+      expect(detail).toMatchObject({ errorCode: 'NOT_FOUND' });
     });
   });
 

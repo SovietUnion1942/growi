@@ -316,7 +316,7 @@
   - _Requirements: 10.1, 11.1_
   - _Boundary: NasUploadDropzone_
   - _Depends: 11.4_
-- [ ] 11.6 フォルダ一括アップロードのオーケストレーションを実装する
+- [x] 11.6 フォルダ一括アップロードのオーケストレーションを実装する
   - 選択したフォルダのツリーを走査してディレクトリ集合とファイル集合を作り、各パスセグメントを名称検証してルート範囲外参照を除去する
   - 開始前に一度だけ衝突方針（すべて上書き / すべてスキップ / すべて別名）を選ばせ、バッチ内の全衝突へ一律適用する
   - ディレクトリを再現し（既存フォルダとの衝突は成功扱い）、各ファイルを（大きければ分割経路で）方針付きでアップロードする。対応ブラウザでは空のサブフォルダも作成する
@@ -388,3 +388,7 @@
 - 11.4: `useNasChunkedUpload` は `CHUNK_OUT_OF_ORDER` で内部 1 回だけ最初からやり直し（`MAX_OUT_OF_ORDER_RETRIES=1`）、2 回目失敗で `.code==='CHUNK_OUT_OF_ORDER'` を throw。task 11.5 の dropzone は out-of-order 専用の再試行ループ不要（terminal error 扱い＋汎用 retry で OK）。エラーは全て `NasRequestError`（`use-nas-list.ts`）で `uploadFile` と同型。`CHUNK_UPLOAD_THRESHOLD_BYTES = 90 MiB`、`shouldUseChunkedUpload(size) = size > threshold`。
 - 11.5: フォルダ選択の contract（task 11.6 が実装するプロップ）: `NasUploadDropzone` から `NasFolderSelection = { kind: 'handle'; handle: FileSystemDirectoryHandle } | { kind: 'input'; files: File[] }` を export、prop `onFolderSelected?: (s: NasFolderSelection) => void`。`'handle'` は Chromium のみ（空サブフォルダ列挙可、Req 11.2）。button は `onFolderSelected != null` のときのみ描画。i18n キー `nas_storage.upload.select_folder`（task 11.7）。
 - 11.5: `webkitdirectory` の型拡張を `react` module augmentation で component 内に置いた（repo 慣例は `declare global`）。follow-up で `.d.ts` に移すと綺麗。progress UI は未実装（follow-up）。
+- 11.6: `use-nas-folder-upload.ts` の `postFileChunked` は `use-nas-chunked-upload.ts` の begin→PATCH→complete ループを ~25 行複製している（`uploadFile`/`uploadLargeFile` が dir を hook 引数で束縛しネスト先を指定できないため）。CHUNK_OUT_OF_ORDER 自動リトライと onProgress は省略（バッチでは per-file failure として収集し継続、Req 11.4）。follow-up: `use-nas-chunked-upload` の boundary を開けるとき、dir をパラメータ化した共有チャンクループを抽出。
+- 11.6: `validateNasUploadName` + `NasFolderSelection` を `client/util/nas-upload-name.ts` に抽出（component↔hook の循環 value import を解消、esm-authoring.md）。`NasUploadDropzone` は後方互換で re-export。
+- 11.6: i18n キー（task 11.7）: `nas_storage.folder_upload.{in_progress,summary,failures_title,invalid_path,policy_title,policy_message,cancel,policy_overwrite,policy_skip,policy_rename}` + `nas_storage.upload.select_folder`。
+- 11.6: 0 ファイル成功だがディレクトリ（空サブフォルダ含む）作成時、`onUploaded` は発火しないため新規空ディレクトリは手動リロードが必要（軽微）。

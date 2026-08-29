@@ -11,6 +11,14 @@ import {
   useNasChunkedUpload,
 } from '../hooks/use-nas-chunked-upload';
 import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
+import type { NasFolderUploadResult } from '../hooks/use-nas-folder-upload';
+import { useNasFolderUpload } from '../hooks/use-nas-folder-upload';
+import type { NasFolderSelection } from '../util/nas-upload-name';
+import { validateNasUploadName } from '../util/nas-upload-name';
+import {
+  NasBatchPolicyDialog,
+  useNasBatchPolicy,
+} from './NasBatchPolicyDialog';
 
 declare global {
   interface Window {
@@ -31,21 +39,17 @@ declare module 'react' {
 /**
  * A folder the user picked for bulk upload. Task 11.5 only surfaces the
  * selection; `useNasFolderUpload` (task 11.6) walks it into a directory/file set
- * and orchestrates the batch. Two shapes because the two selection mechanisms
- * yield different things: the File System Access API hands back a live directory
- * handle (which also exposes empty sub-folders), the `<input webkitdirectory>`
- * fallback hands back a flat `File[]` carrying `webkitRelativePath`.
+ * and orchestrates the batch.
  */
-export type NasFolderSelection =
-  | { kind: 'handle'; handle: FileSystemDirectoryHandle }
-  | { kind: 'input'; files: File[] };
+export type { NasFolderSelection } from '../util/nas-upload-name';
 
 type Props = {
   currentDirPath: string;
   onUploaded?: () => void;
   /**
-   * Wired by task 11.6. When omitted, the "upload a folder" affordance is not
-   * rendered.
+   * Optional notification fired when the user picks a folder. The dropzone
+   * runs the batch itself via `useNasFolderUpload`; this callback is only a
+   * hook for callers that want to observe the selection.
    */
   onFolderSelected?: (selection: NasFolderSelection) => void;
 };
@@ -71,34 +75,15 @@ type QueueItem = {
   suggestedName?: string;
 };
 
-const MAX_NAME_LENGTH = 255;
-
 let idSeq = 0;
 const nextId = (): string => {
   idSeq += 1;
   return `nas-upload-${idSeq}`;
 };
 
-/**
- * Client-side name check mirroring the server's rules (the server stays the
- * final authority). Returns an i18n key when the name is not acceptable.
- */
-export const validateNasUploadName = (name: string): string | null => {
-  const trimmed = name.trim();
-  if (trimmed.length === 0) {
-    return 'nas_storage.upload.invalid_name_empty';
-  }
-  if (trimmed === '.' || trimmed === '..') {
-    return 'nas_storage.upload.invalid_name_dots';
-  }
-  if (/[/\\]/.test(name)) {
-    return 'nas_storage.upload.invalid_name_separator';
-  }
-  if (name.length > MAX_NAME_LENGTH) {
-    return 'nas_storage.upload.invalid_name_length';
-  }
-  return null;
-};
+// Re-exported for existing callers/tests; the definition lives in the util
+// module so the hook and this component do not form an import cycle.
+export { validateNasUploadName } from '../util/nas-upload-name';
 
 type UploadErrorShape = {
   code?: NasErrorCode;
@@ -120,8 +105,13 @@ export const NasUploadDropzone = ({
   const { t } = useTranslation();
   const { uploadFile } = useNasEntryActions(currentDirPath);
   const { uploadLargeFile } = useNasChunkedUpload(currentDirPath);
+  const { uploadFolder } = useNasFolderUpload(currentDirPath);
+  const { requestPolicy, dialogProps: policyDialogProps } = useNasBatchPolicy();
 
   const [items, setItems] = useState<QueueItem[]>([]);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const [folderResult, setFolderResult] =
+    useState<NasFolderUploadResult | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const patchItem = useCallback(
@@ -244,34 +234,62 @@ export const NasUploadDropzone = ({
     [onUploaded, patchItem, uploadOne],
   );
 
+  const handleFolderSelected = useCallback(
+    async (selection: NasFolderSelection): Promise<void> => {
+      // Keep the task 11.5 notification contract for external consumers.
+      onFolderSelected?.(selection);
+
+      // Ask the batch conflict policy exactly once, before anything is written.
+      const policy = await requestPolicy();
+      if (policy == null) {
+        return;
+      }
+
+      setFolderBusy(true);
+      setFolderResult(null);
+      try {
+        const result = await uploadFolder(selection, policy);
+        setFolderResult(result);
+        if (result.succeeded > 0 || result.skipped > 0) {
+          onUploaded?.();
+        }
+      } finally {
+        setFolderBusy(false);
+      }
+    },
+    [onFolderSelected, onUploaded, requestPolicy, uploadFolder],
+  );
+
   const openFolderPicker = useCallback(async (): Promise<void> => {
-    if (onFolderSelected == null) {
-      return;
-    }
     // Chromium exposes the File System Access API, which also enumerates empty
     // sub-folders; everywhere else falls back to `<input webkitdirectory>`.
     if (typeof window !== 'undefined' && window.showDirectoryPicker != null) {
+      let handle: FileSystemDirectoryHandle;
       try {
-        const handle = await window.showDirectoryPicker();
-        onFolderSelected({ kind: 'handle', handle });
+        handle = await window.showDirectoryPicker();
       } catch {
         // The user dismissed the picker — nothing selected, nothing to do.
+        return;
       }
+      await handleFolderSelected({ kind: 'handle', handle });
       return;
     }
     folderInputRef.current?.click();
-  }, [onFolderSelected]);
+  }, [handleFolderSelected]);
 
   const onFolderInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>): void => {
       const picked = e.target.files;
       if (picked != null && picked.length > 0) {
-        onFolderSelected?.({ kind: 'input', files: Array.from(picked) });
+        void handleFolderSelected({
+          kind: 'input',
+          files: Array.from(picked),
+        });
       }
       // Allow re-selecting the same folder later.
       e.target.value = '';
     },
-    [onFolderSelected],
+    [handleFolderSelected],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
@@ -302,30 +320,71 @@ export const NasUploadDropzone = ({
         </p>
       </div>
 
-      {onFolderSelected != null && (
-        <div className="mt-2">
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-            data-testid="nas-folder-select"
-            onClick={() => {
-              void openFolderPicker();
-            }}
-          >
-            <span className="material-symbols-outlined" aria-hidden="true">
-              drive_folder_upload
-            </span>
-            {t('nas_storage.upload.select_folder')}
-          </button>
-          <input
-            ref={folderInputRef}
-            type="file"
-            multiple
-            webkitdirectory=""
-            className="d-none"
-            data-testid="nas-folder-input"
-            onChange={onFolderInputChange}
-          />
+      <div className="mt-2">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+          data-testid="nas-folder-select"
+          disabled={folderBusy}
+          onClick={() => {
+            void openFolderPicker();
+          }}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            drive_folder_upload
+          </span>
+          {t('nas_storage.upload.select_folder')}
+        </button>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          webkitdirectory=""
+          className="d-none"
+          data-testid="nas-folder-input"
+          onChange={onFolderInputChange}
+        />
+      </div>
+
+      <NasBatchPolicyDialog {...policyDialogProps} />
+
+      {folderBusy && (
+        <p
+          className="mt-2 small text-muted"
+          data-testid="nas-folder-upload-busy"
+        >
+          {t('nas_storage.folder_upload.in_progress')}
+        </p>
+      )}
+
+      {folderResult != null && !folderBusy && (
+        <div className="mt-2" data-testid="nas-folder-upload-summary">
+          <p className="mb-1 small text-muted">
+            {t('nas_storage.folder_upload.summary', {
+              succeeded: folderResult.succeeded,
+              skipped: folderResult.skipped,
+              failed: folderResult.failed.length,
+            })}
+          </p>
+          {folderResult.failed.length > 0 && (
+            <div
+              className="alert alert-warning py-2 px-3 mb-0"
+              data-testid="nas-folder-upload-failures"
+            >
+              <p className="mb-1 small fw-bold">
+                {t('nas_storage.folder_upload.failures_title')}
+              </p>
+              <ul className="mb-0 ps-3 small">
+                {folderResult.failed.map((entry) => (
+                  <li key={entry.relativePath}>
+                    <span className="text-truncate">{entry.relativePath}</span>
+                    {' — '}
+                    {t(entry.error)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

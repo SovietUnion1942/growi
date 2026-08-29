@@ -133,7 +133,7 @@
   - _Requirements: 3.1, 3.2, 3.3_
   - _Boundary: NasUploadDropzone_
   - _Depends: 5.1_
-- [ ] 5.4 (P) 破壊的操作の確認ダイアログを実装する
+- [x] 5.4 (P) 破壊的操作の確認ダイアログを実装する
   - 削除・上書きを伴う移動を実行前に確認ダイアログで必ず経由させる
   - 完了状態: 削除および上書き移動の操作がダイアログ承認なしには実行されない
   - _Requirements: 5.6_
@@ -187,3 +187,4 @@
 - 5.1: 共有ヘルパー `nasApiRequest`/`NasRequestError`/`NAS_LIST_ENDPOINT` は現状 `use-nas-list.ts` 内。5.2/5.3 で `client/hooks/nas-request.ts` に抽出推奨。
 - 5.1: カスタム axios の `convertStringsToDates` が `modifiedAt` を実行時に `Date` へ強制変換(型は `string`)。5.2 の行コンポーネントは防御的にフォーマットすること。
 - 5.2: 無限スクロールの `loadMore` は hook が毎レンダー新クロージャを返すため、`loadMoreRef` + `lastRequestedLenRef`(entries.length ベース)で once-per-intersection ガード。`loadMore` フェッチが `entries` を増やさず失敗すると `hasMore` true のままガードが閉じたまま → SWR error ブランチ表示 + sentinel unmount で回復(手動 refresh)。スクロール再試行が要るなら follow-up。
+- 5.4: `useNasConfirm()` は命令的ゲート(`confirm(): Promise<boolean>`)。pending 中に第2の `confirm()` は `false` 即解決(破壊的安全側)。consumer がダイアログを pending 中に unmount すると promise 未解決 → 5.5 の配線で dialogProps を常時マウントすること。

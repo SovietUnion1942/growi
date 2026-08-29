@@ -58,6 +58,32 @@ const getAiEnabledProp = async (
   return props.aiEnabled;
 };
 
+const getNasStorageEnabledProp = async (
+  isNasStorageReady: boolean,
+): Promise<boolean> => {
+  const req = mockDeep<CrowiRequest>();
+  req.crowi.isNasStorageReady.mockReturnValue(isNasStorageReady);
+  const context = mock<GetServerSidePropsContext>({
+    req: req as unknown as GetServerSidePropsContext['req'],
+  });
+  const result = await getServerSideCommonInitialProps(context);
+  if (!('props' in result)) {
+    throw new Error('expected a props result');
+  }
+  const props = await result.props;
+  return props.nasStorageEnabled;
+};
+
+describe('getServerSideCommonInitialProps - nasStorageEnabled supply', () => {
+  it('supplies nasStorageEnabled=true when the NAS root is ready', async () => {
+    expect(await getNasStorageEnabledProp(true)).toBe(true);
+  });
+
+  it('supplies nasStorageEnabled=false when the NAS root is not ready', async () => {
+    expect(await getNasStorageEnabledProp(false)).toBe(false);
+  });
+});
+
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {
   it('supplies aiEnabled=true when AI is ready (enabled && configured)', async () => {
     expect(await getAiEnabledProp(true)).toBe(true);

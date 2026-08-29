@@ -20,6 +20,10 @@ import { LdapUserGroupSyncService } from '~/features/external-user-group/server/
 import { initializeVaultFeature } from '~/features/growi-vault/server';
 import { isAiReady as resolveIsAiReady } from '~/features/mastra/server/services/is-ai-configured';
 import { modelConfigSync } from '~/features/mastra/server/services/model-config-sync';
+import {
+  initializeNasFileStorage,
+  isNasStorageReady as resolveIsNasStorageReady,
+} from '~/features/nas-file-storage/server';
 import { checkPageBulkExportJobInProgressCronService } from '~/features/page-bulk-export/server/service/check-page-bulk-export-job-in-progress-cron';
 import instanciatePageBulkExportJobCleanUpCronService from '~/features/page-bulk-export/server/service/page-bulk-export-job-clean-up-cron';
 import instanciatePageBulkExportJobCronService from '~/features/page-bulk-export/server/service/page-bulk-export-job-cron';
@@ -318,6 +322,8 @@ class Crowi {
       this.setupExternalUserGroupSyncService(),
       // depends on pageService and activityService
       this.setupVaultFeature(),
+      // NAS file storage: one-shot root health probe (no service dependencies)
+      initializeNasFileStorage(this),
     ]);
 
     await this.setupCron();
@@ -364,6 +370,17 @@ class Crowi {
   // aligned (Req 7.4).
   isAiReady(): boolean {
     return resolveIsAiReady();
+  }
+
+  // NAS file storage feature-enabled verdict for callers that cannot reach the
+  // feature's module-level health-checker singleton safely -- notably
+  // getServerSideProps, which runs in the Next/Turbopack SSR realm where a
+  // directly-imported singleton is a separate instance whose `probeOnBoot`
+  // never ran. Exposing it here makes it execute in this (Express) realm, where
+  // the boot sequence has fixed the root health status. Mirrors the admin
+  // `enabled` field semantics (`state === 'ready'`).
+  isNasStorageReady(): boolean {
+    return resolveIsNasStorageReady();
   }
 
   setConfig(config: Record<string, unknown>): void {

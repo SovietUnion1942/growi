@@ -11,6 +11,10 @@ import {
 } from '~/features/growi-vault/server';
 import { factory as mastraRouteFactory } from '~/features/mastra/server/routes';
 import { factory as adminAiSettingsRouteFactory } from '~/features/mastra/server/routes/admin-ai-settings';
+import {
+  setupNasStorage,
+  setupNasStorageAdmin,
+} from '~/features/nas-file-storage/server';
 import newsRoute from '~/features/news/server/routes/news';
 import { setup as setupPageBulkExport } from '~/features/page-bulk-export/server/routes/apiv3/page-bulk-export';
 import { changesRouteHandlersFactory } from '~/features/revision-diff/server/routes/changes';
@@ -129,6 +133,8 @@ export const setup = (crowi, app) => {
 
   // vault admin API (GET /status, POST /bootstrap, PUT /enabled, POST /reconcile)
   routerForAdmin.use('/vault', createVaultAdminRouterWithDeps(crowi));
+  // NAS file storage admin API (GET /status)
+  routerForAdmin.use('/nas-storage', setupNasStorageAdmin(crowi));
 
   // auth
   const applicationInstalled = setupApplicationInstalled(crowi);
@@ -216,6 +222,7 @@ export const setup = (crowi, app) => {
 
   router.use('/bookmarks', setupBookmarks(crowi));
   router.use('/attachment', setupAttachment(crowi));
+  router.use('/nas-storage', setupNasStorage(crowi));
 
   router.use('/slack-integration', setupSlackIntegration(crowi));
 

@@ -32,6 +32,18 @@ describe('AdminNavigation', () => {
     expect(aiLinks.length).toBeGreaterThan(0);
   });
 
+  it('renders a navigation link to the NAS storage admin page (/admin/nas-storage)', () => {
+    // Act
+    render(<AdminNavigation />);
+
+    // Assert: at least one link points to the NAS storage admin page.
+    const nasLinks = screen
+      .getAllByRole('link')
+      .filter((el) => el.getAttribute('href') === '/admin/nas-storage');
+
+    expect(nasLinks.length).toBeGreaterThan(0);
+  });
+
   it('renders a navigation link to the badge management page (/admin/badges)', () => {
     // Act
     render(<AdminNavigation />);

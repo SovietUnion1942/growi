@@ -1158,5 +1158,84 @@
     "searching": "検索中...",
     "noResults": "該当するページがありません",
     "candidatesLabel": "ページ候補"
+  },
+  "nas_storage": {
+    "nav_label": "NAS ストレージ",
+    "refresh": "更新",
+    "empty_folder": "このフォルダは空です。",
+    "loading_more": "さらに読み込んでいます...",
+    "breadcrumb_root": "ルート",
+    "new_folder": "新しいフォルダ",
+    "upload_button": "アップロード",
+    "rename": "名前を変更",
+    "delete": "削除",
+    "download": "ダウンロード",
+    "dismiss_error": "閉じる",
+    "login_required": "NAS ストレージを利用するにはログインしてください。",
+    "forbidden": "NAS ストレージにアクセスする権限がありません。",
+    "access_check_failed": "NAS ストレージへのアクセス権を確認できませんでした。しばらくしてからもう一度お試しください。",
+    "error": {
+      "not_found": "ファイルまたはフォルダが見つかりません。",
+      "conflict": "同じ名前の項目がすでに存在します。",
+      "out_of_root": "指定された場所は許可されたストレージ領域の外です。",
+      "invalid_path": "指定されたパスが正しくありません。",
+      "is_directory": "フォルダに対しては実行できない操作です。",
+      "not_a_directory": "フォルダに対してのみ実行できる操作です。",
+      "permission_denied": "この操作を行う権限がありません。",
+      "storage_unavailable": "NAS ストレージは一時的に利用できません。しばらくしてからもう一度お試しください。",
+      "too_large": "ファイルが大きすぎるためアップロードできません。",
+      "too_many_entries": "このフォルダには項目が多すぎて表示できません。",
+      "unknown": "予期しないエラーが発生しました。しばらくしてからもう一度お試しください。",
+      "file_required": "アップロードするファイルを選択してください。",
+      "upload_failed": "アップロードに失敗しました。もう一度お試しください。"
+    },
+    "upload": {
+      "drop_active": "ファイルをドロップしてアップロード",
+      "drop_here": "ここにファイルをドラッグ＆ドロップ、またはクリックして選択",
+      "overwrite": "上書き",
+      "save_as": "「{{name}}」として保存",
+      "skip": "スキップ",
+      "conflict": "同じ名前の項目がすでに存在します。",
+      "status_pending": "待機中",
+      "status_uploading": "アップロード中...",
+      "status_done": "完了",
+      "status_error": "失敗",
+      "status_conflict": "名前の重複",
+      "status_skipped": "スキップ済み",
+      "invalid_name_empty": "ファイル名を入力してください。",
+      "invalid_name_dots": "「.」および「..」はファイル名として使用できません。",
+      "invalid_name_separator": "ファイル名にパス区切り文字は使用できません。",
+      "invalid_name_length": "ファイル名が長すぎます。"
+    },
+    "confirm": {
+      "delete_title": "項目を削除",
+      "delete_message": "「{{name}}」を削除しますか？この操作は取り消せません。",
+      "overwrite_title": "項目を上書き",
+      "overwrite_message": "「{{name}}」はすでに存在します。上書きしますか？"
+    },
+    "admin": {
+      "title": "NAS ストレージ",
+      "fetch_error": "NAS ストレージの状態を取得できませんでした。",
+      "enabled_label": "状態",
+      "enabled": "有効",
+      "disabled": "無効",
+      "root_label": "ストレージのルート",
+      "group_restriction_label": "許可するグループ",
+      "group_restriction_none": "制限なし（ログイン済みの全ユーザー）",
+      "max_file_size_label": "最大ファイルサイズ",
+      "max_file_size_unlimited": "無制限",
+      "root": {
+        "ready": "利用可能",
+        "unavailable": "利用不可",
+        "misconfigured": "設定に問題があります",
+        "unconfigured": "未設定",
+        "disabled": "無効"
+      },
+      "reason": {
+        "missing": "設定されたディレクトリが存在しません。",
+        "not-a-directory": "設定されたパスがディレクトリではありません。",
+        "not-writable": "設定されたディレクトリに書き込めません。"
+      }
+    }
   }
 }

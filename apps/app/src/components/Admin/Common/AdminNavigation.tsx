@@ -140,6 +140,13 @@ const MenuLabel = ({ menu }: { menu: string }) => {
           GROWI Vault
         </>
       );
+    case 'nas-storage':
+      return (
+        <>
+          <span className="material-symbols-outlined me-1">hard_drive</span>
+          {t('nas_storage_management')}
+        </>
+      );
     case 'plugins':
       return (
         <>
@@ -335,6 +342,11 @@ export const AdminNavigation = (): JSX.Element => {
             isListGroupItems={isListGroupItems}
             isActive={isActiveMenu('/vault')}
           />
+          <MenuLink
+            menu="nas-storage"
+            isListGroupItems={isListGroupItems}
+            isActive={isActiveMenu('/nas-storage')}
+          />
 
           <hr />
 
@@ -403,6 +415,7 @@ export const AdminNavigation = (): JSX.Element => {
             {isActiveMenu('/audit-log') && <MenuLabel menu="audit-log" />}
             {isActiveMenu('/badges') && <MenuLabel menu="badges" />}
             {isActiveMenu('/vault') && <MenuLabel menu="vault" />}
+            {isActiveMenu('/nas-storage') && <MenuLabel menu="nas-storage" />}
             {isActiveMenu('/plugins') && <MenuLabel menu="plugins" />}
             {isActiveMenu('/data-transfer') && (
               <MenuLabel menu="data-transfer" />

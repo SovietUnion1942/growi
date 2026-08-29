@@ -1,0 +1,209 @@
+# Implementation Plan
+
+- [ ] 1. Foundation: 共有型・設定・パス安全・エラー正規化
+- [x] 1.1 NAS ストレージの共有型を定義する
+  - `NasEntry`（name / type / sizeBytes / modifiedAt）、`NasListQuery`（cursor / limit / includeHidden）、`NasListPage`（entries / nextCursor）を定義する
+  - `NasFileStore` インターフェイス、`NasResult<T>` 判別ユニオン、`NasErrorCode`（`TOO_MANY_ENTRIES` / `TOO_LARGE` を含む）と `NasError`（suggestedName / limitBytes / limitEntries）を定義する
+  - すべてクライアントからも import 可能な型のみで構成し、barrel から公開する
+  - 完了状態: 型がコンパイルを通り、feature の interfaces barrel から名前付き export される
+  - _Requirements: 2.1, 2.4, 8.2_
+- [x] 1.2 (P) 環境変数アクセサ NasStorageConfig を実装する
+  - `GROWI_NAS_ROOT` / `GROWI_NAS_GROUP` / `GROWI_NAS_MAX_FILE_SIZE` / `GROWI_NAS_SHOW_HIDDEN` / `GROWI_NAS_MAX_ENTRIES_PER_DIR` を `process.env` から型付きで読み出す（`configManager` は経由しない）
+  - `resolveRoot()` は絶対パスに解決し、`isEnabled()` はルート設定有無を返す
+  - 未設定・空文字は無効として扱う
+  - 完了状態: 単体テストで各変数の解決・既定値・未設定時の無効判定が確認できる
+  - _Requirements: 1.1, 1.2, 3.3, 6.3, 8.4_
+  - _Boundary: NasStorageConfig_
+  - _Depends: 1.1_
+- [x] 1.3 (P) パス封じ込め関数 resolveSafePath を実装する
+  - 論理パスを正規化し、`..` セグメントと絶対パス注入を除去する
+  - `path.join` → `path.resolve` → `isPathWithinBase` で境界判定し、範囲外は `OUT_OF_ROOT` を返す
+  - 実在する最近接祖先の `realpath` を取り、その結果に対しても境界判定を行う（シンボリックリンク脱出防止）
+  - 完了状態: 単体テストで `../` 連鎖・絶対パス注入・ルート外を指すシンボリックリンクがいずれも `OUT_OF_ROOT` になる
+  - _Requirements: 2.5, 3.5, 4.3, 5.5, 6.5, 7.2_
+  - _Boundary: resolveSafePath_
+  - _Depends: 1.1_
+- [x] 1.4 (P) エラー正規化 normalizeNasError を実装する
+  - `fs` の errno（ENOENT / EEXIST / EACCES / EPERM / EISDIR / ENOTDIR など）を `NasErrorCode` に対応付ける
+  - ルート自体への ENOENT / EACCES は `STORAGE_UNAVAILABLE` に分類する
+  - 利用者向け `message` から絶対パス・errno・スタックを除去し、詳細は logger に渡せる形で保持する
+  - 完了状態: 単体テストで代表的 errno のマッピングと、返り値に絶対パス・errno が含まれないことが確認できる
+  - _Requirements: 2.5, 4.2, 8.2, 8.3_
+  - _Boundary: normalizeNasError_
+  - _Depends: 1.1_
+
+- [ ] 2. Core: ストア層とサービス層
+- [x] 2.1 FsNasFileStore の読み取り操作を実装する
+  - `list` は対象ディレクトリを全件 `readdir` → 名前昇順に安定ソート → `cursor` 以降を `limit`（既定 100 / 最大 500）件スライスして返す（早期打ち切りはしない）
+  - エントリ総数が `maxEntriesPerDir`（既定 50,000）超のとき列挙せず `TOO_MANY_ENTRIES` を返す
+  - `includeHidden=false` で `.` 始まりと既定除外名（`.growi-nas-tmp` / `.DS_Store` / `Thumbs.db` / `@eaDir`）を除外する
+  - `statEntry` / `openRead` を実装し、すべて `resolveSafePath` を通してから `fs` を呼ぶ
+  - 完了状態: 単体テストで cursor ページングの安定性、隠しファイル除外、GROWI 外で作成したファイルが列挙されること、上限超過エラーが確認できる
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 4.1, 8.4_
+  - _Boundary: FsNasFileStore_
+  - _Depends: 1.1, 1.2, 1.3_
+- [x] 2.2 FsNasFileStore の書き込み操作を実装する
+  - `moveIntoRoot` は同一デバイスで `rename`、`EXDEV` 時のみ `${root}/.growi-nas-tmp/` 経由の copy+rename にフォールバックする
+  - 非上書き時は宛先を `wx` フラグまたは `link` で排他生成し、`EEXIST` を `CONFLICT` に正規化する（事前 exists 確認は行わない）
+  - `mkdir` / `move` / `remove`（recursive 指定でフォルダ配下ごと）を実装し、`remove` はルート自身を対象にできないようにする
+  - いずれの失敗経路でも中間物・書きかけファイルを残さない
+  - 完了状態: 単体テストで EXDEV フォールバック時の中間物なし、途中失敗時の不完全ファイルなし、排他生成による衝突検出が確認できる
+  - _Requirements: 3.1, 3.2, 3.4, 5.1, 5.2, 5.3, 7.2_
+  - _Depends: 2.1_
+- [x] 2.3 (P) RootHealthChecker を実装する
+  - `probeOnBoot` でルートの存在・ディレクトリ判定・読み書き可否を判定し `unconfigured` / `misconfigured(reason)` / `ready` を確定する
+  - `getStatus` は現在状態を返し、`ensureReady` は各操作の入口で軽量 `fs.access` を行い `ready` ↔ `unavailable` のみ遷移させる
+  - 完了状態: 単体テストで missing / not-a-directory / not-writable の判定と、`misconfigured` が起動時判定を維持したまま `ready↔unavailable` のみ動くことが確認できる
+  - _Requirements: 1.3, 8.1_
+  - _Boundary: RootHealthChecker_
+  - _Depends: 1.2_
+- [x] 2.4 NasStorageService を実装する
+  - 各メソッド冒頭で `ensureReady` を呼び、`unavailable` なら `STORAGE_UNAVAILABLE` を返す
+  - `putFile` は非上書き＋宛先存在時に `CONFLICT` と一意な `suggestedName`（`name (1).ext` 形式で採番）を返す
+  - `download` は対象がディレクトリ／不存在なら `IS_DIRECTORY` / `NOT_FOUND` を返す
+  - すべての失敗を `normalizeNasError` に通し、詳細（論理パス・errno）を `logger.error` に記録する
+  - 完了状態: 単体テストで衝突時の suggestedName の一意性、ディレクトリ download 拒否、ストレージ不能時の分類、ログ出力が確認できる
+  - _Requirements: 3.2, 4.2, 5.4, 8.1, 8.3_
+  - _Depends: 2.2, 2.3, 1.4_
+
+- [ ] 3. Core: HTTP 層
+- [x] 3.1 (P) nasAccess ミドルウェアを実装する
+  - 先頭に `loginRequiredFactory(crowi)`（guest 不可）を適用する
+  - `GROWI_NAS_GROUP` 設定時は内部/外部グループを名前で解決し、リクエストユーザーの所属を関係モデルで判定、非所属は 403 を返す
+  - グループ未設定時はログイン済み全ユーザーを許可し、判定結果をリクエストスコープにキャッシュする
+  - 完了状態: 統合テストで未認証 401、グループ未設定でログインユーザー 200、グループ設定時に非所属 403・所属 200 が確認できる
+  - _Requirements: 6.1, 6.2, 6.3, 6.4_
+  - _Boundary: nasAccess_
+  - _Depends: 1.2_
+- [x] 3.2 利用者向け apiv3 ルーター setupNasStorage を実装する
+  - `GET /entries`（一覧・ページング）、`GET /file`（ダウンロード、元ファイル名を `Content-Disposition` で保持）、`POST /files`（multipart、`multer` の `limits.fileSize` を `maxFileSize()` に設定）、`POST /folders`、`PATCH /entries`（rename / move）、`DELETE /entries`（recursive 指定）を実装する
+  - 全ルートに `nasAccess` を router レベルで適用する
+  - `NasErrorCode` を HTTP ステータスへ機械マッピングする（CONFLICT→409＋suggestedName、TOO_LARGE→413＋limitBytes、TOO_MANY_ENTRIES→409＋limitEntries、OUT_OF_ROOT→422、STORAGE_UNAVAILABLE→503 など）
+  - `RootHealthChecker` が `ready` / `unavailable` 以外のとき全エンドポイントを 404 にする
+  - 完了状態: 統合テストで各エンドポイントの正常系、範囲外パスの 422、機能無効時の全 404、サイズ超過の 413 が確認できる
+  - _Requirements: 1.2, 2.1, 2.4, 3.1, 3.3, 4.1, 4.3, 5.1, 5.2, 5.3, 6.2, 6.5, 7.3, 8.3_
+  - _Depends: 2.4, 3.1_
+- [x] 3.3 (P) 管理者向け apiv3 ルーター setupNasStorageAdmin を実装する
+  - `adminRequired` を適用した `GET /status` を実装し、`enabled` / `NasRootStatus`（misconfigured の reason 含む）/ `groupRestriction` / `maxFileSizeBytes` を返す
+  - 完了状態: 統合テストで有効時・未設定時・不備時それぞれのステータス JSON が返ることが確認できる
+  - _Requirements: 1.3, 1.4, 8.2_
+  - _Boundary: setupNasStorageAdmin_
+  - _Depends: 2.3_
+- [x] 3.4 非結合ドリフト spec を追加する
+  - feature 配下の全モジュールが `Attachment` モデル・`server/service/file-uploader`・添付 apiv3 ルート・共有リンク発行系を import しないことを静的に検査する
+  - 完了状態: spec が緑で、禁止 import を一時的に追加すると失敗する（ミューテーション確認）
+  - _Requirements: 1.5, 6.6, 7.1, 7.4_
+  - _Boundary: nas-file-storage feature tests_
+  - _Depends: 3.2_
+
+- [ ] 4. Integration: サーバー配線
+- [x] 4.1 feature 初期化とルート登録を行う
+  - `initializeNasFileStorage(crowi)` を実装し、`RootHealthChecker.probeOnBoot` を実行する
+  - `apps/app/src/server/routes/apiv3/index.js` に利用者ルーターと管理者ルーターを各 1 行で登録する
+  - `apps/app/src/server/crowi/index.ts` の vault 初期化の隣に初期化呼び出しを 1 行追加する
+  - 完了状態: サーバーが起動し、未認証で `GET /api/v3/nas-storage/entries` が 401、認証済みで 200、`GET /api/v3/admin/nas-storage/status` がステータスを返す
+  - _Requirements: 2.4, 3.5, 7.3, 7.4_
+  - _Boundary: crowi boot, apiv3 index, nas-file-storage server barrel_
+  - _Depends: 3.2, 3.3_
+- [x] 4.2 クライアント有効フラグを供給する
+  - `RootHealthChecker.getStatus()` から機能有効フラグを導出し、`_app` のサーバー設定 props 経由で `nasStorageEnabledAtom` に供給する（既存の `aiEnabledAtom` と同じ経路）
+  - 完了状態: 有効/無効を切り替えるとクライアントの atom 値が追随することが確認できる
+  - _Requirements: 1.2, 1.4_
+  - _Boundary: server-configurations state, _app props_
+  - _Depends: 4.1_
+
+- [ ] 5. Core: クライアント UI
+- [x] 5.1 一覧取得と操作の SWR フックを実装する
+  - `use-nas-list`：cursor ページング、無限スクロール向けの追加取得、フォルダ移動時の再検証
+  - `use-nas-entry-actions`：アップロード / フォルダ作成 / リネーム / 移動 / 削除のミューテーションと、成功時の一覧再検証
+  - 完了状態: フックがエンドポイントを呼び、一覧の追加読み込みと各操作後の再取得が動作する
+  - _Requirements: 2.1, 2.3, 2.4, 3.1, 5.1, 5.2, 5.3_
+  - _Boundary: nas client hooks_
+  - _Depends: 4.1_
+- [x] 5.2 ファイルブラウザ画面コンポーネントを実装する
+  - パンくず、エントリ一覧（名称・種別・サイズ・更新日時）、ツールバー、無限スクロールを持つ `NasStorageBrowser` と行コンポーネントを実装する
+  - GROWI 外で加えられた変更が再表示で反映されることを一覧の再検証で担保する
+  - 完了状態: `/nas` 配下でフォルダを開くと一覧が表示され、スクロールで次ページが読まれる
+  - _Requirements: 2.1, 2.3_
+  - _Boundary: NasStorageBrowser_
+  - _Depends: 5.1_
+- [x] 5.3 (P) アップロード UI を実装する
+  - ドラッグ&ドロップアップロード、409 衝突時に上書き / 別名（`suggestedName`）を選ばせる導線、クライアント側の名称検証（空・セパレータ・長さ）
+  - 完了状態: 既存名へのアップロードで確認なしに上書きされず、選択に応じて上書き or 別名保存される
+  - _Requirements: 3.1, 3.2, 3.3_
+  - _Boundary: NasUploadDropzone_
+  - _Depends: 5.1_
+- [x] 5.4 (P) 破壊的操作の確認ダイアログを実装する
+  - 削除・上書きを伴う移動を実行前に確認ダイアログで必ず経由させる
+  - 完了状態: 削除および上書き移動の操作がダイアログ承認なしには実行されない
+  - _Requirements: 5.6_
+  - _Boundary: NasConfirmDialog_
+  - _Depends: 5.1_
+- [x] 5.5 NASページとサイドバーナビ項目を追加する
+  - `/nas` の `*.page.tsx` を `getLayout` 付きで追加し `NasStorageBrowser` を描画する
+  - `PrimaryItems.tsx` に `NasStorageNavItem` を差し込み、`nasStorageEnabledAtom` が真かつ非ゲストのときのみ表示する
+  - 機能無効時は `/nas` 自体も 404 相当にする
+  - 完了状態: 有効時のみナビ項目と `/nas` が現れ、`GROWI_NAS_ROOT` 未設定ではどちらも表示されない
+  - _Requirements: 1.2_
+  - _Boundary: pages/nas, PrimaryItems, NasStorageNavItem_
+  - _Depends: 5.2, 4.2_
+- [x] 5.6 (P) 管理画面のステータス表示を実装する
+  - 管理画面に `NasStorageAdminStatus` を追加し、有効状態・ルート解決結果・`misconfigured` の理由を読み取り表示する
+  - 完了状態: 管理画面で `ready` / `unconfigured` / `misconfigured(reason)` が正しく表示される
+  - _Requirements: 1.3, 1.4_
+  - _Boundary: NasStorageAdminStatus_
+  - _Depends: 4.1_
+- [x] 5.7 i18n 文言を追加する
+  - `nas_storage.*` の UI 文言と、`NasErrorCode` 別の利用者向けエラーメッセージを既存ロケールファイルに追加する
+  - 完了状態: 各エラーコードと主要 UI 文字列が翻訳キーで解決され、絶対パス等を含まない
+  - _Requirements: 8.2_
+  - _Boundary: locales_
+  - _Depends: 5.2, 5.3, 5.4, 5.6_
+- [x] 5.8 管理画面セクションのマウント（設計ギャップ補完・明示的統合タスク）
+  - `apps/app/src/pages/admin/nas-storage.page.tsx` を `src/pages/admin/vault.page.tsx` に倣って追加（`NextPageWithLayout` + `AdminLayout` の `getLayout` + `getServerSideProps` で common/admin props 組み立て）し `<NasStorageAdminStatus />` を描画する
+  - `apps/app/src/components/Admin/Common/AdminNavigation.tsx` にアイコン `case` / `MenuLink` / `MenuLabel` の3点を追加し `AdminNavigation.spec.tsx` を更新する
+  - `admin` ロケール名前空間に該当セクションのラベルを追加する
+  - 完了状態: 管理者が管理画面のナビから NAS セクションを開くと `NasStorageAdminStatus` が表示される（Req 1.4 を end-to-end で満たす）
+  - _Requirements: 1.4_
+  - _Boundary: pages/admin/nas-storage, AdminNavigation_
+  - _Depends: 5.6_
+
+- [x] 5.9 エントリのダウンロード導線を追加する（タスク計画ギャップ補完）
+  - `NasEntryRow` にファイル用のダウンロードアクション（`GET /api/v3/nas-storage/file?path=` を開く `<a download>` またはボタン）を追加する。ディレクトリ行には出さない
+  - `NasStorageBrowser` の行アクションスロットに配線し、`currentPath` + `entry.name` から正しい論理パスを組み立てる
+  - 完了状態: ブラウザ画面でファイル行のダウンロード操作から実ファイルが取得できる（Req 4.1 を UI で満たす）
+  - _Requirements: 4.1_
+  - _Boundary: NasEntryRow, NasStorageBrowser_
+  - _Depends: 5.5_
+
+- [ ] 6. Validation
+- [x] 6.1 サーバー統合テストを追加する
+  - `nasAccess`：未認証 401 / グループ非所属 403 / 所属 200
+  - `setupNasStorage`：範囲外パスで 422、機能無効時に全エンドポイント 404、アップロード上限超過で 413、`DELETE` がフォルダに `recursive` 未指定で 409・指定で配下ごと削除
+  - 非干渉：NAS 機能有効化後も既存の `/api/v3/attachment/*` 統合テストが緑のまま
+  - 完了状態: 上記シナリオを網羅する統合テストが緑になる
+  - _Requirements: 3.5, 5.3, 6.1, 6.2, 6.3, 6.4, 7.1, 7.3_
+  - _Depends: 4.1_
+- [x] 6.2 E2E テストを追加する
+  - ログイン → サイドバー NAS 項目 → `/nas` でフォルダを開く → ファイルをアップロード → 一覧に出現 → ダウンロード
+  - フォルダ作成 → 確認ダイアログ経由で移動 → 旧パス消失・新パス出現
+  - `GROWI_NAS_ROOT` 未設定でナビ項目も `/nas` も出ない
+  - 管理画面で `misconfigured` の理由が表示される
+  - 完了状態: 上記の主要ユーザーフローが E2E で通る
+  - _Requirements: 1.2, 1.3, 1.4, 2.1, 3.1, 4.1, 5.2, 5.6_
+  - _Depends: 5.5, 5.6, 5.7, 5.8, 5.9_
+
+## Implementation Notes
+
+- 1.3: パス封じ込めは「最近接の実在祖先を realpath」だけでは不十分。root 内の宙ぶらりんシンボリックリンク（ターゲット不在＝ENOENT）を「未作成の通常ディレクトリ」と誤認して素通りし脱出しうる。`realpath(root)` からトップダウンに各コンポーネントを lstat/realpath で解決し、宙ぶらりんリンクは readlink+realpath(dirname)、確認不能は fail-closed で OUT_OF_ROOT にする。全 store の書き込み経路はこの resolveSafePath 戻り値のみを使うこと。
+- 2.2: `move(overwrite=true)` が既存の非空ディレクトリに当たると `ENOTEMPTY`。`normalizeNasError` に ENOTEMPTY エントリがなく `UNKNOWN` になる。normalizeNasError 拡張は task 1.4 境界のため保留 → サービス/ルート層(2.4/3.2)で 409 相当に整えるか、後日 mapper に追加。
+- 3.2: `GET /file` は `stream.pipe(res)` のみで、クライアント切断/`res` エラー時に `stream` を destroy していない → 中断ダウンロードで fd リークの可能性。5.x のクライアント実装後、余力で `res.on('close')` で `stream.destroy()` を追加。
+- 3.2: design.md の INVALID_PATH は 400(L531/API表) と 422(L533) で矛盾。実装は 400 採用。spec-cleanup で解消すること。
+- 5.1: 標準 `~/client/util/apiv3-client` はエラー時に apiv3Err の `info` スロット(`suggestedName`/`limitBytes`/`limitEntries`)を捨てるため、NAS フックは `~/utils/axios`(共有カスタム instance、XSRF ヘッダ維持)を直接使う。逸脱は `nasApiRequest` ヘルパーに局所化。
+- 5.1: 共有ヘルパー `nasApiRequest`/`NasRequestError`/`NAS_LIST_ENDPOINT` は現状 `use-nas-list.ts` 内。5.2/5.3 で `client/hooks/nas-request.ts` に抽出推奨。
+- 5.1: カスタム axios の `convertStringsToDates` が `modifiedAt` を実行時に `Date` へ強制変換(型は `string`)。5.2 の行コンポーネントは防御的にフォーマットすること。
+- 5.2: 無限スクロールの `loadMore` は hook が毎レンダー新クロージャを返すため、`loadMoreRef` + `lastRequestedLenRef`(entries.length ベース)で once-per-intersection ガード。`loadMore` フェッチが `entries` を増やさず失敗すると `hasMore` true のままガードが閉じたまま → SWR error ブランチ表示 + sentinel unmount で回復(手動 refresh)。スクロール再試行が要るなら follow-up。
+- 5.4: `useNasConfirm()` は命令的ゲート(`confirm(): Promise<boolean>`)。pending 中に第2の `confirm()` は `false` 即解決(破壊的安全側)。consumer がダイアログを pending 中に unmount すると promise 未解決 → 5.5 の配線で dialogProps を常時マウントすること。
+- 5.6: `NasStorageAdminStatus` はコンポーネント+SWR フックのみ。管理画面へのマウントは design.md の File Structure Plan / Modified Files に記載漏れ（設計ギャップ）→ task 5.8 として追加。Req 1.4 は 5.8 完了まで end-to-end では未達。design.md も spec-cleanup で「pages/admin/nas-storage.page.tsx + AdminNavigation 追加」を追記すること。
+- 5.6: `NasRootStatus` がサーバー(`root-health-checker.ts`)とクライアント(`use-nas-admin-status.ts`)で二重宣言。`interfaces/` に client-safe な `NasRootStatus` を昇格して両者で import するのが望ましい（drift 防止、非ブロッキング）。
+- POST-IMPL: `GROWI_NAS_ENABLED` master スイッチをユーザー要望で追加（既定 false・明示 opt-in）。`RootHealthChecker` に `disabled` 状態を追加（`unconfigured` と区別）。admin パネル・i18n・requirements.md Req 1・design.md（NasRootStatus / 状態図 / env 一覧）更新。テストは注入 config が `enabled` を持たない場合は opted-in 扱いで後方互換。`growi-docker-compose` の `feat/nas-file-storage` ブランチに `GROWI_NAS_ENABLED` / `GROWI_NAS_HOST_PATH` の compose 配線 + `.env.example` を追加。

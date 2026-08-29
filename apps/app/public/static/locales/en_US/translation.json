@@ -1118,5 +1118,84 @@
     "searching": "Searching...",
     "noResults": "No pages found",
     "candidatesLabel": "Page candidates"
+  },
+  "nas_storage": {
+    "nav_label": "NAS Storage",
+    "refresh": "Refresh",
+    "empty_folder": "This folder is empty.",
+    "loading_more": "Loading more...",
+    "breadcrumb_root": "Root",
+    "new_folder": "New folder",
+    "upload_button": "Upload",
+    "rename": "Rename",
+    "delete": "Delete",
+    "download": "Download",
+    "dismiss_error": "Dismiss",
+    "login_required": "Please log in to access NAS storage.",
+    "forbidden": "You do not have permission to access NAS storage.",
+    "access_check_failed": "Could not verify access to NAS storage. Please try again later.",
+    "error": {
+      "not_found": "The file or folder was not found.",
+      "conflict": "An item with the same name already exists.",
+      "out_of_root": "That location is outside the allowed storage area.",
+      "invalid_path": "The specified path is invalid.",
+      "is_directory": "That operation cannot be performed on a folder.",
+      "not_a_directory": "That operation can only be performed on a folder.",
+      "permission_denied": "You do not have permission to perform this operation.",
+      "storage_unavailable": "NAS storage is temporarily unavailable. Please try again later.",
+      "too_large": "The file is too large to upload.",
+      "too_many_entries": "This folder has too many items to display.",
+      "unknown": "An unexpected error occurred. Please try again later.",
+      "file_required": "Please select a file to upload.",
+      "upload_failed": "The upload failed. Please try again."
+    },
+    "upload": {
+      "drop_active": "Drop files to upload",
+      "drop_here": "Drag and drop files here, or click to select",
+      "overwrite": "Overwrite",
+      "save_as": "Save as \"{{name}}\"",
+      "skip": "Skip",
+      "conflict": "An item with the same name already exists.",
+      "status_pending": "Waiting",
+      "status_uploading": "Uploading...",
+      "status_done": "Done",
+      "status_error": "Failed",
+      "status_conflict": "Name conflict",
+      "status_skipped": "Skipped",
+      "invalid_name_empty": "Enter a file name.",
+      "invalid_name_dots": "\".\" and \"..\" cannot be used as a file name.",
+      "invalid_name_separator": "A file name cannot contain path separators.",
+      "invalid_name_length": "The file name is too long."
+    },
+    "confirm": {
+      "delete_title": "Delete item",
+      "delete_message": "Delete \"{{name}}\"? This cannot be undone.",
+      "overwrite_title": "Overwrite item",
+      "overwrite_message": "\"{{name}}\" already exists. Overwrite it?"
+    },
+    "admin": {
+      "title": "NAS Storage",
+      "fetch_error": "Failed to load NAS storage status.",
+      "enabled_label": "Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "root_label": "Storage root",
+      "group_restriction_label": "Allowed groups",
+      "group_restriction_none": "No restriction (all logged-in users)",
+      "max_file_size_label": "Maximum file size",
+      "max_file_size_unlimited": "Unlimited",
+      "root": {
+        "ready": "Ready",
+        "unavailable": "Unavailable",
+        "misconfigured": "Misconfigured",
+        "unconfigured": "Not configured",
+        "disabled": "Disabled"
+      },
+      "reason": {
+        "missing": "The configured directory does not exist.",
+        "not-a-directory": "The configured path is not a directory.",
+        "not-writable": "The configured directory is not writable."
+      }
+    }
   }
 }

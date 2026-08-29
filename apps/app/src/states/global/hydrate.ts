@@ -3,7 +3,10 @@ import { useSetAtom } from 'jotai';
 import { useHydrateAtoms } from 'jotai/utils';
 
 import type { CommonEachProps, CommonInitialProps } from '~/pages/common-props';
-import { aiEnabledAtom } from '~/states/server-configurations';
+import {
+  aiEnabledAtom,
+  nasStorageEnabledAtom,
+} from '~/states/server-configurations';
 import { createAtomTuple } from '~/utils/jotai-utils';
 
 import { _atomsForHydration } from './global';
@@ -60,6 +63,10 @@ export const useHydrateGlobalInitialAtoms = (
             commonInitialProps.forcedColorScheme,
           ),
           createAtomTuple(aiEnabledAtom, commonInitialProps.aiEnabled),
+          createAtomTuple(
+            nasStorageEnabledAtom,
+            commonInitialProps.nasStorageEnabled,
+          ),
         ];
 
   useHydrateAtoms(tuples);

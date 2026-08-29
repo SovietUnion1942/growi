@@ -1,4 +1,12 @@
 export type {
+  AppendChunkResult,
+  BeginChunkedUploadInput,
+  BeginChunkedUploadRequest,
+  BeginChunkedUploadResponse,
+  ChunkedUploadSession,
+  CompleteChunkedUploadResponse,
+} from './nas-chunked-upload';
+export type {
   NasEntry,
   NasEntryType,
   NasListPage,

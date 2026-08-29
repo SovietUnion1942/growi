@@ -10,6 +10,10 @@ node_modules.*
 # testing
 coverage
 
+# nas-file-storage chunked-upload scratch dir (created cwd-relative when
+# GROWI_NAS_ROOT is unset, e.g. by tests touching the default registry)
+.growi-nas-tmp/
+
 # misc
 .DS_Store
 *.pem

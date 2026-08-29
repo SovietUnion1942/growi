@@ -382,3 +382,4 @@
 - 9.4: i18n キー `nas_storage.error.invalid_content_range`（`PATCH /uploads/:id` の Content-Range 不正時）を task 11.7 で追加。code は `INVALID_PATH`。
 - 9.4: `PATCH /uploads/:id` はチャンク本体サイズを検証しない（`Content-Range` の宣言長・`totalBytes` 残量チェック無し）。認証済みユーザーが `complete` を呼ばず `.growi-nas-tmp` を膨らませられる低severity DoS 窓（24h で sweeper が回収）。follow-up: route で `Content-Length` vs `range.end-range.start+1` と残量チェック。
 - 9.x: `suggestedName` enrichment は task 9.4 で `ChunkedUploadRegistry.complete` 側に実装済み（session drop 前に probe）。9.2/9.3 の follow-up note は解決済み。
+- 9.x: `chunkedUploadRegistry` シングルトンは `GROWI_NAS_ROOT` 未設定時に `FsNasFileStore('')` を作るため、シングルトンを触るテストが cwd 相対 `.growi-nas-tmp/` を作ってしまう。`.gitignore` に追加済み。follow-up: シングルトン生成を遅延化 or unconfigured 時は no-op にする。

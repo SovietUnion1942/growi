@@ -47,6 +47,12 @@ vi.mock('next-i18next', () => ({
   }),
 }));
 
+// NasPreviewModal (loaded via next/dynamic) pulls in the shared axios instance
+// at module load; stub it so importing the modal never touches the network.
+vi.mock('~/utils/axios', () => ({
+  default: { get: vi.fn().mockResolvedValue({ data: '', headers: {} }) },
+}));
+
 const fileEntry: NasEntry = {
   name: 'report.pdf',
   type: 'file',
@@ -57,6 +63,18 @@ const dirEntry: NasEntry = {
   name: 'documents',
   type: 'directory',
   sizeBytes: 0,
+  modifiedAt: '2026-01-02T03:04:05Z',
+};
+const imageEntry: NasEntry = {
+  name: 'photo.png',
+  type: 'file',
+  sizeBytes: 4096,
+  modifiedAt: '2026-01-02T03:04:05Z',
+};
+const archiveEntry: NasEntry = {
+  name: 'archive.zip',
+  type: 'file',
+  sizeBytes: 4096,
   modifiedAt: '2026-01-02T03:04:05Z',
 };
 
@@ -371,6 +389,38 @@ describe('NasStorageBrowser', () => {
       expect(
         screen.queryByRole('link', { name: 'nas_storage.download' }),
       ).toBeNull();
+    });
+  });
+
+  describe('preview affordance (Req 9.1, 9.4)', () => {
+    it('shows a preview control only on a previewable file row', () => {
+      mocks.useNasList.mockReturnValue(
+        makeResult({ entries: [imageEntry, archiveEntry] }),
+      );
+
+      render(<NasStorageBrowser />);
+
+      expect(screen.getAllByTestId('nas-entry-preview')).toHaveLength(1);
+    });
+
+    it('opens the preview modal for the clicked file, then closes it', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [imageEntry] }));
+
+      render(<NasStorageBrowser initialPath="/a/b" />);
+
+      await userEvent.click(screen.getByTestId('nas-entry-preview'));
+
+      const modal = await screen.findByTestId('nas-preview-modal');
+      expect(modal).toBeInTheDocument();
+
+      const img = screen.getByTestId('nas-preview-image');
+      const src = img.getAttribute('src') ?? '';
+      const url = new URL(src, 'http://localhost');
+      expect(url.searchParams.get('path')).toBe('/a/b/photo.png');
+      expect(url.searchParams.get('inline')).toBe('1');
+
+      await userEvent.click(screen.getByLabelText('Close'));
+      expect(screen.queryByTestId('nas-preview-modal')).toBeNull();
     });
   });
 

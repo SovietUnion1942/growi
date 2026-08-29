@@ -13,6 +13,7 @@ import { UserStatus } from '~/server/models/user/conts';
 import addCustomFunctionToResponse from '~/server/routes/apiv3/response';
 
 import {
+  chunkedUploadRegistry,
   initializeNasFileStorage,
   setupNasStorage,
   setupNasStorageAdmin,
@@ -92,13 +93,16 @@ describe('nas-file-storage server barrel (wiring)', () => {
   });
 
   describe('apiv3 route registration', () => {
-    it('registers the user router at /nas-storage and the admin router at /nas-storage', async () => {
+    it('registers the user router at /nas-storage and the admin router at /admin/nas-storage', async () => {
       const source = await readFile(APIV3_INDEX, 'utf8');
       expect(source).toMatch(
         /router\.use\(\s*['"]\/nas-storage['"],\s*setupNasStorage\(crowi\)\)/,
       );
+      // routerForAdmin is mounted at /_api/v3, so the admin status endpoint is
+      // /_api/v3/admin/nas-storage/status — matching the client hook. A bare
+      // '/nas-storage' here would collide with the user router (fix 934160be91).
       expect(source).toMatch(
-        /routerForAdmin\.use\(\s*['"]\/nas-storage['"],\s*setupNasStorageAdmin\(crowi\)\)/,
+        /routerForAdmin\.use\(\s*['"]\/admin\/nas-storage['"],\s*setupNasStorageAdmin\(crowi\)\)/,
       );
     });
   });
@@ -212,6 +216,32 @@ describe('nas-file-storage server barrel (wiring)', () => {
 
       expect(spy).toHaveBeenCalledTimes(1);
       expect(rootHealthChecker.getStatus().state).toBe('misconfigured');
+    });
+
+    it('kicks off the chunked-upload stale sweep once when the root probes ready', async () => {
+      vi.stubEnv('GROWI_NAS_ENABLED', 'true');
+      vi.stubEnv('GROWI_NAS_ROOT', await newRoot());
+      const sweep = vi
+        .spyOn(chunkedUploadRegistry, 'sweepStale')
+        .mockResolvedValue();
+
+      await initializeNasFileStorage(crowi);
+
+      expect(rootHealthChecker.getStatus().state).toBe('ready');
+      expect(sweep).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not start the sweep when the feature is disabled', async () => {
+      vi.stubEnv('GROWI_NAS_ENABLED', undefined);
+      vi.stubEnv('GROWI_NAS_ROOT', await newRoot());
+      const sweep = vi
+        .spyOn(chunkedUploadRegistry, 'sweepStale')
+        .mockResolvedValue();
+
+      await initializeNasFileStorage(crowi);
+
+      expect(rootHealthChecker.getStatus().state).toBe('disabled');
+      expect(sweep).not.toHaveBeenCalled();
     });
 
     it('does not throw when probeOnBoot itself rejects', async () => {

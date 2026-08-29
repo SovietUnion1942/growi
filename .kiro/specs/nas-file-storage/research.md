@@ -168,3 +168,57 @@ GO 判定。3 件の critical issue を design.md に反映済み。
 | R-3 | 非上書き保証が TOCTOU | 「事前 exists 確認 → move」をやめ、宛先を `wx` / `link` で排他生成 → `EEXIST` を `CONFLICT` に正規化（アトミック）。`moveIntoRoot` / `move` 共通規則。アップロード・シーケンス図も更新 |
 
 環境変数セット（確定）: `GROWI_NAS_ROOT`（必須）, `GROWI_NAS_GROUP`, `GROWI_NAS_MAX_FILE_SIZE`, `GROWI_NAS_SHOW_HIDDEN`, `GROWI_NAS_MAX_ENTRIES_PER_DIR`。
+
+---
+
+## 第 2 弾の探索と設計判断（プレビュー / 分割アップロード / フォルダ一括） — 2026-08-29
+
+対象要件: `requirements.md` Requirement 9〜11、および 6.7。Extension（light discovery）。
+
+### Light Discovery（既存コードの確認）
+
+| 調査点 | 所見 | 設計への含意 |
+|---|---|---|
+| GROWI 添付配信の Range 対応 | `file-uploader/local.ts` は `createReadStream` を単純に `pipe`。**Range 非対応**（動画シーク不可） | プレビューの動画シーク（Req 9.3）は自前実装が要る → `res.sendFile` を採用 |
+| ディスポジション判定の前例 | `file-uploader/utils/security.ts` の `defaultContentDispositionSettings`（MIME → inline/attachment）、`headers.ts` の `createContentHeaders`（CSP 文字列込み） | 同じ分類方針を拡張子キーで再現（`interfaces/nas-preview.ts`）。CSP 文字列も踏襲 |
+| scriptable 形式の扱い | 既存表で `text/html` `image/svg+xml` `application/javascript` `application/xml` `application/json` はすべて `attachment` | Req 9.6 と一致。NAS 側も同一方針で固定 |
+| multipart 受信 | `multer({ dest })` + `multer-autoreap`（既存パターン、既に NAS でも使用） | 単発アップロードは現状維持。分割は raw body 追記なので multer 非経由 |
+| チャンクアップロードの前例 | GROWI 内に**なし** | 最小プロトコルを自作（下記 build 判断） |
+| フォルダ選択 API | `react-dropzone`（既存依存）はディレクトリ D&D でファイルのみ返す（空ディレクトリは不可視）。File System Access API `showDirectoryPicker` は Chromium で空ディレクトリも列挙可 | Req 11.2（空フォルダ作成）は picker 経路で満たす。`webkitdirectory` はフォールバック |
+
+### Design Synthesis
+
+**1. Generalization**
+- **プレビュー = ダウンロードの配信バリエーション**。「ルート内のファイルを正しいヘッダで HTTP 配信する」capability に一本化。別 `/preview` ルートは作らず `GET /file?inline=` の 1 スイッチ、store も `resolveContentPath` 1 メソッド。
+- **分割アップロード完了 = 単発アップロード**。どちらも「一時ファイルを衝突処理付きで原子的にルートへ move」。`moveIntoRoot({ sourceTmpPath })` を `.part` にも再利用。
+
+**2. Build vs Adopt**
+- **Range / 条件付き GET → Adopt `res.sendFile`**（Express 組み込み）。`range-parser` + 206 + `If-Range` + マルチレンジ拒否 + `Last-Modified`/`ETag` を自前で書くのは車輪の再発明。`res.sendFile` は絶対パスを要求するだけ。
+- **チャンクアップロード → Build（最小）**。`tus`（`tus-node-server`）を検討 → 却下：依存が増え、独自のルーティング/ストレージモデルを持ち込む。かつ「レジューム非対応」を明示要件としているため tus の主機能が不要。`Content-Range` の逐次追記（`start === receivedBytes` ガード）＋在メモリセッションで固定小コード。
+- **フォルダ走査 → Adopt ブラウザ API**（`showDirectoryPicker` / `webkitdirectory`）。ライブラリなし。
+
+**3. Simplification**
+- 新しい環境変数を追加しない。`chunkSize`（8 MiB）・クライアント切替閾値（90 MiB）・スイープ間隔（1h）・セッション TTL（24h）はコード内定数。
+- 分割アップロードセッションを **MongoDB に持たない**。在メモリ `Map`。プロセス再起動で失われてよい（レジューム非対応の当然の帰結）。孤児 `.part` は TTL スイープで回収。
+- フォルダ一括アップロードに**新しいサーバーエンドポイントを足さない**。既存 `POST /folders`（バッチ内では既存時 409 を成功扱い）＋ `POST /files` の再利用。オーケストレーションはクライアント。
+- `NasPreviewModal` は 1 コンポーネントで kind 分岐（img/video/audio/iframe/pre）。4 つに割らない。
+
+### Design Decisions（第 2 弾・確定）
+
+| # | 決定 | 根拠 |
+|---|---|---|
+| D9 | プレビューとダウンロードを `GET /file?inline=` に統合、配信は `res.sendFile` | Generalization / Adopt。Range を自前実装しない |
+| D10 | 拡張子 → `{ kind, mimeType, disposition }` 表を `interfaces/nas-preview.ts` に置き、server (`nasContentDisposition`) と client (`getNasPreviewKind`) で共有 | 判定のずれ防止（単一の情報源） |
+| D11 | SVG/HTML/XML/JS は `inline=1` でも常に `attachment`、全 `GET /file` に CSP + `nosniff` | Req 9.6、同一オリジン蓄積型 XSS の防止 |
+| D12 | 分割アップロード = `POST /uploads` → `PATCH`（`Content-Range` 逐次）→ `complete`。在メモリ `ChunkedUploadRegistry`、`.part` は `.growi-nas-tmp/` | Build 最小、レジューム非対応（Req 10.4） |
+| D13 | `.part` の完了は既存 `moveIntoRoot` を再利用（衝突処理も共通） | Generalization、Req 10.6 |
+| D14 | 分割セッションは開始ユーザーに束縛、`uploadId` は `crypto.randomUUID()` | 他人のセッションへの追記/中断を防ぐ |
+| D15 | フォルダ一括アップロードはクライアント主導、サーバーは既存 `/folders` `/files` 再利用 | Simplification。既存改変を増やさない |
+| D16 | 空フォルダ保持は `showDirectoryPicker` 経路のみ、`webkitdirectory` はフォールバック（空フォルダは作られない） | ブラウザ API の制約。Req 11.2 は前者で満たす |
+
+### 未解決（設計後・実装前に確認したい軽微な点）
+
+- `chunkSize` 8 MiB / 切替閾値 90 MiB の具体値（100 MiB プロキシ上限に対する安全マージン）。実測で調整余地。
+- テキストプレビューの先頭取得サイズ 256 KiB が妥当か。
+- `showDirectoryPicker` 非対応ブラウザ（Firefox/Safari）で空フォルダが作られないことを UI で明示するか、黙認するか。
+- PDF プレビューの `<iframe sandbox>` 属性値（`allow-same-origin` を付けるか）。

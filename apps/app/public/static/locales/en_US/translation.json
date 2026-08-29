@@ -1147,7 +1147,11 @@
       "too_many_entries": "This folder has too many items to display.",
       "unknown": "An unexpected error occurred. Please try again later.",
       "file_required": "Please select a file to upload.",
-      "upload_failed": "The upload failed. Please try again."
+      "upload_failed": "The upload failed. Please try again.",
+      "chunk_size_mismatch": "The uploaded chunks did not add up to the declared file size. Please try the upload again.",
+      "invalid_content_range": "The upload request had an invalid range header.",
+      "upload_session_not_found": "The upload session was not found. It may have expired — start the upload again.",
+      "chunk_out_of_order": "An upload chunk arrived out of order. Please try the upload again."
     },
     "upload": {
       "drop_active": "Drop files to upload",
@@ -1155,6 +1159,7 @@
       "overwrite": "Overwrite",
       "save_as": "Save as \"{{name}}\"",
       "skip": "Skip",
+      "select_folder": "Upload a folder",
       "conflict": "An item with the same name already exists.",
       "status_pending": "Waiting",
       "status_uploading": "Uploading...",
@@ -1167,6 +1172,26 @@
       "invalid_name_separator": "A file name cannot contain path separators.",
       "invalid_name_length": "The file name is too long.",
       "size_hint": "Up to 100 MB per file (limited by the reverse proxy / CDN)."
+    },
+    "preview": {
+      "action": "Preview",
+      "loading": "Loading preview…",
+      "error": "Could not load the preview.",
+      "truncated": "Showing the beginning of the file only. Download for the full content.",
+      "not_supported": "This file type cannot be previewed.",
+      "download": "Download"
+    },
+    "folder_upload": {
+      "policy_title": "Folder upload",
+      "policy_message": "How should name conflicts be handled for this folder?",
+      "policy_overwrite": "Overwrite all",
+      "policy_skip": "Skip all",
+      "policy_rename": "Keep both (rename)",
+      "cancel": "Cancel",
+      "in_progress": "Uploading folder…",
+      "summary": "{{succeeded}} uploaded, {{skipped}} skipped, {{failed}} failed.",
+      "failures_title": "Files that failed to upload",
+      "invalid_path": "The path contains an unusable name and was skipped."
     },
     "confirm": {
       "delete_title": "Delete item",

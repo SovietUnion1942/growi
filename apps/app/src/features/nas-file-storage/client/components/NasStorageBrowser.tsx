@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { LoadingSpinner } from '@growi/ui/dist/components';
 import { useTranslation } from 'next-i18next';
 
@@ -8,9 +9,18 @@ import type { NasEntry } from '~/features/nas-file-storage/interfaces';
 import { useNasConfirm } from '../hooks/use-nas-confirm';
 import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
 import { useNasList } from '../hooks/use-nas-list';
+import { useNasPreview } from '../hooks/use-nas-preview';
 import { NasConfirmDialog } from './NasConfirmDialog';
 import { NasEntryRow } from './NasEntryRow';
 import { NasUploadDropzone } from './NasUploadDropzone';
+
+// The preview modal pulls in reactstrap's Modal and an axios text fetch; it is
+// never needed for the initial render and must not run during SSR (design:
+// 「モーダルは dynamic({ ssr: false })」).
+const NasPreviewModal = dynamic(
+  () => import('./NasPreviewModal').then((m) => m.NasPreviewModal),
+  { ssr: false },
+);
 
 type Props = {
   /** Folder to open first. Defaults to the NAS root. */
@@ -65,6 +75,8 @@ export const NasStorageBrowser = ({
 
   const actions = useNasEntryActions(currentPath);
   const { confirm, dialogProps } = useNasConfirm();
+  const { previewEntry, previewLogicalPath, openPreview, closePreview } =
+    useNasPreview();
 
   const [isNewFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -247,6 +259,11 @@ export const NasStorageBrowser = ({
             key={`${entry.type}:${entry.name}`}
             entry={entry}
             onOpenDir={handleOpenDir}
+            onPreview={
+              entry.type === 'file'
+                ? () => openPreview(entryPathOf(entry.name), entry)
+                : undefined
+            }
             actions={
               renamingName === entry.name ? (
                 <span className="d-flex align-items-center gap-1">
@@ -481,6 +498,12 @@ export const NasStorageBrowser = ({
 
       {/* Mounted unconditionally so a pending confirm() is never lost on unmount. */}
       <NasConfirmDialog {...dialogProps} />
+
+      <NasPreviewModal
+        entry={previewEntry}
+        logicalPath={previewLogicalPath}
+        onClose={closePreview}
+      />
     </div>
   );
 };

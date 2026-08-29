@@ -1,9 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { CHUNK_UPLOAD_THRESHOLD_BYTES } from '../hooks/use-nas-chunked-upload';
 import { NasUploadDropzone, validateNasUploadName } from './NasUploadDropzone';
 
-const mocks = vi.hoisted(() => ({ uploadFile: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  uploadFile: vi.fn(),
+  uploadLargeFile: vi.fn(),
+  uploadFolder: vi.fn(),
+}));
+
+vi.mock('../hooks/use-nas-folder-upload', () => ({
+  useNasFolderUpload: () => ({ uploadFolder: mocks.uploadFolder }),
+}));
 
 vi.mock('../hooks/use-nas-entry-actions', () => ({
   useNasEntryActions: () => ({
@@ -14,6 +23,23 @@ vi.mock('../hooks/use-nas-entry-actions', () => ({
     remove: vi.fn(),
   }),
 }));
+
+vi.mock('../hooks/use-nas-chunked-upload', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../hooks/use-nas-chunked-upload')>();
+  return {
+    ...actual,
+    useNasChunkedUpload: () => ({ uploadLargeFile: mocks.uploadLargeFile }),
+  };
+});
+
+const makeLargeFile = (name: string): File => {
+  const file = new File(['x'], name, { type: 'application/octet-stream' });
+  Object.defineProperty(file, 'size', {
+    value: CHUNK_UPLOAD_THRESHOLD_BYTES + 1,
+  });
+  return file;
+};
 
 vi.mock('next-i18next', () => ({
   useTranslation: () => ({
@@ -49,6 +75,13 @@ class NasRequestErrorStub extends Error {
 
 beforeEach(() => {
   mocks.uploadFile.mockReset();
+  mocks.uploadLargeFile.mockReset();
+  mocks.uploadFolder.mockReset();
+  mocks.uploadFolder.mockResolvedValue({
+    succeeded: 0,
+    skipped: 0,
+    failed: [],
+  });
 });
 
 describe('validateNasUploadName', () => {
@@ -240,5 +273,208 @@ describe('NasUploadDropzone', () => {
 
     await screen.findByText(/nas_storage\.error\.too_large/);
     expect(onUploaded).not.toHaveBeenCalled();
+  });
+
+  it('routes a file over the threshold through the chunked path', async () => {
+    mocks.uploadLargeFile.mockResolvedValue({ name: 'big.bin', type: 'file' });
+    const onUploaded = vi.fn();
+
+    render(
+      <NasUploadDropzone currentDirPath="/docs" onUploaded={onUploaded} />,
+    );
+    dropFiles([makeLargeFile('big.bin')]);
+
+    await waitFor(() => expect(mocks.uploadLargeFile).toHaveBeenCalledTimes(1));
+    expect(mocks.uploadLargeFile).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'big.bin' }),
+      undefined,
+    );
+    expect(mocks.uploadFile).not.toHaveBeenCalled();
+    await waitFor(() => expect(onUploaded).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps a sub-threshold file on the single-shot path', async () => {
+    mocks.uploadFile.mockResolvedValue({ name: 'a.txt', type: 'file' });
+
+    render(<NasUploadDropzone currentDirPath="/" />);
+    dropFiles([makeFile('a.txt')]);
+
+    await waitFor(() => expect(mocks.uploadFile).toHaveBeenCalledTimes(1));
+    expect(mocks.uploadLargeFile).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a chunked-upload CONFLICT with the same overwrite/save-as/skip UI', async () => {
+    mocks.uploadLargeFile.mockRejectedValueOnce(
+      new NasRequestErrorStub({
+        code: 'CONFLICT',
+        suggestedName: 'big (1).bin',
+      }),
+    );
+
+    render(<NasUploadDropzone currentDirPath="/" />);
+    dropFiles([makeLargeFile('big.bin')]);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'nas_storage.upload.overwrite',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'nas_storage.upload.save_as' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'nas_storage.upload.skip' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error row when a chunked upload fails', async () => {
+    mocks.uploadLargeFile.mockRejectedValueOnce(new Error('network lost'));
+
+    render(<NasUploadDropzone currentDirPath="/" />);
+    dropFiles([makeLargeFile('big.bin')]);
+
+    expect(
+      await screen.findByText('nas_storage.upload.status_error'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/nas_storage\.error\.upload_failed/),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the folder affordance even without onFolderSelected', () => {
+    render(<NasUploadDropzone currentDirPath="/" />);
+    expect(screen.getByTestId('nas-folder-select')).toBeInTheDocument();
+  });
+
+  it('forwards a webkitdirectory selection to onFolderSelected', async () => {
+    const onFolderSelected = vi.fn();
+    const clickSpy = vi
+      .spyOn(HTMLInputElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    render(
+      <NasUploadDropzone
+        currentDirPath="/"
+        onFolderSelected={onFolderSelected}
+      />,
+    );
+
+    const button = screen.getByTestId('nas-folder-select');
+    const input = screen.getByTestId('nas-folder-input');
+    expect(input).toHaveAttribute('webkitdirectory');
+
+    await userEvent.click(button);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    const files = [makeFile('a.txt'), makeFile('b.txt')];
+    fireEvent.change(input, { target: { files } });
+
+    expect(onFolderSelected).toHaveBeenCalledTimes(1);
+    expect(onFolderSelected).toHaveBeenCalledWith({
+      kind: 'input',
+      files: expect.arrayContaining([
+        expect.objectContaining({ name: 'a.txt' }),
+        expect.objectContaining({ name: 'b.txt' }),
+      ]),
+    });
+
+    clickSpy.mockRestore();
+  });
+
+  it('forwards a directory handle when the File System Access API is available', async () => {
+    const onFolderSelected = vi.fn();
+    const handle = { kind: 'directory', name: 'photos' };
+    const showDirectoryPicker = vi.fn().mockResolvedValue(handle);
+    vi.stubGlobal('showDirectoryPicker', showDirectoryPicker);
+
+    render(
+      <NasUploadDropzone
+        currentDirPath="/"
+        onFolderSelected={onFolderSelected}
+      />,
+    );
+
+    await userEvent.click(screen.getByTestId('nas-folder-select'));
+
+    await waitFor(() =>
+      expect(onFolderSelected).toHaveBeenCalledWith({ kind: 'handle', handle }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  const selectFolder = async (files: File[]): Promise<void> => {
+    const clickSpy = vi
+      .spyOn(HTMLInputElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    await userEvent.click(screen.getByTestId('nas-folder-select'));
+    fireEvent.change(screen.getByTestId('nas-folder-input'), {
+      target: { files },
+    });
+    clickSpy.mockRestore();
+  };
+
+  it('asks the batch policy once and runs uploadFolder with the chosen policy', async () => {
+    mocks.uploadFolder.mockResolvedValue({
+      succeeded: 2,
+      skipped: 0,
+      failed: [],
+    });
+    const onUploaded = vi.fn();
+    render(
+      <NasUploadDropzone currentDirPath="/docs" onUploaded={onUploaded} />,
+    );
+
+    await selectFolder([makeFile('a.txt'), makeFile('b.txt')]);
+
+    const dialog = await screen.findByTestId('nas-batch-policy-dialog');
+    expect(dialog).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId('nas-batch-policy-overwrite'));
+
+    await waitFor(() => expect(mocks.uploadFolder).toHaveBeenCalledTimes(1));
+    expect(mocks.uploadFolder.mock.calls[0][1]).toBe('overwrite');
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('nas-batch-policy-dialog'),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(onUploaded).toHaveBeenCalled());
+  });
+
+  it('does not call uploadFolder when the policy dialog is cancelled', async () => {
+    render(<NasUploadDropzone currentDirPath="/" />);
+
+    await selectFolder([makeFile('a.txt')]);
+    await screen.findByTestId('nas-batch-policy-dialog');
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'nas_storage.folder_upload.cancel',
+      }),
+    );
+
+    expect(mocks.uploadFolder).not.toHaveBeenCalled();
+  });
+
+  it('shows the failure list and fires onUploaded after a partial folder upload', async () => {
+    mocks.uploadFolder.mockResolvedValue({
+      succeeded: 1,
+      skipped: 0,
+      failed: [
+        {
+          relativePath: 'top/bad.txt',
+          error: 'nas_storage.error.upload_failed',
+        },
+      ],
+    });
+    const onUploaded = vi.fn();
+    render(<NasUploadDropzone currentDirPath="/" onUploaded={onUploaded} />);
+
+    await selectFolder([makeFile('a.txt')]);
+    await screen.findByTestId('nas-batch-policy-dialog');
+    await userEvent.click(screen.getByTestId('nas-batch-policy-skip'));
+
+    const failures = await screen.findByTestId('nas-folder-upload-failures');
+    expect(failures).toHaveTextContent('top/bad.txt');
+    await waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 });

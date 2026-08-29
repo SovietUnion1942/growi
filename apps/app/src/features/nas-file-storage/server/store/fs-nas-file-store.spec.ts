@@ -6,6 +6,7 @@ import {
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -286,6 +287,71 @@ describe('FsNasFileStore', () => {
 
     test('path escape -> OUT_OF_ROOT', async () => {
       const res = await store.openRead('../secret.txt');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+  });
+
+  describe('resolveContentPath', () => {
+    test('existing file -> absolute in-root path + entry, no stream', async () => {
+      await writeFile(path.join(root, 'deliver.bin'), 'the-bytes');
+
+      const res = await store.resolveContentPath('/deliver.bin');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(path.isAbsolute(res.value.absolutePath)).toBe(true);
+      expect(path.basename(res.value.absolutePath)).toBe('deliver.bin');
+      expect(res.value.absolutePath.startsWith(root + path.sep)).toBe(true);
+      expect(res.value.entry.name).toBe('deliver.bin');
+      expect(res.value.entry.type).toBe('file');
+      expect(res.value.entry.sizeBytes).toBe('the-bytes'.length);
+      expect(() =>
+        new Date(res.value.entry.modifiedAt).toISOString(),
+      ).not.toThrow();
+      expect(res.value.entry.modifiedAt).toBe(
+        new Date(res.value.entry.modifiedAt).toISOString(),
+      );
+      expect(res.value).not.toHaveProperty('stream');
+    });
+
+    test('directory target -> IS_DIRECTORY', async () => {
+      await mkdir(path.join(root, 'a-dir'));
+
+      const res = await store.resolveContentPath('/a-dir');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('IS_DIRECTORY');
+    });
+
+    test('not found -> NOT_FOUND', async () => {
+      const res = await store.resolveContentPath('/missing.txt');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('NOT_FOUND');
+    });
+
+    test('path escape -> OUT_OF_ROOT', async () => {
+      const res = await store.resolveContentPath('../outside');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+
+    test('symlink pointing outside root -> OUT_OF_ROOT', async () => {
+      await writeFile(path.join(workDir, 'outside-secret.txt'), 'secret');
+      await symlink(
+        path.join(workDir, 'outside-secret.txt'),
+        path.join(root, 'escape-link'),
+        'file',
+      );
+
+      const res = await store.resolveContentPath('/escape-link');
 
       expect(res.ok).toBe(false);
       if (res.ok) return;
@@ -653,6 +719,154 @@ describe('FsNasFileStore', () => {
       expect(res.ok).toBe(false);
       if (res.ok) return;
       expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+  });
+
+  describe('createPart / appendChunk / discardPart / listStaleParts', () => {
+    const partPathFor = (uploadId: string): string =>
+      path.join(root, tmpDirName, `${uploadId}.part`);
+
+    test('createPart makes a 0-byte .part inside .growi-nas-tmp', async () => {
+      const res = await store.createPart('uuid-1');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value.partPath).toBe(partPathFor('uuid-1'));
+      expect(path.dirname(res.value.partPath)).toBe(
+        path.join(root, tmpDirName),
+      );
+      expect((await stat(res.value.partPath)).size).toBe(0);
+    });
+
+    test('createPart rejects an unsafe uploadId without creating anything', async () => {
+      const res = await store.createPart('../evil');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('INVALID_PATH');
+      expect(await listTmpLeftovers()).toEqual([]);
+    });
+
+    test('appendChunk grows the file for in-order chunks and concatenates bytes', async () => {
+      const created = await store.createPart('seq');
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      const { partPath } = created.value;
+
+      const first = await store.appendChunk({
+        partPath,
+        expectedOffset: 0,
+        chunk: Readable.from(Buffer.from('abcd')),
+      });
+      expect(first.ok).toBe(true);
+      if (!first.ok) return;
+      expect(first.value.size).toBe(4);
+
+      const second = await store.appendChunk({
+        partPath,
+        expectedOffset: 4,
+        chunk: Readable.from(Buffer.from('efg')),
+      });
+      expect(second.ok).toBe(true);
+      if (!second.ok) return;
+      expect(second.value.size).toBe(7);
+
+      await expect(readFile(partPath, 'utf8')).resolves.toBe('abcdefg');
+    });
+
+    test('appendChunk with a mismatched offset -> CHUNK_OUT_OF_ORDER, file unchanged', async () => {
+      const created = await store.createPart('ooo');
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      const { partPath } = created.value;
+
+      await store.appendChunk({
+        partPath,
+        expectedOffset: 0,
+        chunk: Readable.from(Buffer.from('abcd')),
+      });
+
+      const res = await store.appendChunk({
+        partPath,
+        expectedOffset: 0,
+        chunk: Readable.from(Buffer.from('X')),
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('CHUNK_OUT_OF_ORDER');
+      await expect(readFile(partPath, 'utf8')).resolves.toBe('abcd');
+    });
+
+    test('appendChunk on a non-existent .part -> UPLOAD_SESSION_NOT_FOUND', async () => {
+      const res = await store.appendChunk({
+        partPath: partPathFor('never-created'),
+        expectedOffset: 0,
+        chunk: Readable.from(Buffer.from('x')),
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('UPLOAD_SESSION_NOT_FOUND');
+    });
+
+    test('appendChunk refuses a path outside .growi-nas-tmp, leaving it untouched', async () => {
+      const outside = path.join(root, 'evil');
+      await writeFile(outside, 'original');
+
+      const res = await store.appendChunk({
+        partPath: outside,
+        expectedOffset: 'original'.length,
+        chunk: Readable.from(Buffer.from('-appended')),
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+      await expect(readFile(outside, 'utf8')).resolves.toBe('original');
+    });
+
+    test('discardPart deletes an existing .part and is a no-op when missing', async () => {
+      const created = await store.createPart('to-discard');
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+
+      await store.discardPart(created.value.partPath);
+      await expect(stat(created.value.partPath)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+
+      await expect(
+        store.discardPart(created.value.partPath),
+      ).resolves.toBeUndefined();
+    });
+
+    test('discardPart refuses a path outside .growi-nas-tmp', async () => {
+      const outside = path.join(root, 'keep.txt');
+      await writeFile(outside, 'keep');
+
+      await store.discardPart(outside);
+
+      await expect(readFile(outside, 'utf8')).resolves.toBe('keep');
+    });
+
+    test('listStaleParts returns only .part files older than the cutoff', async () => {
+      const fresh = await store.createPart('fresh');
+      const stale = await store.createPart('stale');
+      expect(fresh.ok && stale.ok).toBe(true);
+      if (!fresh.ok || !stale.ok) return;
+
+      const old = new Date(Date.now() - 60 * 60 * 1000);
+      await utimes(stale.value.partPath, old, old);
+
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+      const result = await store.listStaleParts(cutoff);
+
+      expect(result).toEqual([stale.value.partPath]);
+    });
+
+    test('listStaleParts returns [] when the tmp dir is missing', async () => {
+      await expect(store.listStaleParts(new Date())).resolves.toEqual([]);
     });
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
 import type {
+  BeginChunkedUploadResponse,
+  ChunkedUploadSession,
   NasEntry,
   NasEntryType,
   NasError,
@@ -40,6 +42,11 @@ describe('nas-file-storage interfaces barrel', () => {
     expectTypeOf<'TOO_LARGE'>().toMatchTypeOf<NasErrorCode>();
   });
 
+  it('includes the chunked-upload error codes in NasErrorCode', () => {
+    expectTypeOf<'UPLOAD_SESSION_NOT_FOUND'>().toMatchTypeOf<NasErrorCode>();
+    expectTypeOf<'CHUNK_OUT_OF_ORDER'>().toMatchTypeOf<NasErrorCode>();
+  });
+
   it('exposes NasError with optional limit fields', () => {
     expectTypeOf<NasError>().toMatchTypeOf<{
       code: NasErrorCode;
@@ -58,6 +65,24 @@ describe('nas-file-storage interfaces barrel', () => {
     };
     expectTypeOf(ok).toMatchTypeOf<NasResult<number>>();
     expectTypeOf(err).toMatchTypeOf<NasResult<number>>();
+  });
+
+  it('exposes chunked-upload types from the barrel', () => {
+    expectTypeOf<ChunkedUploadSession>().toMatchTypeOf<{
+      uploadId: string;
+      userId: string;
+      dirLogicalPath: string;
+      targetName: string;
+      totalBytes: number;
+      overwrite: boolean;
+      receivedBytes: number;
+      partPath: string;
+      createdAt: Date;
+    }>();
+    expectTypeOf<BeginChunkedUploadResponse>().toMatchTypeOf<{
+      uploadId: string;
+      chunkSize: number;
+    }>();
   });
 
   it('exposes NasFileStore and PutFileInput', () => {

@@ -1,8 +1,8 @@
-import path from 'node:path';
-
 import loggerFactory, { type Logger } from '~/utils/logger';
 
 import type {
+  BeginChunkedUploadInput,
+  BeginChunkedUploadResponse,
   NasEntry,
   NasError,
   NasFileStore,
@@ -11,11 +11,15 @@ import type {
   NasResult,
   PutFileInput,
 } from '../../interfaces';
+import type { NasStorageConfig } from '../config/nas-storage-config';
 import { nasStorageConfig } from '../config/nas-storage-config';
 import { FsNasFileStore } from '../store/fs-nas-file-store';
+import type { ChunkedUploadRegistry } from './chunked-upload-registry';
+import { chunkedUploadRegistry } from './chunked-upload-registry';
 import { normalizeNasError } from './normalize-nas-error';
 import type { RootHealthChecker } from './root-health-checker';
 import { rootHealthChecker } from './root-health-checker';
+import { suggestNonConflictingName } from './suggest-non-conflicting-name';
 
 /**
  * Use-case orchestration over `NasFileStore` for already-authorized requests.
@@ -32,9 +36,23 @@ import { rootHealthChecker } from './root-health-checker';
  */
 export interface NasStorageService {
   listFolder(dir: string, query: NasListQuery): Promise<NasResult<NasListPage>>;
+  /**
+   * Retained for the legacy stream-based delivery path (`store.openRead`).
+   * Prefer `resolveContent` for delivery: it resolves an absolute path without
+   * opening a stream so the route layer can hand it to `res.sendFile`.
+   */
   download(
     logicalPath: string,
   ): Promise<NasResult<{ stream: NodeJS.ReadableStream; entry: NasEntry }>>;
+  /**
+   * Resolve an absolute filesystem path for delivery (Req 9.1). Rejects a
+   * directory / missing / out-of-root target as `IS_DIRECTORY` / `NOT_FOUND` /
+   * `OUT_OF_ROOT` (Req 9.7). No stream is opened; the route layer serves the
+   * returned `absolutePath` via `res.sendFile`.
+   */
+  resolveContent(
+    logicalPath: string,
+  ): Promise<NasResult<{ absolutePath: string; entry: NasEntry }>>;
   putFile(input: PutFileInput): Promise<NasResult<NasEntry>>;
   createFolder(parentDir: string, name: string): Promise<NasResult<NasEntry>>;
   rename(
@@ -46,18 +64,41 @@ export interface NasStorageService {
     logicalPath: string,
     recursive: boolean,
   ): Promise<NasResult<void>>;
+  /**
+   * Chunked upload (Req 10) — thin wrappers that delegate the session state and
+   * `.part` mechanics to `ChunkedUploadRegistry`. `beginChunkedUpload` adds the
+   * two service-level gates the registry does not do: the declared-size cap
+   * (Req 10.5) and the destination path range check (Req 10.1 / 6.7).
+   */
+  beginChunkedUpload(
+    input: BeginChunkedUploadInput,
+  ): Promise<NasResult<BeginChunkedUploadResponse>>;
+  appendChunk(
+    uploadId: string,
+    userId: string,
+    offset: number,
+    chunk: NodeJS.ReadableStream,
+  ): Promise<NasResult<{ receivedBytes: number }>>;
+  completeChunkedUpload(
+    uploadId: string,
+    userId: string,
+  ): Promise<NasResult<NasEntry>>;
+  abortChunkedUpload(
+    uploadId: string,
+    userId: string,
+  ): Promise<NasResult<void>>;
 }
 
 export interface NasStorageServiceDeps {
   store: NasFileStore;
   health: RootHealthChecker;
+  /** Defaults to the process-wide `chunkedUploadRegistry` singleton. */
+  registry?: ChunkedUploadRegistry;
+  config?: Pick<NasStorageConfig, 'maxFileSize'>;
   logger?: Logger;
 }
 
 const defaultLogger = loggerFactory('growi:nas-storage:service');
-
-/** Max number of `name (n).ext` candidates probed before giving up (Req 3.2). */
-const MAX_SUGGESTION_ATTEMPTS = 999;
 
 const storageUnavailableError = (): NasError => {
   return normalizeNasError({ code: 'STORAGE_UNAVAILABLE' });
@@ -69,23 +110,12 @@ const joinLogical = (dir: string, name: string): string => {
   return `${normalizedDir}/${name}`;
 };
 
-/**
- * Split a file name into the stem and its extension (including the leading dot).
- * A leading-dot name with no further dot (`.env`, `README`) has an empty ext, so
- * the numbering lands as `.env (1)` / `README (1)`.
- */
-const splitName = (name: string): { stem: string; ext: string } => {
-  const ext = path.extname(name);
-  if (ext === '' || ext === name) {
-    return { stem: name, ext: '' };
-  }
-  return { stem: name.slice(0, -ext.length), ext };
-};
-
 export const createNasStorageService = (
   deps: NasStorageServiceDeps,
 ): NasStorageService => {
   const { store, health } = deps;
+  const registry = deps.registry ?? chunkedUploadRegistry;
+  const config = deps.config ?? nasStorageConfig;
   const logger = deps.logger ?? defaultLogger;
 
   const logFailure = (
@@ -129,21 +159,21 @@ export const createNasStorageService = (
     }
   };
 
-  const findSuggestedName = async (
-    input: PutFileInput,
+  /**
+   * `name (n).ext` suggestion for a non-overwrite CONFLICT: a candidate is free
+   * only when the store positively reports `NOT_FOUND`; any other probe outcome
+   * (exists, or an ambiguous error) is treated as taken.
+   */
+  const findSuggestedName = (
+    dirLogicalPath: string,
+    targetName: string,
   ): Promise<string | undefined> => {
-    const { stem, ext } = splitName(input.targetName);
-    for (let n = 1; n <= MAX_SUGGESTION_ATTEMPTS; n += 1) {
-      const candidate = `${stem} (${n})${ext}`;
-      // biome-ignore lint/performance/noAwaitInLoops: sequential probing is intentional — stop at the first free name
+    return suggestNonConflictingName(targetName, async (candidate) => {
       const stat = await store.statEntry(
-        joinLogical(input.dirLogicalPath, candidate),
+        joinLogical(dirLogicalPath, candidate),
       );
-      if (!stat.ok && stat.error.code === 'NOT_FOUND') {
-        return candidate;
-      }
-    }
-    return undefined;
+      return !(!stat.ok && stat.error.code === 'NOT_FOUND');
+    });
   };
 
   return {
@@ -156,6 +186,12 @@ export const createNasStorageService = (
     download(logicalPath) {
       return run('download', { logicalPath }, () =>
         store.openRead(logicalPath),
+      );
+    },
+
+    resolveContent(logicalPath) {
+      return run('resolveContent', { logicalPath }, () =>
+        store.resolveContentPath(logicalPath),
       );
     },
 
@@ -177,7 +213,10 @@ export const createNasStorageService = (
       }
 
       try {
-        const suggestedName = await findSuggestedName(input);
+        const suggestedName = await findSuggestedName(
+          input.dirLogicalPath,
+          input.targetName,
+        );
         return {
           ok: false,
           error: {
@@ -209,6 +248,71 @@ export const createNasStorageService = (
         store.remove(logicalPath, recursive),
       );
     },
+
+    beginChunkedUpload(input) {
+      const context = {
+        userId: input.userId,
+        dirLogicalPath: input.dirLogicalPath,
+        targetName: input.targetName,
+        totalBytes: input.totalBytes,
+        overwrite: input.overwrite,
+      };
+      return run('beginChunkedUpload', context, async () => {
+        const max = config.maxFileSize();
+        if (max != null && input.totalBytes > max) {
+          return {
+            ok: false,
+            error: {
+              ...normalizeNasError({ code: 'TOO_LARGE' }),
+              limitBytes: max,
+            },
+          };
+        }
+
+        // Destination range check (Req 10.1 / 6.7). The service has no `root`, so
+        // it probes through the store: `statEntry` runs `resolveSafePath` first
+        // and surfaces an escaping path as OUT_OF_ROOT / INVALID_PATH. A
+        // resolvable-but-absent destination (NOT_FOUND) is the expected case;
+        // an existing destination is fine here — the conflict is settled by the
+        // same rules as `putFile` on `complete` (Req 10.6).
+        const probe = await store.statEntry(
+          joinLogical(input.dirLogicalPath, input.targetName),
+        );
+        if (
+          !probe.ok &&
+          (probe.error.code === 'OUT_OF_ROOT' ||
+            probe.error.code === 'INVALID_PATH')
+        ) {
+          return { ok: false, error: probe.error };
+        }
+
+        return registry.begin({
+          userId: input.userId,
+          dirLogicalPath: input.dirLogicalPath,
+          targetName: input.targetName,
+          totalBytes: input.totalBytes,
+          overwrite: input.overwrite,
+        });
+      });
+    },
+
+    appendChunk(uploadId, userId, offset, chunk) {
+      return run('appendChunk', { uploadId, userId, offset }, () =>
+        registry.append(uploadId, userId, offset, chunk),
+      );
+    },
+
+    completeChunkedUpload(uploadId, userId) {
+      return run('completeChunkedUpload', { uploadId, userId }, () =>
+        registry.complete(uploadId, userId),
+      );
+    },
+
+    abortChunkedUpload(uploadId, userId) {
+      return run('abortChunkedUpload', { uploadId, userId }, () =>
+        registry.abort(uploadId, userId),
+      );
+    },
   };
 };
 
@@ -226,6 +330,8 @@ export const getNasStorageService = (): NasStorageService => {
     singleton = createNasStorageService({
       store: new FsNasFileStore(root),
       health: rootHealthChecker,
+      registry: chunkedUploadRegistry,
+      config: nasStorageConfig,
     });
   }
   return singleton;

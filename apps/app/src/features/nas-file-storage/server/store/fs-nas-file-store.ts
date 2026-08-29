@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { Stats } from 'node:fs';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import {
+  lstat,
   mkdir,
   open,
   readdir,
@@ -11,8 +12,10 @@ import {
   stat,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 import type {
+  AppendChunkInput,
   NasEntry,
   NasFileStore,
   NasListPage,
@@ -27,6 +30,7 @@ import {
   defaultFsWritePrimitives,
   moveExclusive,
   moveOverwriting,
+  nasTmpDir,
   tmpPathUnder,
 } from './fs-write-ops';
 import { resolveSafePath } from './resolve-safe-path';
@@ -78,6 +82,18 @@ const entryFromStat = (name: string, stats: Stats): NasEntry => {
     sizeBytes: type === 'directory' ? 0 : stats.size,
     modifiedAt: stats.mtime.toISOString(),
   };
+};
+
+/** A single path segment safe to place inside `.growi-nas-tmp/` (defense in depth). */
+const isSafeSegment = (segment: string): boolean => {
+  return (
+    segment.length > 0 &&
+    segment !== '.' &&
+    segment !== '..' &&
+    !segment.includes('/') &&
+    !segment.includes('\\') &&
+    !segment.includes('\0')
+  );
 };
 
 /**
@@ -214,6 +230,36 @@ export class FsNasFileStore implements NasFileStore {
     }
   }
 
+  async resolveContentPath(
+    logicalPath: string,
+  ): Promise<NasResult<{ absolutePath: string; entry: NasEntry }>> {
+    const resolved = await resolveSafePath(this.root, logicalPath);
+    if (!resolved.ok) {
+      return { ok: false, error: normalizeNasError({ code: resolved.code }) };
+    }
+
+    try {
+      const stats = await stat(resolved.absolutePath);
+      if (stats.isDirectory()) {
+        return {
+          ok: false,
+          error: normalizeNasError({ code: 'IS_DIRECTORY' }),
+        };
+      }
+
+      // No stream is opened here — the caller streams the bytes itself.
+      return {
+        ok: true,
+        value: {
+          absolutePath: resolved.absolutePath,
+          entry: entryFromStat(path.basename(resolved.absolutePath), stats),
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
   // --- mutating operations ---------------------------------------------------
 
   async moveIntoRoot(input: PutFileInput): Promise<NasResult<NasEntry>> {
@@ -252,6 +298,118 @@ export class FsNasFileStore implements NasFileStore {
     } catch (err) {
       return { ok: false, error: normalizeNasError(err) };
     }
+  }
+
+  // --- chunked-upload .part operations -------------------------------------
+
+  async createPart(uploadId: string): Promise<NasResult<{ partPath: string }>> {
+    if (!isSafeSegment(uploadId)) {
+      return { ok: false, error: normalizeNasError({ code: 'INVALID_PATH' }) };
+    }
+
+    const tmpDir = nasTmpDir(this.root);
+    const partPath = path.join(tmpDir, `${uploadId}.part`);
+    try {
+      await mkdir(tmpDir, { recursive: true });
+      // Exclusive create: a duplicate uploadId (never expected with a UUID) is a CONFLICT.
+      const handle = await open(partPath, 'wx');
+      await handle.close();
+      return { ok: true, value: { partPath } };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
+  async appendChunk({
+    partPath,
+    expectedOffset,
+    chunk,
+  }: AppendChunkInput): Promise<NasResult<{ size: number }>> {
+    if (!this.isTmpPartPath(partPath)) {
+      return { ok: false, error: normalizeNasError({ code: 'OUT_OF_ROOT' }) };
+    }
+
+    let currentSize: number;
+    try {
+      // lstat, not stat: a symlink planted at partPath must never be followed
+      // (design Security §パス封じ込め — .part ops take the same guard as resolveSafePath).
+      const link = await lstat(partPath);
+      if (link.isSymbolicLink()) {
+        return { ok: false, error: normalizeNasError({ code: 'OUT_OF_ROOT' }) };
+      }
+      currentSize = link.size;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') {
+        return {
+          ok: false,
+          error: normalizeNasError({ code: 'UPLOAD_SESSION_NOT_FOUND' }),
+        };
+      }
+      return { ok: false, error: normalizeNasError(err) };
+    }
+
+    // Sequential-append guard: a gap, overlap or reorder is rejected without writing.
+    if (currentSize !== expectedOffset) {
+      return {
+        ok: false,
+        error: normalizeNasError({ code: 'CHUNK_OUT_OF_ORDER' }),
+      };
+    }
+
+    try {
+      // O_APPEND: every write lands at the current end regardless of races.
+      await pipeline(chunk, createWriteStream(partPath, { flags: 'a' }));
+      const size = (await stat(partPath)).size;
+      return { ok: true, value: { size } };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
+  async discardPart(partPath: string): Promise<void> {
+    if (!this.isTmpPartPath(partPath)) {
+      return;
+    }
+    // Refuse to unlink through a symlink planted at partPath.
+    const link = await lstat(partPath).catch(() => null);
+    if (link?.isSymbolicLink()) {
+      return;
+    }
+    // force: true swallows ENOENT, so a missing .part never throws.
+    await rm(partPath, { force: true });
+  }
+
+  async listStaleParts(cutoff: Date): Promise<string[]> {
+    const tmpDir = nasTmpDir(this.root);
+    let names: string[];
+    try {
+      names = await readdir(tmpDir);
+    } catch {
+      return [];
+    }
+
+    const candidates = await Promise.all(
+      names
+        .filter((name) => name.endsWith('.part'))
+        .map(async (name) => {
+          const abs = path.join(tmpDir, name);
+          try {
+            return (await stat(abs)).mtime < cutoff ? abs : null;
+          } catch {
+            return null;
+          }
+        }),
+    );
+    return candidates.filter((p): p is string => p != null);
+  }
+
+  /** A `.part` path that sits directly inside `${root}/.growi-nas-tmp/`. */
+  private isTmpPartPath(candidate: string): boolean {
+    const resolved = path.resolve(candidate);
+    return (
+      resolved.endsWith('.part') &&
+      path.dirname(resolved) === nasTmpDir(this.root)
+    );
   }
 
   async mkdir(parentDir: string, name: string): Promise<NasResult<NasEntry>> {

@@ -28,6 +28,8 @@ const KNOWN_CODES: ReadonlySet<NasErrorCode> = new Set<NasErrorCode>([
   'STORAGE_UNAVAILABLE',
   'TOO_LARGE',
   'TOO_MANY_ENTRIES',
+  'UPLOAD_SESSION_NOT_FOUND',
+  'CHUNK_OUT_OF_ORDER',
   'UNKNOWN',
 ]);
 

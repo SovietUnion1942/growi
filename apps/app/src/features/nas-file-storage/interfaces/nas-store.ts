@@ -22,6 +22,15 @@ export interface NasFileStore {
   openRead(
     logicalPath: string,
   ): Promise<NasResult<{ stream: NodeJS.ReadableStream; entry: NasEntry }>>;
+  /**
+   * Validate a logical path and return the in-root absolute path plus its
+   * `NasEntry` for content delivery, without opening a stream. Directory,
+   * missing, and out-of-root targets return `IS_DIRECTORY`, `NOT_FOUND`, and
+   * `OUT_OF_ROOT` respectively.
+   */
+  resolveContentPath(
+    logicalPath: string,
+  ): Promise<NasResult<{ absolutePath: string; entry: NasEntry }>>;
   moveIntoRoot(input: PutFileInput): Promise<NasResult<NasEntry>>;
   mkdir(parentDir: string, name: string): Promise<NasResult<NasEntry>>;
   move(

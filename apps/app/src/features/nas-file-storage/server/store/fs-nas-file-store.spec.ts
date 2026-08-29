@@ -293,6 +293,71 @@ describe('FsNasFileStore', () => {
     });
   });
 
+  describe('resolveContentPath', () => {
+    test('existing file -> absolute in-root path + entry, no stream', async () => {
+      await writeFile(path.join(root, 'deliver.bin'), 'the-bytes');
+
+      const res = await store.resolveContentPath('/deliver.bin');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(path.isAbsolute(res.value.absolutePath)).toBe(true);
+      expect(path.basename(res.value.absolutePath)).toBe('deliver.bin');
+      expect(res.value.absolutePath.startsWith(root + path.sep)).toBe(true);
+      expect(res.value.entry.name).toBe('deliver.bin');
+      expect(res.value.entry.type).toBe('file');
+      expect(res.value.entry.sizeBytes).toBe('the-bytes'.length);
+      expect(() =>
+        new Date(res.value.entry.modifiedAt).toISOString(),
+      ).not.toThrow();
+      expect(res.value.entry.modifiedAt).toBe(
+        new Date(res.value.entry.modifiedAt).toISOString(),
+      );
+      expect(res.value).not.toHaveProperty('stream');
+    });
+
+    test('directory target -> IS_DIRECTORY', async () => {
+      await mkdir(path.join(root, 'a-dir'));
+
+      const res = await store.resolveContentPath('/a-dir');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('IS_DIRECTORY');
+    });
+
+    test('not found -> NOT_FOUND', async () => {
+      const res = await store.resolveContentPath('/missing.txt');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('NOT_FOUND');
+    });
+
+    test('path escape -> OUT_OF_ROOT', async () => {
+      const res = await store.resolveContentPath('../outside');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+
+    test('symlink pointing outside root -> OUT_OF_ROOT', async () => {
+      await writeFile(path.join(workDir, 'outside-secret.txt'), 'secret');
+      await symlink(
+        path.join(workDir, 'outside-secret.txt'),
+        path.join(root, 'escape-link'),
+        'file',
+      );
+
+      const res = await store.resolveContentPath('/escape-link');
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.code).toBe('OUT_OF_ROOT');
+    });
+  });
+
   const tmpDirName = '.growi-nas-tmp';
   const listTmpLeftovers = async (): Promise<string[]> => {
     try {

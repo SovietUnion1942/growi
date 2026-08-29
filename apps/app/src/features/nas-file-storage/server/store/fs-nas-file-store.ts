@@ -214,6 +214,36 @@ export class FsNasFileStore implements NasFileStore {
     }
   }
 
+  async resolveContentPath(
+    logicalPath: string,
+  ): Promise<NasResult<{ absolutePath: string; entry: NasEntry }>> {
+    const resolved = await resolveSafePath(this.root, logicalPath);
+    if (!resolved.ok) {
+      return { ok: false, error: normalizeNasError({ code: resolved.code }) };
+    }
+
+    try {
+      const stats = await stat(resolved.absolutePath);
+      if (stats.isDirectory()) {
+        return {
+          ok: false,
+          error: normalizeNasError({ code: 'IS_DIRECTORY' }),
+        };
+      }
+
+      // No stream is opened here — the caller streams the bytes itself.
+      return {
+        ok: true,
+        value: {
+          absolutePath: resolved.absolutePath,
+          entry: entryFromStat(path.basename(resolved.absolutePath), stats),
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err) };
+    }
+  }
+
   // --- mutating operations ---------------------------------------------------
 
   async moveIntoRoot(input: PutFileInput): Promise<NasResult<NasEntry>> {

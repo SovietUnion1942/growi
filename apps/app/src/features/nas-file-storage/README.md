@@ -90,6 +90,10 @@ wiki 内の共有ファイル置き場。ページ添付とは**完全に独立*
 - **再起動後に「Misconfigured: missing」** — VHDX が未マウント。`wsl --mount` は Windows 再起動をまたがない。
 - **アップロードがサイズエラーで失敗** — `GROWI_NAS_MAX_FILE_SIZE` 超過。代わりに「storage unavailable」なら
   ディスク満杯かマウント断（書きかけファイルは残らない）。
+- **アップロードが 413 で失敗（アプリのログに届かない）** — 前段のリバースプロキシ／CDN のリクエストボディ上限。
+  GROWI 自体は multer の `fileSize` を無制限にできるが、nginx の `client_max_body_size`（NAS 用 location は
+  個別に緩める）と、Cloudflare 無料プランの **1 リクエスト 100MB** ハード上限が実質の天井になる。
+  UI の「1ファイルあたり最大100MBまで」は `nas_storage.upload.size_hint` で調整。
 - **巨大フォルダが開かない** — `GROWI_NAS_MAX_ENTRIES_PER_DIR`（既定 50,000）超過。
 
 ## 非スコープ

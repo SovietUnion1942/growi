@@ -10,6 +10,8 @@ import { getInstance } from '^/test/setup/crowi';
 
 import type Crowi from '~/server/crowi';
 import { UserStatus } from '~/server/models/user/conts';
+import UserGroup from '~/server/models/user-group';
+import UserGroupRelation from '~/server/models/user-group-relation';
 import addCustomFunctionToResponse from '~/server/routes/apiv3/response';
 
 import { createNasStorageService } from '../services/nas-storage-service';
@@ -33,9 +35,10 @@ addCustomFunctionToResponse(express);
  *     and are never advertised as an executable content type (Req 9.6)
  *   - `Range` requests are answered with `206` + `Content-Range` (Req 9.3 / 9.5)
  *   - folder / missing / out-of-root targets map to 409 / 404 / 422 (Req 9.7)
- *   - the router-level `nasAccess` gate still rejects anonymous callers (Req 6.7)
+ *   - the router-level `nasAccess` gate still rejects anonymous callers, and a
+ *     logged-in non-member of `GROWI_NAS_GROUP` is refused on `/file` too (Req 6.7)
  *
- * Requirements: 6.7, 9.1, 9.2, 9.3, 9.5, 9.6
+ * Requirements: 6.7, 9.1, 9.2, 9.3, 9.5, 9.6, 9.7
  */
 
 const PNG_BYTES = Buffer.from([
@@ -108,10 +111,16 @@ describe('setupNasStorage GET /file — inline preview delivery', () => {
 
   beforeEach(() => {
     currentUser = undefined;
+    vi.unstubAllEnvs();
   });
 
   afterEach(async () => {
-    await mongoose.model('User').deleteMany({});
+    vi.unstubAllEnvs();
+    await Promise.all([
+      mongoose.model('User').deleteMany({}),
+      UserGroup.deleteMany({}),
+      UserGroupRelation.deleteMany({}),
+    ]);
   });
 
   it('serves an image inline with the security headers when inline=1', async () => {
@@ -232,5 +241,20 @@ describe('setupNasStorage GET /file — inline preview delivery', () => {
       .query({ path: '/photo.png', inline: '1' });
 
     expect(res.status).toBe(401);
+  });
+
+  it('refuses a logged-in non-member of GROWI_NAS_GROUP on GET /file with 403', async () => {
+    vi.stubEnv('GROWI_NAS_GROUP', 'nas-users');
+    await UserGroup.create({ name: 'nas-users' });
+    // Seeded but never related to the group -> the router-level `nasAccess`
+    // group gate must reject the delivery endpoint just like every other route.
+    currentUser = await seedUser('outsider');
+    const app = await buildReadyApp(await seedRoot());
+
+    const res = await request(app)
+      .get('/_api/v3/nas-storage/file')
+      .query({ path: '/photo.png', inline: '1' });
+
+    expect(res.status).toBe(403);
   });
 });

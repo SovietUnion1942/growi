@@ -20,6 +20,7 @@ import { LdapUserGroupSyncService } from '~/features/external-user-group/server/
 import { initializeVaultFeature } from '~/features/growi-vault/server';
 import { isAiReady as resolveIsAiReady } from '~/features/mastra/server/services/is-ai-configured';
 import { modelConfigSync } from '~/features/mastra/server/services/model-config-sync';
+import { initializeNasFileStorage } from '~/features/nas-file-storage/server';
 import { checkPageBulkExportJobInProgressCronService } from '~/features/page-bulk-export/server/service/check-page-bulk-export-job-in-progress-cron';
 import instanciatePageBulkExportJobCleanUpCronService from '~/features/page-bulk-export/server/service/page-bulk-export-job-clean-up-cron';
 import instanciatePageBulkExportJobCronService from '~/features/page-bulk-export/server/service/page-bulk-export-job-cron';
@@ -318,6 +319,8 @@ class Crowi {
       this.setupExternalUserGroupSyncService(),
       // depends on pageService and activityService
       this.setupVaultFeature(),
+      // NAS file storage: one-shot root health probe (no service dependencies)
+      initializeNasFileStorage(this),
     ]);
 
     await this.setupCron();

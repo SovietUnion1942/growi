@@ -97,7 +97,7 @@
   - _Depends: 3.2_
 
 - [ ] 4. Integration: サーバー配線
-- [ ] 4.1 feature 初期化とルート登録を行う
+- [x] 4.1 feature 初期化とルート登録を行う
   - `initializeNasFileStorage(crowi)` を実装し、`RootHealthChecker.probeOnBoot` を実行する
   - `apps/app/src/server/routes/apiv3/index.js` に利用者ルーターと管理者ルーターを各 1 行で登録する
   - `apps/app/src/server/crowi/index.ts` の vault 初期化の隣に初期化呼び出しを 1 行追加する

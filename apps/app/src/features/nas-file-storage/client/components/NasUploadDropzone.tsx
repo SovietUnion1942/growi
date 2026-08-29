@@ -1,16 +1,53 @@
-import type { JSX } from 'react';
-import { useCallback, useState } from 'react';
+import type { ChangeEvent, JSX } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'next-i18next';
 import prettyBytes from 'pretty-bytes';
 import { useDropzone } from 'react-dropzone';
 
 import type { NasErrorCode } from '~/features/nas-file-storage/interfaces';
 
+import {
+  shouldUseChunkedUpload,
+  useNasChunkedUpload,
+} from '../hooks/use-nas-chunked-upload';
 import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
+
+declare global {
+  interface Window {
+    // Not yet in this TS release's lib.dom; feature-detected before use.
+    showDirectoryPicker?: (
+      options?: unknown,
+    ) => Promise<FileSystemDirectoryHandle>;
+  }
+}
+
+declare module 'react' {
+  interface InputHTMLAttributes<T> {
+    // Non-standard directory-select attribute, unknown to @types/react.
+    webkitdirectory?: string;
+  }
+}
+
+/**
+ * A folder the user picked for bulk upload. Task 11.5 only surfaces the
+ * selection; `useNasFolderUpload` (task 11.6) walks it into a directory/file set
+ * and orchestrates the batch. Two shapes because the two selection mechanisms
+ * yield different things: the File System Access API hands back a live directory
+ * handle (which also exposes empty sub-folders), the `<input webkitdirectory>`
+ * fallback hands back a flat `File[]` carrying `webkitRelativePath`.
+ */
+export type NasFolderSelection =
+  | { kind: 'handle'; handle: FileSystemDirectoryHandle }
+  | { kind: 'input'; files: File[] };
 
 type Props = {
   currentDirPath: string;
   onUploaded?: () => void;
+  /**
+   * Wired by task 11.6. When omitted, the "upload a folder" affordance is not
+   * rendered.
+   */
+  onFolderSelected?: (selection: NasFolderSelection) => void;
 };
 
 type ItemStatus =
@@ -78,11 +115,14 @@ type UploadErrorShape = {
 export const NasUploadDropzone = ({
   currentDirPath,
   onUploaded,
+  onFolderSelected,
 }: Props): JSX.Element => {
   const { t } = useTranslation();
   const { uploadFile } = useNasEntryActions(currentDirPath);
+  const { uploadLargeFile } = useNasChunkedUpload(currentDirPath);
 
   const [items, setItems] = useState<QueueItem[]>([]);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const patchItem = useCallback(
     (id: string, patch: Partial<QueueItem>): void => {
@@ -104,7 +144,14 @@ export const NasUploadDropzone = ({
         limitLabel: undefined,
       });
       try {
-        await uploadFile(item.file, opts);
+        // Large files exceed the front proxy's single-request limit, so they
+        // take the chunked path. Both calls resolve to a `NasEntry` and reject
+        // with the same `NasRequestError` shape, so the branches below are
+        // identical for either route.
+        const upload = shouldUseChunkedUpload(item.file.size)
+          ? uploadLargeFile(item.file, opts)
+          : uploadFile(item.file, opts);
+        await upload;
         patchItem(item.id, { status: 'done', suggestedName: undefined });
         return true;
       } catch (err) {
@@ -132,7 +179,7 @@ export const NasUploadDropzone = ({
         return false;
       }
     },
-    [patchItem, uploadFile],
+    [patchItem, uploadFile, uploadLargeFile],
   );
 
   const runQueue = useCallback(
@@ -197,6 +244,36 @@ export const NasUploadDropzone = ({
     [onUploaded, patchItem, uploadOne],
   );
 
+  const openFolderPicker = useCallback(async (): Promise<void> => {
+    if (onFolderSelected == null) {
+      return;
+    }
+    // Chromium exposes the File System Access API, which also enumerates empty
+    // sub-folders; everywhere else falls back to `<input webkitdirectory>`.
+    if (typeof window !== 'undefined' && window.showDirectoryPicker != null) {
+      try {
+        const handle = await window.showDirectoryPicker();
+        onFolderSelected({ kind: 'handle', handle });
+      } catch {
+        // The user dismissed the picker — nothing selected, nothing to do.
+      }
+      return;
+    }
+    folderInputRef.current?.click();
+  }, [onFolderSelected]);
+
+  const onFolderInputChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>): void => {
+      const picked = e.target.files;
+      if (picked != null && picked.length > 0) {
+        onFolderSelected?.({ kind: 'input', files: Array.from(picked) });
+      }
+      // Allow re-selecting the same folder later.
+      e.target.value = '';
+    },
+    [onFolderSelected],
+  );
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
   return (
@@ -224,6 +301,33 @@ export const NasUploadDropzone = ({
           {t('nas_storage.upload.size_hint')}
         </p>
       </div>
+
+      {onFolderSelected != null && (
+        <div className="mt-2">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+            data-testid="nas-folder-select"
+            onClick={() => {
+              void openFolderPicker();
+            }}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              drive_folder_upload
+            </span>
+            {t('nas_storage.upload.select_folder')}
+          </button>
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            webkitdirectory=""
+            className="d-none"
+            data-testid="nas-folder-input"
+            onChange={onFolderInputChange}
+          />
+        </div>
+      )}
 
       {items.length > 0 && (
         <ul

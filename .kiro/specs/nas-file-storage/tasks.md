@@ -309,7 +309,7 @@
   - _Requirements: 10.1, 10.4_
   - _Boundary: use-nas-chunked-upload_
   - _Depends: 9.4_
-- [ ] 11.5 アップロード UI を分割経路とフォルダ選択に対応させる
+- [x] 11.5 アップロード UI を分割経路とフォルダ選択に対応させる
   - ファイルサイズが閾値（前段プロキシ上限の安全内）を超えるとき自動で分割アップロード経路へ切り替え、閾値未満は従来の単発アップロードのままとする
   - フォルダ選択の導線を追加する（対応ブラウザではディレクトリ選択 API、非対応はディレクトリ入力にフォールバック）
   - 完了状態: 大きいファイルをドロップすると分割経路で完了し、フォルダ選択の導線が使える
@@ -386,3 +386,5 @@
 - 11.2: i18n キー `nas_storage.preview.{loading,error,truncated,not_supported,download}` を task 11.7 で追加。
 - 11.2: `NasPreviewModal` の `dynamic({ ssr: false })` ラップは consumer（task 11.3 の NasEntryRow/NasStorageBrowser）の責務。
 - 11.4: `useNasChunkedUpload` は `CHUNK_OUT_OF_ORDER` で内部 1 回だけ最初からやり直し（`MAX_OUT_OF_ORDER_RETRIES=1`）、2 回目失敗で `.code==='CHUNK_OUT_OF_ORDER'` を throw。task 11.5 の dropzone は out-of-order 専用の再試行ループ不要（terminal error 扱い＋汎用 retry で OK）。エラーは全て `NasRequestError`（`use-nas-list.ts`）で `uploadFile` と同型。`CHUNK_UPLOAD_THRESHOLD_BYTES = 90 MiB`、`shouldUseChunkedUpload(size) = size > threshold`。
+- 11.5: フォルダ選択の contract（task 11.6 が実装するプロップ）: `NasUploadDropzone` から `NasFolderSelection = { kind: 'handle'; handle: FileSystemDirectoryHandle } | { kind: 'input'; files: File[] }` を export、prop `onFolderSelected?: (s: NasFolderSelection) => void`。`'handle'` は Chromium のみ（空サブフォルダ列挙可、Req 11.2）。button は `onFolderSelected != null` のときのみ描画。i18n キー `nas_storage.upload.select_folder`（task 11.7）。
+- 11.5: `webkitdirectory` の型拡張を `react` module augmentation で component 内に置いた（repo 慣例は `declare global`）。follow-up で `.d.ts` に移すと綺麗。progress UI は未実装（follow-up）。

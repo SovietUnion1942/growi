@@ -1,6 +1,22 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { defineConfig, devices, type Project } from '@playwright/test';
+
+/**
+ * NAS File Storage feature (`nas-file-storage`) is gated by `GROWI_NAS_ROOT`.
+ * The E2E web server needs it set to a real, writable directory so the
+ * `/nas` browser, the sidebar nav item and the admin status panel are all
+ * reachable (see `playwright/45-nas-storage/*`). The directory is created here
+ * synchronously — before Playwright boots `webServer` — because the feature's
+ * `probeOnBoot` health check runs at server startup.
+ *
+ * The "feature disabled" assertion (nav item / `/nas` absent when the env var
+ * is unset) needs a SECOND server started without this var, which the single
+ * `webServer` block cannot express; that spec is skipped with a reason.
+ */
+const nasStorageE2eRoot = path.join(os.tmpdir(), 'growi-e2e-nas');
+fs.mkdirSync(nasStorageE2eRoot, { recursive: true });
 
 const authFile = path.resolve(
   import.meta.dirname,
@@ -60,6 +76,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',
+    env: {
+      // Enables the `nas-file-storage` feature for the E2E server.
+      GROWI_NAS_ROOT: nasStorageE2eRoot,
+    },
   },
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

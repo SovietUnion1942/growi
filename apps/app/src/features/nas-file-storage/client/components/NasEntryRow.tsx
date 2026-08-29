@@ -31,7 +31,10 @@ export const NasEntryRow = ({
     : modified.toLocaleString();
 
   return (
-    <li className="list-group-item d-flex align-items-center gap-2">
+    <li
+      className="list-group-item d-flex align-items-center gap-2"
+      data-testid="nas-entry-row"
+    >
       <span className="material-symbols-outlined" aria-hidden="true">
         {isDirectory ? 'folder' : 'draft'}
       </span>

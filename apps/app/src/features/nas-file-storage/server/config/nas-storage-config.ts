@@ -15,7 +15,7 @@ import path from 'node:path';
 
 const DEFAULT_MAX_ENTRIES_PER_DIR = 50_000;
 
-const SHOW_HIDDEN_TRUTHY_TOKENS = new Set(['true', '1', 'yes', 'on']);
+const TRUTHY_TOKENS = new Set(['true', '1', 'yes', 'on']);
 
 /** Read an env var, trimming it and mapping empty/whitespace-only to undefined. */
 const readTrimmed = (name: string): string | undefined => {
@@ -25,6 +25,12 @@ const readTrimmed = (name: string): string | undefined => {
   }
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+/** Read an env var and interpret it as a boolean flag (default false). */
+const readBooleanFlag = (name: string): boolean => {
+  const value = readTrimmed(name);
+  return value != null && TRUTHY_TOKENS.has(value.toLowerCase());
 };
 
 /** Parse a strictly-positive integer, or undefined when absent / invalid. */
@@ -52,9 +58,19 @@ export const nasStorageConfig = {
     return root != null ? path.resolve(root) : undefined;
   },
 
-  /** True when a NAS root is configured (non-empty). Health is checked elsewhere. */
+  /**
+   * Master on/off switch. `GROWI_NAS_ENABLED` must be explicitly truthy for the
+   * feature to activate — an opt-in default so a configured `GROWI_NAS_ROOT` /
+   * mounted volume alone does not turn it on. Health of the root is checked
+   * separately by `RootHealthChecker`.
+   */
+  enabled(): boolean {
+    return readBooleanFlag('GROWI_NAS_ENABLED');
+  },
+
+  /** Alias of `enabled()`; kept for readability at call sites. */
   isEnabled(): boolean {
-    return this.root() != null;
+    return this.enabled();
   },
 
   /** Optional single group name that access is restricted to; undefined = no restriction. */
@@ -69,8 +85,7 @@ export const nasStorageConfig = {
 
   /** Whether hidden / system entries are shown by default. Defaults to false. */
   showHidden(): boolean {
-    const value = readTrimmed('GROWI_NAS_SHOW_HIDDEN');
-    return value != null && SHOW_HIDDEN_TRUTHY_TOKENS.has(value.toLowerCase());
+    return readBooleanFlag('GROWI_NAS_SHOW_HIDDEN');
   },
 
   /** Per-directory entry cap protecting the full readdir+sort. Defaults to 50,000. */

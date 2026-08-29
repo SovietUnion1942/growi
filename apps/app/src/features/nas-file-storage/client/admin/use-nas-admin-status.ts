@@ -10,6 +10,7 @@ import { apiv3Get } from '~/client/util/apiv3-client';
  * reach into the server layer.
  */
 export type NasRootStatus =
+  | { state: 'disabled' }
   | { state: 'unconfigured' }
   | {
       state: 'misconfigured';

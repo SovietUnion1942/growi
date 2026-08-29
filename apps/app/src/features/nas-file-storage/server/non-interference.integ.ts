@@ -70,6 +70,7 @@ describe('nas-file-storage: enabling the feature does not disturb page attachmen
     const { tmpdir } = await import('node:os');
     const path = await import('node:path');
     nasRoot = await mkdtemp(path.join(tmpdir(), 'nas-noninterf-'));
+    vi.stubEnv('GROWI_NAS_ENABLED', 'true');
     vi.stubEnv('GROWI_NAS_ROOT', nasRoot);
     await initializeNasFileStorage(crowi);
     expect(isNasStorageReady()).toBe(true);

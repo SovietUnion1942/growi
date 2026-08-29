@@ -55,11 +55,12 @@ GROWI フォークを社内 wiki として運用しているチーム/管理者�
 **Objective:** 運用管理者として、専用ルートディレクトリを指定して NAS 機能を有効化したい。それにより既存ストレージと切り離した共有ボリュームをサイト内に用意できる。
 
 #### Acceptance Criteria
-1. Where NAS ストレージ機能が有効化されている, the NAS File Storage service shall 専用の設定値（`GROWI_NAS_ROOT`）で指定されたディレクトリのみをファイル操作の基準ディレクトリとして使用する。
-2. If `GROWI_NAS_ROOT` が未設定または空である, then the NAS File Storage service shall 本機能を無効として扱い、関連する UI 導線を利用者に表示しない。
-3. If `GROWI_NAS_ROOT` が存在しないパス、またはプロセスが読み書きできないディレクトリを指す, then the NAS File Storage service shall 機能を無効化し、管理画面に設定不備である旨を表示する。
-4. When 管理者が管理画面の該当セクションを開く, the NAS File Storage service shall 本機能の有効/無効状態と、現在使用中のルートが正しく解決できているかを表示する。
-5. The NAS File Storage service shall 既存の添付ストレージ設定（`FILE_UPLOAD` の種別、`Attachment` の保存先）を参照も変更もしない。
+1. Where 明示的な有効化フラグ（`GROWI_NAS_ENABLED`）が真である, the NAS File Storage service shall 専用の設定値（`GROWI_NAS_ROOT`）で指定されたディレクトリのみをファイル操作の基準ディレクトリとして使用する。
+2. If `GROWI_NAS_ENABLED` が真でない, then the NAS File Storage service shall `GROWI_NAS_ROOT` の設定有無にかかわらず本機能を完全に無効として扱い、関連する UI 導線を利用者に表示しない。
+3. If `GROWI_NAS_ENABLED` が真だが `GROWI_NAS_ROOT` が未設定・空である, then the NAS File Storage service shall 本機能を無効として扱い、関連する UI 導線を利用者に表示しない。
+4. If `GROWI_NAS_ENABLED` が真で `GROWI_NAS_ROOT` が存在しないパス、またはプロセスが読み書きできないディレクトリを指す, then the NAS File Storage service shall 機能を無効化し、管理画面に設定不備である旨を表示する。
+5. When 管理者が管理画面の該当セクションを開く, the NAS File Storage service shall 本機能の有効/無効状態（無効時はフラグ未設定・ルート未設定・設定不備のどれかを区別して）と、現在使用中のルートが正しく解決できているかを表示する。
+6. The NAS File Storage service shall 既存の添付ストレージ設定（`FILE_UPLOAD` の種別、`Attachment` の保存先）を参照も変更もしない。
 
 ### Requirement 2: フォルダ/ファイルの閲覧
 **Objective:** ログイン済み利用者として、共有ボリュームのフォルダ階層をブラウザでたどりたい。それにより目的のファイルを見つけられる。

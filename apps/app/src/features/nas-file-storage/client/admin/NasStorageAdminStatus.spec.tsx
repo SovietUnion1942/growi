@@ -91,6 +91,18 @@ describe('NasStorageAdminStatus', () => {
       ).toBeTruthy();
     });
 
+    it('disabled -> shows the feature-off message (GROWI_NAS_ENABLED not set)', () => {
+      setup({
+        data: {
+          enabled: false,
+          status: { state: 'disabled' },
+          groupRestriction: null,
+          maxFileSizeBytes: null,
+        },
+      });
+      expect(screen.getByText('nas_storage.admin.root.disabled')).toBeTruthy();
+    });
+
     it('unavailable -> shows the temporary-unavailable message and the resolved root', () => {
       setup({
         data: {

@@ -1228,7 +1228,8 @@
         "ready": "利用可能",
         "unavailable": "利用不可",
         "misconfigured": "設定に問題があります",
-        "unconfigured": "未設定"
+        "unconfigured": "未設定",
+        "disabled": "無効"
       },
       "reason": {
         "missing": "設定されたディレクトリが存在しません。",

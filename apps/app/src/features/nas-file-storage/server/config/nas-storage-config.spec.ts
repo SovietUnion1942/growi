@@ -7,30 +7,63 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('nasStorageConfig.root / resolveRoot / isEnabled', () => {
-  it('returns undefined and disabled when GROWI_NAS_ROOT is unset', () => {
+describe('nasStorageConfig.enabled / isEnabled (GROWI_NAS_ENABLED)', () => {
+  it('is false by default (opt-in) even when GROWI_NAS_ROOT is set', () => {
+    vi.stubEnv('GROWI_NAS_ENABLED', undefined);
+    vi.stubEnv('GROWI_NAS_ROOT', '/nas');
+
+    expect(nasStorageConfig.enabled()).toBe(false);
+    expect(nasStorageConfig.isEnabled()).toBe(false);
+  });
+
+  it.each([
+    'true',
+    '1',
+    'yes',
+    'on',
+    'TRUE',
+    ' On ',
+  ])('is true when GROWI_NAS_ENABLED = %j', (token) => {
+    vi.stubEnv('GROWI_NAS_ENABLED', token);
+    expect(nasStorageConfig.enabled()).toBe(true);
+    expect(nasStorageConfig.isEnabled()).toBe(true);
+  });
+
+  it.each([
+    'false',
+    '0',
+    'no',
+    'off',
+    '',
+    '  ',
+    'enabled',
+  ])('is false when GROWI_NAS_ENABLED = %j', (token) => {
+    vi.stubEnv('GROWI_NAS_ENABLED', token);
+    expect(nasStorageConfig.enabled()).toBe(false);
+  });
+});
+
+describe('nasStorageConfig.root / resolveRoot', () => {
+  it('returns undefined when GROWI_NAS_ROOT is unset', () => {
     vi.stubEnv('GROWI_NAS_ROOT', undefined);
 
     expect(nasStorageConfig.root()).toBeUndefined();
     expect(nasStorageConfig.resolveRoot()).toBeUndefined();
-    expect(nasStorageConfig.isEnabled()).toBe(false);
   });
 
   it('treats an empty / whitespace-only GROWI_NAS_ROOT as unset', () => {
     vi.stubEnv('GROWI_NAS_ROOT', '   ');
 
     expect(nasStorageConfig.root()).toBeUndefined();
-    expect(nasStorageConfig.isEnabled()).toBe(false);
   });
 
-  it('resolves GROWI_NAS_ROOT to an absolute path and reports enabled', () => {
+  it('resolves GROWI_NAS_ROOT to an absolute path', () => {
     vi.stubEnv('GROWI_NAS_ROOT', '/nas');
 
     expect(nasStorageConfig.root()).toBe('/nas');
     const resolved = nasStorageConfig.resolveRoot();
     expect(resolved).toBe(path.resolve('/nas'));
     expect(path.isAbsolute(resolved as string)).toBe(true);
-    expect(nasStorageConfig.isEnabled()).toBe(true);
   });
 
   it('resolves a relative GROWI_NAS_ROOT against the process cwd', () => {

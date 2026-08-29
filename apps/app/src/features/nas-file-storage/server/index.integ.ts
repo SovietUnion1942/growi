@@ -178,7 +178,19 @@ describe('nas-file-storage server barrel (wiring)', () => {
   });
 
   describe('initializeNasFileStorage', () => {
+    it('reports disabled when GROWI_NAS_ENABLED is not set (opt-in default)', async () => {
+      vi.stubEnv('GROWI_NAS_ENABLED', undefined);
+      vi.stubEnv('GROWI_NAS_ROOT', await newRoot());
+      const spy = vi.spyOn(rootHealthChecker, 'probeOnBoot');
+
+      await expect(initializeNasFileStorage(crowi)).resolves.toBeUndefined();
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(rootHealthChecker.getStatus().state).toBe('disabled');
+    });
+
     it('runs rootHealthChecker.probeOnBoot and resolves when the root is unconfigured', async () => {
+      vi.stubEnv('GROWI_NAS_ENABLED', 'true');
       vi.stubEnv('GROWI_NAS_ROOT', '');
       const spy = vi.spyOn(rootHealthChecker, 'probeOnBoot');
 
@@ -192,6 +204,7 @@ describe('nas-file-storage server barrel (wiring)', () => {
       const dir = await newRoot();
       const filePath = path.join(dir, 'not-a-dir');
       await writeFile(filePath, 'x');
+      vi.stubEnv('GROWI_NAS_ENABLED', 'true');
       vi.stubEnv('GROWI_NAS_ROOT', filePath);
       const spy = vi.spyOn(rootHealthChecker, 'probeOnBoot');
 

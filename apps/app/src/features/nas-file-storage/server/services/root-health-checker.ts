@@ -7,12 +7,16 @@ import { nasStorageConfig } from '../config/nas-storage-config';
 /**
  * Health state of the configured NAS root.
  *
- * `unconfigured` / `misconfigured` are boot-determined and sticky: once
- * `probeOnBoot` has classified the root as structurally unusable, no later
- * `fs.access` re-check can promote it. Only the `ready` <-> `unavailable` pair
- * moves at runtime (mount dropped mid-operation, then restored).
+ * `disabled` / `unconfigured` / `misconfigured` are boot-determined and sticky:
+ * once `probeOnBoot` has classified the root as unusable, no later `fs.access`
+ * re-check can promote it. Only the `ready` <-> `unavailable` pair moves at
+ * runtime (mount dropped mid-operation, then restored).
+ *
+ * `disabled` = `GROWI_NAS_ENABLED` is not truthy (the operator has not opted in).
+ * `unconfigured` = opted in but `GROWI_NAS_ROOT` is unset.
  */
 export type NasRootStatus =
+  | { state: 'disabled' }
   | { state: 'unconfigured' }
   | {
       state: 'misconfigured';
@@ -36,7 +40,8 @@ export interface RootHealthChecker {
 
 const READ_WRITE = fsConstants.R_OK | fsConstants.W_OK;
 
-type RootResolver = Pick<NasStorageConfig, 'resolveRoot'>;
+type RootResolver = Pick<NasStorageConfig, 'resolveRoot'> &
+  Partial<Pick<NasStorageConfig, 'enabled'>>;
 
 const classifyRoot = async (resolvedRoot: string): Promise<NasRootStatus> => {
   const stats = await stat(resolvedRoot).catch(() => null);
@@ -57,6 +62,7 @@ const classifyRoot = async (resolvedRoot: string): Promise<NasRootStatus> => {
 /**
  * @param config - injection point for tests; defaults to the real env-backed config.
  * Before `probeOnBoot` runs the status is `unconfigured` — boot must call it.
+ * A config without `enabled` (partial test injection) is treated as opted-in.
  */
 export const createRootHealthChecker = (
   config: RootResolver = nasStorageConfig,
@@ -65,6 +71,10 @@ export const createRootHealthChecker = (
 
   return {
     async probeOnBoot(): Promise<void> {
+      if (config.enabled != null && !config.enabled()) {
+        status = { state: 'disabled' };
+        return;
+      }
       const resolvedRoot = config.resolveRoot();
       status =
         resolvedRoot == null

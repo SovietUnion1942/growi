@@ -25,7 +25,7 @@
 ## Boundary Commitments
 
 ### This Spec Owns
-- 環境変数 `GROWI_NAS_ROOT` / `GROWI_NAS_GROUP` / `GROWI_NAS_MAX_FILE_SIZE` / `GROWI_NAS_SHOW_HIDDEN` / `GROWI_NAS_MAX_ENTRIES_PER_DIR` の定義と解決（`process.env` を直接読む）。
+- 環境変数 `GROWI_NAS_ENABLED`（明示 opt-in の master スイッチ、既定 false）/ `GROWI_NAS_ROOT` / `GROWI_NAS_GROUP` / `GROWI_NAS_MAX_FILE_SIZE` / `GROWI_NAS_SHOW_HIDDEN` / `GROWI_NAS_MAX_ENTRIES_PER_DIR` の定義と解決（`process.env` を直接読む）。
 - ルートディレクトリの健全性判定（存在・ディレクトリであること・読み書き可否）とその状態の公開。
 - `GROWI_NAS_ROOT` 配下のファイル/フォルダに対する列挙・読み取り・書き込み・作成・改名・移動・削除の全操作。
 - NAS 操作用の apiv3 エンドポイント群（`/api/v3/nas-storage/*`）とその認可（ログイン必須＋任意の単一グループ限定＋全操作でのパス範囲検証）。
@@ -127,7 +127,7 @@ interfaces  →  config  →  store (fs)  →  service  →  routes / middleware
 | Frontend | React 18 + Next.js 16 Pages Router（既存） | `/nas` ブラウザ画面、SWR フック | 新規ライブラリなし |
 | Backend | Express（既存）+ `multer`（既存依存） | apiv3 ルーター、multipart 受信 | `attachment.js` と同じ `multer({ dest })` |
 | Data / Storage | Node `node:fs` / `node:fs/promises`（標準） | ルート配下の実ファイル操作。**MongoDB モデルなし** | FS が唯一の信頼源 |
-| Infrastructure / Runtime | `GROWI_NAS_*` 環境変数 5 種、crowi ブートフック | ルート解決・健全性判定 | 追加コンテナ・追加サービスなし。`configManager` 非経由 |
+| Infrastructure / Runtime | `GROWI_NAS_*` 環境変数 6 種（master スイッチ `GROWI_NAS_ENABLED` 含む）、crowi ブートフック | ルート解決・健全性判定 | 追加コンテナ・追加サービスなし。`configManager` 非経由 |
 
 ## File Structure Plan
 
@@ -228,7 +228,8 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Unconfigured: GROWI_NAS_ROOT empty
+    [*] --> Disabled: GROWI_NAS_ENABLED not true
+    [*] --> Unconfigured: enabled, GROWI_NAS_ROOT empty
     [*] --> Probing: GROWI_NAS_ROOT set
     Probing --> Ready: dir exists and writable
     Probing --> Misconfigured: missing not-a-dir or not writable
@@ -236,7 +237,7 @@ stateDiagram-v2
     Unavailable --> Ready: next probe succeeds
 ```
 
-- `Unconfigured` / `Misconfigured`: 機能無効。ナビ非表示（Req 1.2）、`/nas` は 404 相当、admin 画面に理由表示（Req 1.3 / 1.4）。
+- `Disabled` (フラグ未設定) / `Unconfigured` / `Misconfigured`: 機能無効。ナビ非表示（Req 1.2）、`/nas` は 404 相当、admin 画面に理由表示（Req 1.3 / 1.4）。
 - `Ready`: 通常動作。各操作の入口で軽量 `fs.access(root, R_OK|W_OK)` を実行し、失敗時は `Unavailable` として `503` 相当のユーザー向けメッセージ（Req 8.1）。
 
 ## Requirements Traceability
@@ -457,7 +458,8 @@ interface NasStorageService {
 
 ```typescript
 type NasRootStatus =
-  | { state: 'unconfigured' }
+  | { state: 'disabled' }        // GROWI_NAS_ENABLED not truthy (opt-in default)
+  | { state: 'unconfigured' }    // enabled but GROWI_NAS_ROOT unset
   | { state: 'misconfigured'; reason: 'missing' | 'not-a-directory' | 'not-writable' }
   | { state: 'ready'; resolvedRoot: string }
   | { state: 'unavailable'; resolvedRoot: string };

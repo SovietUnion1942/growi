@@ -1188,7 +1188,8 @@
         "ready": "Ready",
         "unavailable": "Unavailable",
         "misconfigured": "Misconfigured",
-        "unconfigured": "Not configured"
+        "unconfigured": "Not configured",
+        "disabled": "Disabled"
       },
       "reason": {
         "missing": "The configured directory does not exist.",

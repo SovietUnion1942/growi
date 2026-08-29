@@ -4,8 +4,9 @@ import path from 'node:path';
 import { defineConfig, devices, type Project } from '@playwright/test';
 
 /**
- * NAS File Storage feature (`nas-file-storage`) is gated by `GROWI_NAS_ROOT`.
- * The E2E web server needs it set to a real, writable directory so the
+ * NAS File Storage feature (`nas-file-storage`) is gated by the explicit
+ * `GROWI_NAS_ENABLED` master switch plus a `GROWI_NAS_ROOT` directory.
+ * The E2E web server needs both set so the
  * `/nas` browser, the sidebar nav item and the admin status panel are all
  * reachable (see `playwright/45-nas-storage/*`). The directory is created here
  * synchronously — before Playwright boots `webServer` — because the feature's
@@ -77,7 +78,9 @@ export default defineConfig({
     stdout: 'ignore',
     stderr: 'pipe',
     env: {
-      // Enables the `nas-file-storage` feature for the E2E server.
+      // Enables the `nas-file-storage` feature for the E2E server: the master
+      // switch (`GROWI_NAS_ENABLED`) plus a real, writable root.
+      GROWI_NAS_ENABLED: 'true',
       GROWI_NAS_ROOT: nasStorageE2eRoot,
     },
   },

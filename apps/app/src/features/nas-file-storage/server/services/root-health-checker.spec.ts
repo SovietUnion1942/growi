@@ -42,6 +42,51 @@ describe('createRootHealthChecker', () => {
     await rm(workdir, { recursive: true, force: true });
   });
 
+  describe('GROWI_NAS_ENABLED gate', () => {
+    it('reports disabled when enabled() is false, regardless of the root', async () => {
+      const checker = createRootHealthChecker({
+        resolveRoot: () => workdir,
+        enabled: () => false,
+      });
+
+      await checker.probeOnBoot();
+
+      expect(checker.getStatus()).toEqual({ state: 'disabled' });
+    });
+
+    it('keeps a disabled status untouched through ensureReady (no FS probe)', async () => {
+      const checker = createRootHealthChecker({
+        resolveRoot: () => workdir,
+        enabled: () => false,
+      });
+      await checker.probeOnBoot();
+
+      expect(await checker.ensureReady()).toEqual({ state: 'disabled' });
+    });
+
+    it('proceeds to classify the root when enabled() is true', async () => {
+      const checker = createRootHealthChecker({
+        resolveRoot: () => workdir,
+        enabled: () => true,
+      });
+
+      await checker.probeOnBoot();
+
+      expect(checker.getStatus()).toEqual({
+        state: 'ready',
+        resolvedRoot: path.resolve(workdir),
+      });
+    });
+
+    it('treats a config without enabled() as opted-in (test-injection default)', async () => {
+      const checker = createRootHealthChecker(configWithRoot(workdir));
+
+      await checker.probeOnBoot();
+
+      expect(checker.getStatus()).toMatchObject({ state: 'ready' });
+    });
+  });
+
   describe('probeOnBoot', () => {
     it('reports unconfigured when the root is unset', async () => {
       const checker = createRootHealthChecker(configWithRoot(undefined));

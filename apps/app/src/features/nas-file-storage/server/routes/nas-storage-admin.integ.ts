@@ -39,8 +39,12 @@ const seedUser = async (
 
 const makeChecker = async (
   resolveRoot: () => string | undefined,
+  enabled = true,
 ): Promise<RootHealthChecker> => {
-  const checker = createRootHealthChecker({ resolveRoot });
+  const checker = createRootHealthChecker({
+    resolveRoot,
+    enabled: () => enabled,
+  });
   await checker.probeOnBoot();
   return checker;
 };
@@ -118,7 +122,22 @@ describe('setupNasStorageAdmin router (integration)', () => {
       });
     });
 
-    it('reports disabled + unconfigured when GROWI_NAS_ROOT is unset', async () => {
+    it('reports disabled when GROWI_NAS_ENABLED is not opted in (even with a good root)', async () => {
+      const root = await mkdtemp(path.join(tmpdir(), 'nas-admin-'));
+      const health = await makeChecker(() => root, false);
+
+      const res = await getStatus(buildApp(health));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        enabled: false,
+        status: { state: 'disabled' },
+        groupRestriction: null,
+        maxFileSizeBytes: null,
+      });
+    });
+
+    it('reports unconfigured when opted in but GROWI_NAS_ROOT is unset', async () => {
       const health = await makeChecker(() => undefined);
 
       const res = await getStatus(buildApp(health));

@@ -68,6 +68,12 @@ const RootStatusValue = ({
           {t('nas_storage.admin.root.unconfigured')}
         </span>
       );
+    case 'disabled':
+      return (
+        <span className="text-muted">
+          {t('nas_storage.admin.root.disabled')}
+        </span>
+      );
   }
 };
 

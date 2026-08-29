@@ -344,7 +344,7 @@
   - 完了状態: 上記シナリオを網羅する統合テストが緑になる
   - _Requirements: 6.7, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7_
   - _Depends: 9.4_
-- [ ] 12.3 第 2 弾の E2E テストを追加する
+- [x] 12.3 第 2 弾の E2E テストを追加する
   - 画像プレビュー（モーダル表示）と動画プレビュー（シーク）、非対応拡張子でプレビュー操作が出ない
   - 閾値超ファイルのアップロードが分割経路で完了し一覧に出る
   - サブフォルダ付きフォルダのアップロードでツリーが再現され、開始時に衝突方針を一度だけ確認される
@@ -392,3 +392,4 @@
 - 11.6: `validateNasUploadName` + `NasFolderSelection` を `client/util/nas-upload-name.ts` に抽出（component↔hook の循環 value import を解消、esm-authoring.md）。`NasUploadDropzone` は後方互換で re-export。
 - 11.6: i18n キー（task 11.7）: `nas_storage.folder_upload.{in_progress,summary,failures_title,invalid_path,policy_title,policy_message,cancel,policy_overwrite,policy_skip,policy_rename}` + `nas_storage.upload.select_folder`。
 - 11.6: 0 ファイル成功だがディレクトリ（空サブフォルダ含む）作成時、`onUploaded` は発火しないため新規空ディレクトリは手動リロードが必要（軽微）。
+- 12.3: E2E は CI 専用（この環境では実行不可、`playwright test --list` で列挙のみ検証）。E2E 化できなかった点: 動画の実フレームシーク（デコード可能な軽量クリップが用意困難、`<video controls>`+`currentTime` 設定可能までは検証）、空サブフォルダ作成（`showDirectoryPicker` は Playwright で駆動不可、`webkitdirectory` はファイルのみ）。いずれも unit テストでカバー済み。91 MiB チャンクアップロードテストは `test.slow()` + 実ファイル生成。CI が重い場合は小サイズ＋汎用 happy-path に縮退可。

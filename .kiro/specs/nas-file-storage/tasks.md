@@ -302,7 +302,7 @@
   - _Requirements: 9.1, 9.4_
   - _Boundary: NasEntryRow, NasStorageBrowser_
   - _Depends: 11.2, 5.9_
-- [ ] 11.4 分割アップロードのクライアントフックを実装する
+- [x] 11.4 分割アップロードのクライアントフックを実装する
   - 大きいファイルを一定サイズのチャンクに分割し、開始→順次追記（範囲ヘッダ付き）→完了を行う。失敗時はセッションを中止し利用者にエラーを示す
   - 順序違反エラーを受けたら最初からやり直す
   - 完了状態: 閾値超のファイルが分割経路で完了し一覧に出現、途中失敗でサーバーに一時ファイルが残らない
@@ -385,3 +385,4 @@
 - 9.x: `chunkedUploadRegistry` シングルトンは `GROWI_NAS_ROOT` 未設定時に `FsNasFileStore('')` を作るため、シングルトンを触るテストが cwd 相対 `.growi-nas-tmp/` を作ってしまう。`.gitignore` に追加済み。follow-up: シングルトン生成を遅延化 or unconfigured 時は no-op にする。
 - 11.2: i18n キー `nas_storage.preview.{loading,error,truncated,not_supported,download}` を task 11.7 で追加。
 - 11.2: `NasPreviewModal` の `dynamic({ ssr: false })` ラップは consumer（task 11.3 の NasEntryRow/NasStorageBrowser）の責務。
+- 11.4: `useNasChunkedUpload` は `CHUNK_OUT_OF_ORDER` で内部 1 回だけ最初からやり直し（`MAX_OUT_OF_ORDER_RETRIES=1`）、2 回目失敗で `.code==='CHUNK_OUT_OF_ORDER'` を throw。task 11.5 の dropzone は out-of-order 専用の再試行ループ不要（terminal error 扱い＋汎用 retry で OK）。エラーは全て `NasRequestError`（`use-nas-list.ts`）で `uploadFile` と同型。`CHUNK_UPLOAD_THRESHOLD_BYTES = 90 MiB`、`shouldUseChunkedUpload(size) = size > threshold`。

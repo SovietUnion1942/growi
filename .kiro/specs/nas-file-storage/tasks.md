@@ -113,7 +113,7 @@
   - _Depends: 4.1_
 
 - [ ] 5. Core: クライアント UI
-- [ ] 5.1 一覧取得と操作の SWR フックを実装する
+- [x] 5.1 一覧取得と操作の SWR フックを実装する
   - `use-nas-list`：cursor ページング、無限スクロール向けの追加取得、フォルダ移動時の再検証
   - `use-nas-entry-actions`：アップロード / フォルダ作成 / リネーム / 移動 / 削除のミューテーションと、成功時の一覧再検証
   - 完了状態: フックがエンドポイントを呼び、一覧の追加読み込みと各操作後の再取得が動作する
@@ -183,3 +183,6 @@
 - 2.2: `move(overwrite=true)` が既存の非空ディレクトリに当たると `ENOTEMPTY`。`normalizeNasError` に ENOTEMPTY エントリがなく `UNKNOWN` になる。normalizeNasError 拡張は task 1.4 境界のため保留 → サービス/ルート層(2.4/3.2)で 409 相当に整えるか、後日 mapper に追加。
 - 3.2: `GET /file` は `stream.pipe(res)` のみで、クライアント切断/`res` エラー時に `stream` を destroy していない → 中断ダウンロードで fd リークの可能性。5.x のクライアント実装後、余力で `res.on('close')` で `stream.destroy()` を追加。
 - 3.2: design.md の INVALID_PATH は 400(L531/API表) と 422(L533) で矛盾。実装は 400 採用。spec-cleanup で解消すること。
+- 5.1: 標準 `~/client/util/apiv3-client` はエラー時に apiv3Err の `info` スロット(`suggestedName`/`limitBytes`/`limitEntries`)を捨てるため、NAS フックは `~/utils/axios`(共有カスタム instance、XSRF ヘッダ維持)を直接使う。逸脱は `nasApiRequest` ヘルパーに局所化。
+- 5.1: 共有ヘルパー `nasApiRequest`/`NasRequestError`/`NAS_LIST_ENDPOINT` は現状 `use-nas-list.ts` 内。5.2/5.3 で `client/hooks/nas-request.ts` に抽出推奨。
+- 5.1: カスタム axios の `convertStringsToDates` が `modifiedAt` を実行時に `Date` へ強制変換(型は `string`)。5.2 の行コンポーネントは防御的にフォーマットすること。

@@ -153,7 +153,7 @@
   - _Requirements: 1.3, 1.4_
   - _Boundary: NasStorageAdminStatus_
   - _Depends: 4.1_
-- [ ] 5.7 i18n 文言を追加する
+- [x] 5.7 i18n 文言を追加する
   - `nas_storage.*` の UI 文言と、`NasErrorCode` 別の利用者向けエラーメッセージを既存ロケールファイルに追加する
   - 完了状態: 各エラーコードと主要 UI 文字列が翻訳キーで解決され、絶対パス等を含まない
   - _Requirements: 8.2_

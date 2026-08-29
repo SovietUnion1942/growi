@@ -7,7 +7,6 @@ import { SWRConfig } from 'swr';
 import type { NasEntry } from '~/features/nas-file-storage/interfaces';
 
 import { useNasEntryActions } from './use-nas-entry-actions';
-import { NAS_LIST_ENDPOINT } from './use-nas-list';
 
 const request = vi.fn();
 vi.mock('~/utils/axios', () => ({
@@ -17,12 +16,6 @@ vi.mock('~/utils/axios', () => ({
       e != null && typeof e === 'object' && 'response' in (e as object),
   },
 }));
-
-const mutate = vi.fn();
-vi.mock('swr', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('swr')>();
-  return { ...actual, mutate: (...args: unknown[]) => mutate(...args) };
-});
 
 const wrapper = ({ children }: PropsWithChildren): JSX.Element => (
   <SWRConfig value={{ provider: () => new Map() }}>{children}</SWRConfig>
@@ -46,7 +39,6 @@ const rejectWith = (code: string, info: Record<string, unknown>) => ({
 
 beforeEach(() => {
   request.mockReset();
-  mutate.mockReset();
 });
 
 describe('useNasEntryActions', () => {
@@ -160,37 +152,32 @@ describe('useNasEntryActions', () => {
     );
   });
 
-  it('revalidates the list for the current dir after a successful mutation', async () => {
+  it('resolves with the created entry (list refresh is the caller’s job)', async () => {
     request.mockResolvedValueOnce({ data: dirEntry });
     const { result } = renderHook(() => useNasEntryActions('/docs'), {
       wrapper,
     });
 
+    let created: NasEntry | undefined;
     await act(async () => {
-      await result.current.createFolder('sub');
+      created = await result.current.createFolder('sub');
     });
 
-    expect(mutate).toHaveBeenCalled();
-    const matcher = mutate.mock.calls[0][0] as (key: unknown) => boolean;
-    expect(typeof matcher).toBe('function');
-    expect(matcher([NAS_LIST_ENDPOINT, '/docs', undefined, false, 100])).toBe(
-      true,
-    );
-    expect(matcher([NAS_LIST_ENDPOINT, '/other', undefined, false, 100])).toBe(
-      false,
-    );
+    expect(created).toEqual(dirEntry);
   });
 
-  it('does not revalidate when the mutation fails', async () => {
-    request.mockRejectedValueOnce(rejectWith('CONFLICT', {}));
+  it('rejects with the NasRequestError code on a failed mutation', async () => {
+    request.mockRejectedValueOnce(
+      rejectWith('CONFLICT', { suggestedName: 'sub (1)' }),
+    );
     const { result } = renderHook(() => useNasEntryActions('/docs'), {
       wrapper,
     });
 
     await act(async () => {
-      await result.current.createFolder('sub').catch(() => undefined);
+      await expect(result.current.createFolder('sub')).rejects.toMatchObject({
+        code: 'CONFLICT',
+      });
     });
-
-    expect(mutate).not.toHaveBeenCalled();
   });
 });

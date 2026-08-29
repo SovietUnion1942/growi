@@ -120,7 +120,7 @@
   - _Requirements: 2.1, 2.3, 2.4, 3.1, 5.1, 5.2, 5.3_
   - _Boundary: nas client hooks_
   - _Depends: 4.1_
-- [ ] 5.2 ファイルブラウザ画面コンポーネントを実装する
+- [x] 5.2 ファイルブラウザ画面コンポーネントを実装する
   - パンくず、エントリ一覧（名称・種別・サイズ・更新日時）、ツールバー、無限スクロールを持つ `NasStorageBrowser` と行コンポーネントを実装する
   - GROWI 外で加えられた変更が再表示で反映されることを一覧の再検証で担保する
   - 完了状態: `/nas` 配下でフォルダを開くと一覧が表示され、スクロールで次ページが読まれる
@@ -186,3 +186,4 @@
 - 5.1: 標準 `~/client/util/apiv3-client` はエラー時に apiv3Err の `info` スロット(`suggestedName`/`limitBytes`/`limitEntries`)を捨てるため、NAS フックは `~/utils/axios`(共有カスタム instance、XSRF ヘッダ維持)を直接使う。逸脱は `nasApiRequest` ヘルパーに局所化。
 - 5.1: 共有ヘルパー `nasApiRequest`/`NasRequestError`/`NAS_LIST_ENDPOINT` は現状 `use-nas-list.ts` 内。5.2/5.3 で `client/hooks/nas-request.ts` に抽出推奨。
 - 5.1: カスタム axios の `convertStringsToDates` が `modifiedAt` を実行時に `Date` へ強制変換(型は `string`)。5.2 の行コンポーネントは防御的にフォーマットすること。
+- 5.2: 無限スクロールの `loadMore` は hook が毎レンダー新クロージャを返すため、`loadMoreRef` + `lastRequestedLenRef`(entries.length ベース)で once-per-intersection ガード。`loadMore` フェッチが `entries` を増やさず失敗すると `hasMore` true のままガードが閉じたまま → SWR error ブランチ表示 + sentinel unmount で回復(手動 refresh)。スクロール再試行が要るなら follow-up。

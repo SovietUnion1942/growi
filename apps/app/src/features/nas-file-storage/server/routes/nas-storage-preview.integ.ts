@@ -151,6 +151,7 @@ describe('setupNasStorage GET /file — inline preview delivery', () => {
     const app = await buildReadyApp(await seedRoot());
 
     for (const inline of ['1', undefined]) {
+      // biome-ignore lint/performance/noAwaitInLoops: two sequential requests, each fully asserted
       const res = await request(app)
         .get('/_api/v3/nas-storage/file')
         .query({

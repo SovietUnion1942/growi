@@ -1,6 +1,7 @@
 import { atom, useAtomValue } from 'jotai';
 
 import type { SupportedActionType } from '~/interfaces/activity';
+import type { MessagesMode } from '~/interfaces/messages-mode';
 import type { RendererConfig } from '~/interfaces/services/renderer';
 
 /**
@@ -14,6 +15,13 @@ export const aiEnabledAtom = atom<boolean>(false);
  * value is derived from RootHealthChecker.getStatus() being `ready`.
  */
 export const nasStorageEnabledAtom = atom<boolean>(false);
+
+/**
+ * Atom for the Messages (DM / chat) feature level (same server-config route as
+ * aiEnabledAtom). Populated from `app:messagesMode`; `off` when unset, which
+ * also matches the server-side default. See ~/interfaces/messages-mode.
+ */
+export const messagesModeAtom = atom<MessagesMode>('off');
 
 /**
  * Atom for users homepage deletion enabled status

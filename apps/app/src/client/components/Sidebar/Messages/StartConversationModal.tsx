@@ -13,6 +13,9 @@ import { UserSearchList } from './UserSearchList';
 
 type Props = {
   isOpen: boolean;
+  // Whether group creation is offered. When false (MESSAGES_MODE=direct) the
+  // 1対1 / グループ switch is hidden and only DM creation is possible.
+  canCreateGroup?: boolean;
   onClose: () => void;
   onConversationCreated: (conversation: IConversation) => void;
 };
@@ -20,7 +23,12 @@ type Props = {
 type Mode = 'direct' | 'group';
 
 export const StartConversationModal = (props: Props): JSX.Element => {
-  const { isOpen, onClose, onConversationCreated } = props;
+  const {
+    isOpen,
+    canCreateGroup = true,
+    onClose,
+    onConversationCreated,
+  } = props;
 
   const currentUser = useCurrentUser();
 
@@ -91,24 +99,26 @@ export const StartConversationModal = (props: Props): JSX.Element => {
     <Modal isOpen={isOpen} toggle={closeHandler}>
       <ModalHeader toggle={closeHandler}>新しい会話を始める</ModalHeader>
       <ModalBody>
-        <fieldset className="btn-group w-100 mb-3">
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'direct' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setMode('direct')}
-          >
-            1対1
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'group' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setMode('group')}
-          >
-            グループ
-          </button>
-        </fieldset>
+        {canCreateGroup && (
+          <fieldset className="btn-group w-100 mb-3">
+            <button
+              type="button"
+              className={`btn btn-sm ${mode === 'direct' ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => setMode('direct')}
+            >
+              1対1
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${mode === 'group' ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => setMode('group')}
+            >
+              グループ
+            </button>
+          </fieldset>
+        )}
 
-        {mode === 'direct' && (
+        {(mode === 'direct' || !canCreateGroup) && (
           <UserSearchList
             excludeUserIds={excludeUserIds}
             onSelectUser={selectDirectHandler}

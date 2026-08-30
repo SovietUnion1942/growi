@@ -3,6 +3,10 @@ import type { ColorScheme, IUserHasId } from '@growi/core';
 import mongoose from 'mongoose';
 
 import type { CrowiRequest } from '~/interfaces/crowi-request';
+import {
+  type MessagesMode,
+  normalizeMessagesMode,
+} from '~/interfaces/messages-mode';
 import { getGrowiVersion } from '~/utils/growi-version';
 import loggerFactory from '~/utils/logger';
 
@@ -26,6 +30,7 @@ export type CommonInitialProps = {
   forcedColorScheme?: ColorScheme;
   aiEnabled: boolean;
   nasStorageEnabled: boolean;
+  messagesMode: MessagesMode;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -74,6 +79,13 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // the Express realm. Verdict mirrors the admin `enabled` field
       // (`state === 'ready'`), keeping the UI affordance and API aligned.
       nasStorageEnabled: crowi.isNasStorageReady(),
+      // Messages (DM / chat) feature level. Read straight from the loaded
+      // config (crowi.configManager, not a directly-imported instance -- see
+      // the aiEnabled note above) and normalized so a stale/typo'd value can
+      // never reach the client as anything but a valid MessagesMode.
+      messagesMode: normalizeMessagesMode(
+        configManager.getConfig('app:messagesMode'),
+      ),
     } satisfies CommonInitialProps,
   };
 };

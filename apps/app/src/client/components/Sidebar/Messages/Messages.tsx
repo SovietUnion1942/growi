@@ -1,4 +1,5 @@
 import { type JSX, useCallback, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { mutate as mutateGlobal } from 'swr';
 
@@ -7,7 +8,12 @@ import {
   type FloatingPanelPosition,
   type FloatingPanelSize,
 } from '~/client/components/FloatingPanel';
+import {
+  canCreateGroupConversation,
+  canStartDirectConversation,
+} from '~/interfaces/messages-mode';
 import { useCurrentUser } from '~/states/global';
+import { messagesModeAtom } from '~/states/server-configurations';
 import {
   CONVERSATIONS_SWR_KEY,
   getConversationDisplayName,
@@ -39,6 +45,12 @@ const FLOATING_MESSAGES_MIN_SIZE: FloatingPanelSize = {
 export const Messages = (): JSX.Element => {
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
+  const messagesMode = useAtomValue(messagesModeAtom);
+  const canStartDirect = canStartDirectConversation(messagesMode);
+  const canCreateGroup = canCreateGroupConversation(messagesMode);
+  // `global` mode has only the ever-present broadcast conversation, so there
+  // is nothing for the "start a conversation" affordance to do.
+  const canStartConversation = canStartDirect || canCreateGroup;
 
   const [activeConversation, setActiveConversation] =
     useState<IConversation | null>(null);
@@ -60,27 +72,32 @@ export const Messages = (): JSX.Element => {
           {t('Messages')}
         </h3>
 
-        <button
-          type="button"
-          className="btn btn-primary btn-sm rounded-circle"
-          onClick={() => setIsStartModalOpen(true)}
-          title="新しい会話を始める"
-        >
-          <span className="material-symbols-outlined align-middle">add</span>
-        </button>
+        {canStartConversation && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm rounded-circle"
+            onClick={() => setIsStartModalOpen(true)}
+            title="新しい会話を始める"
+          >
+            <span className="material-symbols-outlined align-middle">add</span>
+          </button>
+        )}
       </div>
 
       <ConversationList onSelectConversation={setActiveConversation} />
 
-      <StartConversationModal
-        isOpen={isStartModalOpen}
-        onClose={() => setIsStartModalOpen(false)}
-        onConversationCreated={(conversation) => {
-          setIsStartModalOpen(false);
-          setActiveConversation(conversation);
-          mutateGlobal(CONVERSATIONS_SWR_KEY);
-        }}
-      />
+      {canStartConversation && (
+        <StartConversationModal
+          isOpen={isStartModalOpen}
+          canCreateGroup={canCreateGroup}
+          onClose={() => setIsStartModalOpen(false)}
+          onConversationCreated={(conversation) => {
+            setIsStartModalOpen(false);
+            setActiveConversation(conversation);
+            mutateGlobal(CONVERSATIONS_SWR_KEY);
+          }}
+        />
+      )}
 
       {activeConversation != null && (
         <FloatingPanel

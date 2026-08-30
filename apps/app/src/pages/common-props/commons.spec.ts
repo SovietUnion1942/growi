@@ -84,6 +84,35 @@ describe('getServerSideCommonInitialProps - nasStorageEnabled supply', () => {
   });
 });
 
+const getMessagesModeProp = async (
+  rawMessagesMode: string | undefined,
+): Promise<string> => {
+  const req = mockDeep<CrowiRequest>();
+  req.crowi.configManager.getConfig.mockImplementation((key) =>
+    key === 'app:messagesMode' ? rawMessagesMode : undefined,
+  );
+  const context = mock<GetServerSidePropsContext>({
+    req: req as unknown as GetServerSidePropsContext['req'],
+  });
+  const result = await getServerSideCommonInitialProps(context);
+  if (!('props' in result)) {
+    throw new Error('expected a props result');
+  }
+  const props = await result.props;
+  return props.messagesMode;
+};
+
+describe('getServerSideCommonInitialProps - messagesMode supply', () => {
+  it('passes a valid app:messagesMode value through', async () => {
+    expect(await getMessagesModeProp('direct')).toBe('direct');
+  });
+
+  it('normalizes an unset / invalid value to "off"', async () => {
+    expect(await getMessagesModeProp(undefined)).toBe('off');
+    expect(await getMessagesModeProp('bogus')).toBe('off');
+  });
+});
+
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {
   it('supplies aiEnabled=true when AI is ready (enabled && configured)', async () => {
     expect(await getAiEnabledProp(true)).toBe(true);

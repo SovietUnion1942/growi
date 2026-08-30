@@ -3,7 +3,10 @@ import { Provider, useAtomValue } from 'jotai';
 import { describe, expect, it } from 'vitest';
 
 import type { CommonInitialProps } from '~/pages/common-props';
-import { nasStorageEnabledAtom } from '~/states/server-configurations';
+import {
+  messagesModeAtom,
+  nasStorageEnabledAtom,
+} from '~/states/server-configurations';
 
 import { useHydrateGlobalInitialAtoms } from './hydrate';
 
@@ -20,6 +23,7 @@ const baseProps: CommonInitialProps = {
   forcedColorScheme: undefined,
   aiEnabled: false,
   nasStorageEnabled: false,
+  messagesMode: 'off',
 };
 
 const NasStorageEnabledProbe = ({
@@ -53,5 +57,28 @@ describe('useHydrateGlobalInitialAtoms - nasStorageEnabledAtom', () => {
       </Provider>,
     );
     expect(screen.getByTestId('value')).toHaveTextContent('false');
+  });
+});
+
+const MessagesModeProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  const value = useAtomValue(messagesModeAtom);
+  return <span data-testid="value">{value}</span>;
+};
+
+describe('useHydrateGlobalInitialAtoms - messagesModeAtom', () => {
+  it('hydrates the atom from the server prop', () => {
+    render(
+      <Provider>
+        <MessagesModeProbe
+          commonInitialProps={{ ...baseProps, messagesMode: 'full' }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('full');
   });
 });

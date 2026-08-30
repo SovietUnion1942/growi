@@ -8,7 +8,13 @@ import { Types } from 'mongoose';
 import multer from 'multer';
 
 import type { CrowiRequest } from '~/interfaces/crowi-request';
+import {
+  allowedConversationTypes,
+  isMessagesFeatureEnabled,
+  normalizeMessagesMode,
+} from '~/interfaces/messages-mode';
 import { SocketEventName } from '~/interfaces/websocket';
+import { configManager } from '~/server/service/config-manager';
 import type Crowi from '~/server/crowi';
 import { AttachmentType } from '~/server/interfaces/attachment';
 import { accessTokenParser } from '~/server/middlewares/access-token-parser';
@@ -61,6 +67,37 @@ const isConversationMember = (
 export const setup = (crowi: Crowi): Router => {
   const loginRequiredStrictly = loginRequiredFactory(crowi);
   const { User } = crowi.models;
+
+  // Operator switch for the whole feature (MESSAGES_MODE / app:messagesMode).
+  // `allowedTypes` is the set of conversation types usable at the current
+  // level; a conversation of any other type is treated as non-existent
+  // (filtered from the list, rejected by every per-conversation route).
+  const messagesMode = normalizeMessagesMode(
+    configManager.getConfig('app:messagesMode'),
+  );
+  const allowedTypes = allowedConversationTypes(messagesMode);
+
+  // MESSAGES_MODE=off: the feature is dark. Every route under this router
+  // replies 404 so the client (which also hides the entry point) and any
+  // direct caller see a consistent "not here".
+  if (!isMessagesFeatureEnabled(messagesMode)) {
+    router.use((_req: CrowiRequest, res: ApiV3Response) =>
+      res.apiv3Err(new Error('Messages feature is disabled'), 404),
+    );
+    return router;
+  }
+
+  // Access predicate for a loaded conversation: the caller must be a member
+  // AND the conversation's type must be permitted at the current mode. Used
+  // in place of a bare membership check so that lowering MESSAGES_MODE makes
+  // now-disallowed conversations (e.g. old DMs after switching to `global`)
+  // immediately unreachable without deleting anything.
+  const isConversationAccessible = (
+    conversation: ConversationDocument,
+    userId: Types.ObjectId,
+  ): boolean =>
+    allowedTypes.has(conversation.type) &&
+    isConversationMember(conversation, userId);
   // same multer config shape as badge-type.ts / customize-setting.js's
   // upload-brand-logo: a disk-backed temp store, expecting a single 'file'
   // field. When Content-Type isn't multipart/form-data, multer is a no-op
@@ -349,6 +386,14 @@ export const setup = (crowi: Crowi): Router => {
           limit,
         );
 
+        // Drop conversations whose type the current MESSAGES_MODE forbids, so
+        // e.g. old DMs vanish from the list the moment the mode drops to
+        // `global`. Pagination counts stay as reported by the store; the page
+        // just renders fewer rows.
+        paginationResult.docs = paginationResult.docs.filter((doc) =>
+          allowedTypes.has(doc.type),
+        );
+
         const unreadCounts = await Message.countUnreadByConversation(
           paginationResult.docs.map((doc) => doc._id),
           user._id,
@@ -387,7 +432,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
@@ -418,7 +463,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
@@ -460,12 +505,24 @@ export const setup = (crowi: Crowi): Router => {
               400,
             );
           }
+          if (!allowedTypes.has('group')) {
+            return res.apiv3Err(
+              new Error('Group conversations are disabled'),
+              403,
+            );
+          }
           conversation = await Conversation.createGroup(
             user._id,
             targetUserIds.map((id: string) => new Types.ObjectId(id)),
             name.trim(),
           );
         } else if (targetUserId != null) {
+          if (!allowedTypes.has('direct')) {
+            return res.apiv3Err(
+              new Error('Direct conversations are disabled'),
+              403,
+            );
+          }
           conversation = await Conversation.findOrCreateDirectConversation(
             user._id,
             new Types.ObjectId(targetUserId),
@@ -504,7 +561,7 @@ export const setup = (crowi: Crowi): Router => {
         if (conversation == null || conversation.type !== 'group') {
           return res.apiv3Err(new Error('Not a group conversation'), 400);
         }
-        if (!isConversationMember(conversation, user._id)) {
+        if (!isConversationAccessible(conversation, user._id)) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
 
@@ -538,7 +595,7 @@ export const setup = (crowi: Crowi): Router => {
         if (conversation == null || conversation.type !== 'group') {
           return res.apiv3Err(new Error('Not a group conversation'), 400);
         }
-        if (!isConversationMember(conversation, user._id)) {
+        if (!isConversationAccessible(conversation, user._id)) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
 
@@ -579,7 +636,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
@@ -632,7 +689,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
@@ -744,7 +801,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }
@@ -785,7 +842,7 @@ export const setup = (crowi: Crowi): Router => {
         const conversation = await Conversation.findById(conversationId);
         if (
           conversation == null ||
-          !isConversationMember(conversation, user._id)
+          !isConversationAccessible(conversation, user._id)
         ) {
           return res.apiv3Err(new Error('Forbidden'), 403);
         }

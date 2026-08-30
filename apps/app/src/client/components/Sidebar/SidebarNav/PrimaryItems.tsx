@@ -6,9 +6,13 @@ import { useTranslation } from 'react-i18next';
 
 import { NotAvailable } from '~/client/components/NotAvailable';
 import { NasStorageNavItem } from '~/features/nas-file-storage/client/nav/NasStorageNavItem';
+import { isMessagesFeatureEnabled } from '~/interfaces/messages-mode';
 import { SidebarContentsType } from '~/interfaces/ui';
 import { useIsAdmin, useIsGuestUser } from '~/states/context';
-import { aiEnabledAtom } from '~/states/server-configurations';
+import {
+  aiEnabledAtom,
+  messagesModeAtom,
+} from '~/states/server-configurations';
 import { useSidebarMode } from '~/states/ui/sidebar';
 
 import { PrimaryItem } from './PrimaryItem';
@@ -41,6 +45,7 @@ export const PrimaryItems = memo((props: Props) => {
   const { t } = useTranslation();
   const { sidebarMode } = useSidebarMode();
   const isAiEnabled = useAtomValue(aiEnabledAtom);
+  const messagesMode = useAtomValue(messagesModeAtom);
   const isGuestUser = useIsGuestUser();
   const isAdminUser = useIsAdmin();
 
@@ -113,7 +118,7 @@ export const PrimaryItems = memo((props: Props) => {
           onHover={onItemHover}
         />
       )}
-      {isGuestUser === false && (
+      {isGuestUser === false && isMessagesFeatureEnabled(messagesMode) && (
         <PrimaryItemForMessages
           sidebarMode={sidebarMode}
           onHover={onItemHover}

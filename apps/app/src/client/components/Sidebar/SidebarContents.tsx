@@ -2,9 +2,13 @@ import React, { memo, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 
 import { AiSidebar } from '~/features/mastra/client/components/Sidebar/AiSidebar';
+import { isMessagesFeatureEnabled } from '~/interfaces/messages-mode';
 import { SidebarContentsType } from '~/interfaces/ui';
 import { useIsGuestUser } from '~/states/context';
-import { aiEnabledAtom } from '~/states/server-configurations';
+import {
+  aiEnabledAtom,
+  messagesModeAtom,
+} from '~/states/server-configurations';
 import {
   useCollapsedContentsOpened,
   useCurrentSidebarContents,
@@ -25,6 +29,7 @@ export const SidebarContents = memo(() => {
   const { isCollapsedMode } = useSidebarMode();
   const isGuestUser = useIsGuestUser();
   const isAiEnabled = useAtomValue(aiEnabledAtom);
+  const messagesMode = useAtomValue(messagesModeAtom);
 
   const [isCollapsedContentsOpened] = useCollapsedContentsOpened();
   const [currentSidebarContents] = useCurrentSidebarContents();
@@ -47,7 +52,7 @@ export const SidebarContents = memo(() => {
         return PageTree;
       case SidebarContentsType.MESSAGES:
         if (isGuestUser == null) return () => <></>; // wait for isGuestUser to be determined
-        if (!isGuestUser) {
+        if (!isGuestUser && isMessagesFeatureEnabled(messagesMode)) {
           return Messages;
         }
         return PageTree;
@@ -60,7 +65,7 @@ export const SidebarContents = memo(() => {
       default:
         return PageTree;
     }
-  }, [currentSidebarContents, isAiEnabled, isGuestUser]);
+  }, [currentSidebarContents, isAiEnabled, isGuestUser, messagesMode]);
 
   const isHidden = isCollapsedMode() && !isCollapsedContentsOpened;
   const classToHide = isHidden ? 'd-none' : '';

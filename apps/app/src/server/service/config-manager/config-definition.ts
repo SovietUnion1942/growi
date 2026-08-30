@@ -16,6 +16,7 @@ import type {
 } from '~/features/mastra/interfaces/provider-settings';
 import { ActionGroupSize } from '~/interfaces/activity';
 import { AttachmentMethodType } from '~/interfaces/attachment';
+import type { MessagesMode } from '~/interfaces/messages-mode';
 import type {
   IPageDeleteConfigValue,
   IPageDeleteConfigValueToProcessValidation,
@@ -58,6 +59,7 @@ export const CONFIG_KEYS = [
   'app:nchanUri',
   'app:siteUrl',
   'app:aiEnabled',
+  'app:messagesMode',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -460,6 +462,13 @@ export const CONFIG_DEFINITIONS = {
   'app:aiEnabled': defineConfig<boolean>({
     envVarName: 'AI_ENABLED',
     defaultValue: false,
+  }),
+  // Messages (DM / chat) feature switch. Env-overridable via MESSAGES_MODE.
+  // Defaults OFF: the feature is opt-in per deployment. Values / semantics:
+  // see ~/interfaces/messages-mode (off | global | direct | full).
+  'app:messagesMode': defineConfig<MessagesMode>({
+    envVarName: 'MESSAGES_MODE',
+    defaultValue: 'off',
   }),
   'app:publishOpenAPI': defineConfig<boolean>({
     envVarName: 'PUBLISH_OPEN_API',

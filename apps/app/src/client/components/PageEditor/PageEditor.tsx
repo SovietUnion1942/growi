@@ -16,6 +16,7 @@ import { useCodeMirrorEditorIsolated } from '@growi/editor/dist/client/stores/co
 import { useRect } from '@growi/ui/dist/utils';
 import detectIndent from 'detect-indent';
 import { useAtomValue } from 'jotai';
+import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import nodePath from 'path';
 import { debounce, throttle } from 'throttle-debounce';
@@ -43,6 +44,7 @@ import {
   isEnabledAttachTitleHeaderAtom,
   isIndentSizeForcedAtom,
   useAcceptedUploadFileType,
+  useRendererConfig,
 } from '~/states/server-configurations';
 import {
   EditorMode,
@@ -55,6 +57,7 @@ import {
   useSelectedGrant,
   useSetReservedNextCaretLine,
   useWaitingSaveProcessingActions,
+  useWysiwygMode,
 } from '~/states/ui/editor';
 import { useSetEditingClients } from '~/states/ui/editor/editing-clients';
 import { useSetScrollToRemoteCursor } from '~/states/ui/editor/scroll-to-remote-cursor';
@@ -79,6 +82,32 @@ import { useScrollSync } from './ScrollSyncHelper';
 import '../GrowiEditor.vendor-styles.prebuilt';
 
 const logger = loggerFactory('growi:PageEditor');
+
+const WysiwygEditorMain = dynamic(
+  () => import('./WysiwygEditor').then((mod) => mod.WysiwygEditorMain),
+  { ssr: false },
+);
+
+/** 共通 prefix/suffix を除いた最小差分の 1 レンジを返す */
+const diffRange = (
+  before: string,
+  after: string,
+): { from: number; to: number; insert: string } => {
+  const maxStart = Math.min(before.length, after.length);
+  let start = 0;
+  while (start < maxStart && before[start] === after[start]) start++;
+  let endBefore = before.length;
+  let endAfter = after.length;
+  while (
+    endBefore > start &&
+    endAfter > start &&
+    before[endBefore - 1] === after[endAfter - 1]
+  ) {
+    endBefore--;
+    endAfter--;
+  }
+  return { from: start, to: endBefore, insert: after.slice(start, endAfter) };
+};
 
 export type SaveOptions = {
   wip: boolean;
@@ -136,6 +165,16 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
   const setReservedNextCaretLine = useSetReservedNextCaretLine();
 
   const { data: rendererOptions } = usePreviewOptions();
+
+  const { isWysiwygMode, setWysiwygMode } = useWysiwygMode();
+  const { isEnabledLinebreaks } = useRendererConfig();
+  // WYSIWYG から CM への書き戻し中フラグ(プレビュー二重更新を抑止)
+  const writingBackRef = useRef(false);
+  // WYSIWYG 側から最新 markdown を取り出す関数(退場同期用)
+  const wysiwygGetMarkdownRef = useRef<(() => string) | null>(null);
+  // isWysiwygMode が false->true になるたびインクリメントし、再マウントさせる
+  const [wysiwygEnterNonce, setWysiwygEnterNonce] = useState(0);
+  const prevWysiwygModeRef = useRef(false);
 
   const shouldExpandContent = useShouldExpandContent(currentPage);
 
@@ -354,6 +393,9 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
 
   const onChangeHandler = useCallback(
     (value: string) => {
+      // WYSIWYG からの書き戻しに反応した CM onChange はプレビュー更新をスキップ
+      // (WYSIWYG 側の onChange で同じ値を既に流している)
+      if (writingBackRef.current) return;
       setMarkdownPreviewWithDebounce(value);
     },
     [setMarkdownPreviewWithDebounce],
@@ -365,6 +407,59 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
     }),
     [onChangeHandler],
   );
+
+  // WYSIWYG が生成した markdown を CM(=Yjs 経由でサーバ永続化)へ最小差分で書き戻す
+  const applyMarkdownToCodeMirror = useCallback(
+    (markdown: string) => {
+      const view = codeMirrorEditor?.view;
+      if (view == null) return;
+      const current = view.state.doc.toString();
+      if (current === markdown) return;
+
+      writingBackRef.current = true;
+      try {
+        const { from, to, insert } = diffRange(current, markdown);
+        view.dispatch({ changes: { from, to, insert } });
+      } catch (err) {
+        logger.warn({ err }, 'WYSIWYG write-back diff failed; falling back to initDoc');
+        codeMirrorEditor?.initDoc(markdown);
+      } finally {
+        queueMicrotask(() => {
+          writingBackRef.current = false;
+        });
+      }
+    },
+    [codeMirrorEditor],
+  );
+
+  const wysiwygOnChange = useCallback(
+    (markdown: string) => {
+      setMarkdownPreviewWithDebounce(markdown);
+      applyMarkdownToCodeMirror(markdown);
+    },
+    [applyMarkdownToCodeMirror, setMarkdownPreviewWithDebounce],
+  );
+
+  // モード遷移: 入場時は nonce を進めて WYSIWYG を作り直し、退場時は最新内容を CM へ流す
+  useEffect(() => {
+    const prev = prevWysiwygModeRef.current;
+    prevWysiwygModeRef.current = isWysiwygMode;
+    if (!prev && isWysiwygMode) {
+      setWysiwygEnterNonce((n) => n + 1);
+    }
+    if (prev && !isWysiwygMode) {
+      const md = wysiwygGetMarkdownRef.current?.();
+      if (md != null) applyMarkdownToCodeMirror(md);
+      wysiwygGetMarkdownRef.current = null;
+    }
+  }, [isWysiwygMode, applyMarkdownToCodeMirror]);
+
+  // 編集モードを抜けたら WYSIWYG も解除
+  useEffect(() => {
+    if (editorMode !== EditorMode.Editor && isWysiwygMode) {
+      setWysiwygMode(false);
+    }
+  }, [editorMode, isWysiwygMode, setWysiwygMode]);
 
   // set handler to save and return to View
   useEffect(() => {
@@ -462,7 +557,9 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
   return (
     <>
       <div className={`flex-expand-horiz ${props.visibility ? '' : 'd-none'}`}>
-        <div className="page-editor-editor-container flex-expand-vert border-end">
+        <div className="page-editor-editor-container flex-expand-vert border-end position-relative">
+          {/* CodeMirror は常時マウント(collab / ydoc / 保存を維持)。
+              WYSIWYG 中は上に不透明オーバーレイを重ねるだけで d-none にしない。 */}
           <CodeMirrorEditorMain
             enableCollaboration={editorMode === EditorMode.Editor}
             onSave={saveWithShortcut}
@@ -477,6 +574,23 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
             onScrollToRemoteCursorReady={setScrollToRemoteCursor}
             cmProps={cmProps}
           />
+          {isWysiwygMode && (
+            <div
+              className="position-absolute top-0 start-0 end-0 bottom-0 bg-body overflow-y-auto"
+              style={{ zIndex: 5 }}
+            >
+              <WysiwygEditorMain
+                key={wysiwygEnterNonce}
+                initialMarkdown={codeMirrorEditor?.getDocString() ?? ''}
+                breaks={isEnabledLinebreaks}
+                onChange={wysiwygOnChange}
+                onSave={saveWithShortcut}
+                onViewReady={(getMarkdown) => {
+                  wysiwygGetMarkdownRef.current = getMarkdown;
+                }}
+              />
+            </div>
+          )}
         </div>
         <div
           ref={previewRef}

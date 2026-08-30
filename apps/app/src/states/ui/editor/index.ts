@@ -3,6 +3,7 @@
 export * from './current-indent-size';
 export * from './editing-markdown';
 export * from './editor-mode';
+export * from './wysiwyg-mode';
 export * from './is-slack-enabled';
 export * from './reserved-next-caret-line';
 export * from './selected-grant';

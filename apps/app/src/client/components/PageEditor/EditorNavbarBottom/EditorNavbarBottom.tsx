@@ -15,6 +15,13 @@ const OptionsSelector = dynamic(
   () => import('./OptionsSelector').then((mod) => mod.OptionsSelector),
   { ssr: false },
 );
+const WysiwygEditorButton = dynamic(
+  () =>
+    import('../WysiwygEditor/WysiwygEditorButton').then(
+      (mod) => mod.WysiwygEditorButton,
+    ),
+  { ssr: false },
+);
 
 export const EditorNavbarBottom = (): JSX.Element => {
   const [, setIsDrawerOpened] = useDrawerOpened();
@@ -31,8 +38,9 @@ export const EditorNavbarBottom = (): JSX.Element => {
         >
           <span className="material-symbols-outlined fs-2">reorder</span>
         </button>
-        <form className="me-auto d-flex gap-2">
+        <form className="me-auto d-flex gap-2 align-items-center">
           <OptionsSelector />
+          <WysiwygEditorButton />
         </form>
         <form>
           <SavePageControls />

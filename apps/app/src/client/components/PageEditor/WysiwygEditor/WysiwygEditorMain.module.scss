@@ -1,0 +1,192 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 320px;
+  background: var(--bs-body-bg);
+
+  // --- prosemirror-view base (inlined, scoped) ---
+  :global(.ProseMirror) {
+    position: relative;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    white-space: break-spaces;
+    font-variant-ligatures: none;
+    font-feature-settings: 'liga' 0;
+    outline: none;
+  }
+  :global(.ProseMirror pre) {
+    white-space: pre-wrap;
+  }
+  :global(.ProseMirror li) {
+    position: relative;
+  }
+  :global(.ProseMirror-hideselection) {
+    caret-color: transparent;
+  }
+  :global(.ProseMirror-selectednode) {
+    outline: 2px solid var(--bs-primary, #8cf);
+  }
+  :global(img.ProseMirror-separator) {
+    display: inline !important;
+    border: none !important;
+    margin: 0 !important;
+  }
+
+  // --- gapcursor (inlined, scoped; static, no blink animation) ---
+  :global(.ProseMirror-gapcursor) {
+    display: none;
+    pointer-events: none;
+    position: absolute;
+  }
+  :global(.ProseMirror-gapcursor)::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: -2px;
+    width: 20px;
+    border-top: 1px solid currentcolor;
+  }
+  :global(.ProseMirror-focused .ProseMirror-gapcursor) {
+    display: block;
+  }
+
+  // --- toolbar ---
+  :global(.ve-toolbar) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--bs-border-color);
+    position: sticky;
+    top: 0;
+    background: var(--bs-body-bg);
+    z-index: 2;
+  }
+  :global(.ve-toolbar button) {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: inherit;
+  }
+  :global(.ve-toolbar button:hover:not(:disabled)) {
+    background: var(--bs-secondary-bg);
+  }
+  :global(.ve-toolbar button.is-active) {
+    background: var(--bs-primary-bg-subtle);
+    border-color: var(--bs-primary-border-subtle);
+  }
+  :global(.ve-toolbar button:disabled) {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  // --- editor host ---
+  :global(.ve-editor-host) {
+    flex: 1 1 auto;
+    min-height: 200px;
+    overflow: auto;
+    padding: 12px 16px;
+  }
+  :global(.ve-editor-host .ProseMirror) {
+    min-height: 100%;
+    line-height: 1.7;
+  }
+  :global(.ve-editor-host .ProseMirror > *) {
+    margin: 0 0 0.6em;
+  }
+  :global(.ve-editor-host .ProseMirror h1) {
+    font-size: 1.7em;
+  }
+  :global(.ve-editor-host .ProseMirror h2) {
+    font-size: 1.4em;
+  }
+  :global(.ve-editor-host .ProseMirror h3) {
+    font-size: 1.2em;
+  }
+  :global(.ve-editor-host .ProseMirror blockquote) {
+    border-left: 3px solid var(--bs-border-color);
+    padding-left: 12px;
+    color: var(--bs-secondary-color);
+  }
+  :global(.ve-editor-host .ProseMirror pre) {
+    background: var(--bs-secondary-bg);
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+  :global(.ve-editor-host .ProseMirror code) {
+    background: var(--bs-secondary-bg);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+  }
+  :global(.ve-editor-host .ProseMirror pre code) {
+    background: none;
+    padding: 0;
+  }
+
+  // --- task list items ---
+  :global(.ve-editor-host .ve-task-item) {
+    list-style: none;
+    display: flex;
+    gap: 6px;
+    margin-left: -1.2em;
+  }
+  :global(.ve-editor-host .ve-task-box) {
+    user-select: none;
+  }
+  :global(.ve-editor-host .ve-task-body) {
+    flex: 1;
+  }
+
+  // --- opaque source blocks ---
+  :global(.ve-source-block) {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    margin: 0.6em 0;
+    background: var(--bs-tertiary-bg);
+    overflow: hidden;
+  }
+  :global(.ve-source-block.ProseMirror-selectednode) {
+    outline: 2px solid var(--bs-primary);
+  }
+  :global(.ve-source-bar) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--bs-secondary-color);
+    background: var(--bs-secondary-bg);
+  }
+  :global(.ve-source-edit) {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-body-bg);
+    cursor: pointer;
+    color: inherit;
+  }
+  :global(.ve-source-pre) {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  :global(.ve-source-ta) {
+    width: 100%;
+    border: 0;
+    border-top: 1px solid var(--bs-border-color);
+    padding: 8px 10px;
+    font: 12px/1.5 ui-monospace, monospace;
+    resize: vertical;
+    background: var(--bs-body-bg);
+    color: inherit;
+  }
+}

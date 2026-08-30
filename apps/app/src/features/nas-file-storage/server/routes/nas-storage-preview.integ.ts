@@ -102,6 +102,10 @@ describe('setupNasStorage GET /file — inline preview delivery', () => {
     );
     await writeFile(path.join(root, 'page.html'), '<script>alert(1)</script>');
     await writeFile(path.join(root, 'clip.mp4'), CLIP_BYTES);
+    // A real-world name with characters outside printable US-ASCII (en-dash,
+    // parens): the Content-Disposition ASCII fallback must not carry them or
+    // res.setHeader throws ERR_INVALID_CHAR and the response hangs (499).
+    await writeFile(path.join(root, 'Coat of arms (1956–1991).png'), PNG_BYTES);
     return root;
   };
 
@@ -140,6 +144,29 @@ describe('setupNasStorage GET /file — inline preview delivery', () => {
     );
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(Buffer.compare(res.body as Buffer, PNG_BYTES)).toBe(0);
+  });
+
+  it('serves a file whose name has non-ASCII characters without hanging', async () => {
+    currentUser = await seedUser('previewer');
+    const app = await buildReadyApp(await seedRoot());
+
+    for (const inline of ['1', undefined]) {
+      const res = await request(app)
+        .get('/_api/v3/nas-storage/file')
+        .query({
+          path: '/Coat of arms (1956–1991).png',
+          ...(inline ? { inline } : {}),
+        })
+        .responseType('blob');
+
+      expect(res.status).toBe(200);
+      // ASCII fallback is sanitised; the real name rides on filename*.
+      const cd = res.headers['content-disposition'];
+      expect(cd).toMatch(inline ? /^inline/ : /^attachment/);
+      expect(cd).toContain("filename*=UTF-8''");
+      expect(cd.match(/filename="([^"]*)"/)?.[1]).toMatch(/^[\x20-\x7e]*$/);
+      expect(res.body.length).toBe(PNG_BYTES.length);
+    }
   });
 
   it('keeps the attachment disposition when inline is not requested', async () => {

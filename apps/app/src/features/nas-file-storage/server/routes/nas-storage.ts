@@ -141,14 +141,21 @@ const clampLimit = (raw: unknown): number => {
 
 /**
  * Build a `Content-Disposition` value that keeps the original name (RFC 5987
- * `filename*` for non-ASCII, plus a quote-stripped ASCII fallback). The kind is
+ * `filename*` for the real UTF-8 name, plus a plain ASCII fallback). The kind is
  * `attachment` (download) unless the delivery decision granted `inline`.
+ *
+ * The `filename=` fallback must be a pure-ASCII HTTP header token: any byte
+ * outside printable US-ASCII (e.g. an en-dash or full-width char in the name)
+ * makes `res.setHeader` throw `ERR_INVALID_CHAR`, which would hang the response.
+ * Non-ASCII and quoting characters are replaced with `_`; browsers that
+ * understand `filename*` (all current ones) use the real name from there.
  */
 const contentDisposition = (
   name: string,
   kind: 'inline' | 'attachment' = 'attachment',
 ): string => {
-  const asciiFallback = name.replace(/["\\]/g, '').replace(/[\r\n]/g, '');
+  const asciiFallback =
+    name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || 'file';
   return `${kind}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 };
 

@@ -75,7 +75,7 @@ export type FetchDiscordHistoryToolOutput = z.infer<typeof outputSchema>;
 export const fetchDiscordHistoryTool = createTool({
   id: 'fetch-discord-history-tool',
   description:
-    "Page further back into the Discord channel's message history than the small excerpt already given to you in this conversation's context. Only call this when you judge the context you already have is genuinely not enough to answer — most turns do not need it. Only meaningful when this conversation originated on Discord; it returns 'not_available' otherwise (e.g. the browser chat or Messages DM). Call it again with the previous call's `oldestMessageId` to page further back if one call still isn't enough.",
+    "Page further back into the Discord channel's message history than the small excerpt already given to you in this conversation's context. Call this whenever the question references something the excerpt does not actually cover (an earlier point, 'that thing we talked about', an unresolved pronoun, etc.) — do not guess or ask the user to repeat themselves when one cheap call here would just answer it. Only meaningful when this conversation originated on Discord; it returns 'not_available' otherwise (e.g. the browser chat or Messages DM). Call it again with the previous call's `oldestMessageId` to page further back if one call still isn't enough.",
   inputSchema,
   outputSchema,
 

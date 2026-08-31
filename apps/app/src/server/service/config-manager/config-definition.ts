@@ -143,6 +143,7 @@ export const CONFIG_KEYS = [
   'security:restrictGuestMode',
   'security:registrationMode',
   'security:registrationWhitelist',
+  'security:additionalRegistrationWhitelist',
   'security:list-policy:hideRestrictedByOwner',
   'security:list-policy:hideRestrictedByGroup',
   'security:pageDeletionAuthority',
@@ -823,6 +824,15 @@ export const CONFIG_DEFINITIONS = {
   }),
   'security:registrationWhitelist': defineConfig<string[]>({
     defaultValue: [],
+  }),
+  // Operator-supplied extra registration-whitelist entries, comma- or
+  // newline-separated (e.g. "@example.com,@*.example.ac.jp"). Merged with the
+  // admin-managed security:registrationWhitelist array. When the merged list is
+  // non-empty it also gates OAuth auto-activation (a matching Google sign-in is
+  // activated immediately; a non-matching one waits for admin approval).
+  'security:additionalRegistrationWhitelist': defineConfig<string>({
+    envVarName: 'REGISTRATION_WHITELIST',
+    defaultValue: '',
   }),
   'security:list-policy:hideRestrictedByOwner': defineConfig<boolean>({
     defaultValue: false,

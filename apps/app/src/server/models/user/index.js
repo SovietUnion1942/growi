@@ -32,6 +32,7 @@ export function getAclService() {
   return _aclService;
 }
 
+import { getEffectiveRegistrationWhitelist } from '~/server/service/registration-whitelist';
 import { isEmailMatchedByEntry } from '~/utils/email-whitelist';
 import { generateGravatarSrc } from '~/utils/gravatar';
 import loggerFactory from '~/utils/logger';
@@ -421,11 +422,10 @@ const factory = (crowi) => {
   userSchema.statics.isEmailValid = (email) => {
     validateCrowi();
 
-    const whitelist = getConfigManager().getConfig(
-      'security:registrationWhitelist',
-    );
+    // admin list + REGISTRATION_WHITELIST env, merged and normalized
+    const whitelist = getEffectiveRegistrationWhitelist();
 
-    if (!Array.isArray(whitelist) || whitelist.length === 0) {
+    if (whitelist.length === 0) {
       return true;
     }
 

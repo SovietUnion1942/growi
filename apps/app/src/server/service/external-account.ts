@@ -2,12 +2,14 @@ import { ErrorV3 } from '@growi/core/dist/models';
 
 import { LoginErrorCode } from '~/interfaces/errors/login-error';
 import type { IExternalAuthProviderType } from '~/interfaces/external-auth-provider';
+import { isEmailInWhitelist } from '~/utils/email-whitelist';
 import loggerFactory from '~/utils/logger';
 import { prisma } from '~/utils/prisma';
 
 import { NullUsernameToBeRegisteredError } from '../models/errors';
 import { UserStatus } from '../models/user/conts';
 import type PassportService from './passport';
+import { getEffectiveRegistrationWhitelist } from './registration-whitelist';
 
 const logger = loggerFactory('growi:service:external-account-service');
 
@@ -85,17 +87,33 @@ class ExternalAccountService {
     providerId: IExternalAuthProviderType,
     email?: string,
   ): number {
-    if (providerId === 'google') {
-      return email?.endsWith('@s.kori.doshisha.ac.jp')
-        ? UserStatus.STATUS_ACTIVE
-        : UserStatus.STATUS_REGISTERED;
-    }
-    if (providerId === 'github') {
-      return UserStatus.STATUS_REGISTERED;
-    }
-    return UserStatus.STATUS_ACTIVE;
+    return determineStatusForNewExternalUser(providerId, email);
   }
 }
+
+/**
+ * Initial account status for a user created via an external auth provider.
+ *
+ * - google: STATUS_ACTIVE iff the address matches the effective registration
+ *   whitelist (admin list + REGISTRATION_WHITELIST env); otherwise
+ *   STATUS_REGISTERED. An empty whitelist auto-approves nobody.
+ * - github: always STATUS_REGISTERED (approval pending).
+ * - anything else (e.g. ldap, saml, oidc): STATUS_ACTIVE, unchanged.
+ */
+export const determineStatusForNewExternalUser = (
+  providerId: IExternalAuthProviderType,
+  email?: string,
+): number => {
+  if (providerId === 'google') {
+    return isEmailInWhitelist(email, getEffectiveRegistrationWhitelist())
+      ? UserStatus.STATUS_ACTIVE
+      : UserStatus.STATUS_REGISTERED;
+  }
+  if (providerId === 'github') {
+    return UserStatus.STATUS_REGISTERED;
+  }
+  return UserStatus.STATUS_ACTIVE;
+};
 
 export let externalAccountService: ExternalAccountService | undefined; // singleton instance
 export default function instanciate(passportService: PassportService): void {

@@ -60,6 +60,42 @@ export const normalizeWhitelistEntries = (entries: string[]): string[] => {
   return [...new Set(entries.flatMap(normalizeWhitelistEntry))];
 };
 
+/**
+ * Split an operator-supplied whitelist string (the `REGISTRATION_WHITELIST` env
+ * var / `security:additionalRegistrationWhitelist` config) into individual
+ * entries. Accepts comma- or newline-separated values; blank segments are
+ * dropped and each entry is trimmed. Entries are NOT validated here - the
+ * caller normalizes/validates via {@link normalizeWhitelistEntries}.
+ */
+export const parseWhitelistEnvValue = (
+  raw: string | null | undefined,
+): string[] => {
+  if (raw == null) {
+    return [];
+  }
+  return raw
+    .split(/[,\n]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
+/**
+ * Strict membership test: true only when `whitelist` is non-empty AND `email`
+ * matches one of its entries. Unlike the "empty whitelist ⇒ allow everyone"
+ * semantics of registration validation, an empty list here means "match
+ * nothing" - used for OAuth auto-activation, where the absence of a configured
+ * domain must never auto-approve every sign-in.
+ */
+export const isEmailInWhitelist = (
+  email: string | null | undefined,
+  whitelist: string[],
+): boolean => {
+  if (email == null || whitelist.length === 0) {
+    return false;
+  }
+  return whitelist.some((entry) => isEmailMatchedByEntry(email, entry));
+};
+
 export const isEmailMatchedByEntry = (
   email: string,
   entry: string,

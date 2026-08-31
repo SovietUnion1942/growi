@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  isEmailInWhitelist,
   isEmailMatchedByEntry,
   isValidWhitelistEntry,
   normalizeWhitelistEntries,
   normalizeWhitelistEntry,
+  parseWhitelistEnvValue,
 } from './email-whitelist';
 
 describe('isValidWhitelistEntry', () => {
@@ -236,5 +238,60 @@ describe('normalizeWhitelistEntries', () => {
   it('leaves an already-normalized list unchanged', () => {
     const entries = ['@growi.org', '@*.growi.org', 'user@example.com'];
     expect(normalizeWhitelistEntries(entries)).toEqual(entries);
+  });
+});
+
+describe('parseWhitelistEnvValue', () => {
+  it.each([
+    null,
+    undefined,
+    '',
+    '   ',
+    ',',
+    ' , \n ',
+  ])('returns [] for %p', (raw) => {
+    expect(parseWhitelistEnvValue(raw)).toEqual([]);
+  });
+
+  it('splits on commas and trims', () => {
+    expect(parseWhitelistEnvValue('@a.com, @b.ac.jp ,@c.org')).toEqual([
+      '@a.com',
+      '@b.ac.jp',
+      '@c.org',
+    ]);
+  });
+
+  it('splits on newlines too and drops blank segments', () => {
+    expect(parseWhitelistEnvValue('@a.com\n\n@b.com,')).toEqual([
+      '@a.com',
+      '@b.com',
+    ]);
+  });
+});
+
+describe('isEmailInWhitelist', () => {
+  it('returns false when the whitelist is empty (no auto-approval)', () => {
+    expect(isEmailInWhitelist('user@growi.org', [])).toBe(false);
+  });
+
+  it('returns false for a missing email', () => {
+    expect(isEmailInWhitelist(undefined, ['@growi.org'])).toBe(false);
+    expect(isEmailInWhitelist(null, ['@growi.org'])).toBe(false);
+  });
+
+  it('returns true on an exact domain match', () => {
+    expect(
+      isEmailInWhitelist('user@growi.org', ['@example.com', '@growi.org']),
+    ).toBe(true);
+  });
+
+  it('returns false when no entry matches', () => {
+    expect(isEmailInWhitelist('user@other.com', ['@growi.org'])).toBe(false);
+  });
+
+  it('honours wildcard subdomain entries', () => {
+    expect(isEmailInWhitelist('user@sub.example.com', ['@*.example.com'])).toBe(
+      true,
+    );
   });
 });

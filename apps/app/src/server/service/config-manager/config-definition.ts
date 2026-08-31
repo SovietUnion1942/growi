@@ -60,6 +60,7 @@ export const CONFIG_KEYS = [
   'app:siteUrl',
   'app:aiEnabled',
   'app:messagesMode',
+  'app:messagesImageUploadEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -469,6 +470,14 @@ export const CONFIG_DEFINITIONS = {
   'app:messagesMode': defineConfig<MessagesMode>({
     envVarName: 'MESSAGES_MODE',
     defaultValue: 'off',
+  }),
+  // Sub-toggle of app:messagesMode: whether users can attach images to
+  // messages. Only meaningful when messagesMode != 'off'. Defaults ON so
+  // enabling Messages gives the historical full composer; set
+  // MESSAGES_IMAGE_UPLOAD=false to offer text-only chat.
+  'app:messagesImageUploadEnabled': defineConfig<boolean>({
+    envVarName: 'MESSAGES_IMAGE_UPLOAD',
+    defaultValue: true,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({
     envVarName: 'PUBLISH_OPEN_API',

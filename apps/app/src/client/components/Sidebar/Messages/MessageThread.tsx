@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { UserPicture } from '@growi/ui/dist/components';
+import { useAtomValue } from 'jotai';
 import { mutate as mutateGlobal } from 'swr';
 
 import {
@@ -15,6 +16,7 @@ import {
 } from '~/features/user-badge/client/hooks/use-user-picture-badges';
 import { SocketEventName } from '~/interfaces/websocket';
 import { useCurrentUser } from '~/states/global';
+import { messagesImageUploadEnabledAtom } from '~/states/server-configurations';
 import { useGlobalSocket } from '~/states/socket-io';
 import {
   CONVERSATIONS_SWR_KEY,
@@ -192,6 +194,7 @@ export const MessageThread = (props: Props): JSX.Element => {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const image = useImageAttachment();
+  const isImageUploadEnabled = useAtomValue(messagesImageUploadEnabledAtom);
 
   const mention = useMentionComposer({
     conversation,
@@ -427,22 +430,28 @@ export const MessageThread = (props: Props): JSX.Element => {
             onHover={mention.setActiveIndex}
           />
         )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="d-none"
-          onChange={fileChangeHandler}
-        />
-        <button
-          type="button"
-          className="btn btn-outline-secondary"
-          aria-label="画像を添付"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isSending}
-        >
-          <span className="material-symbols-outlined align-middle">image</span>
-        </button>
+        {isImageUploadEnabled && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="d-none"
+              onChange={fileChangeHandler}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              aria-label="画像を添付"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+            >
+              <span className="material-symbols-outlined align-middle">
+                image
+              </span>
+            </button>
+          </>
+        )}
         <input
           ref={inputRef}
           type="text"

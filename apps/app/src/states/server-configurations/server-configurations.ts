@@ -24,6 +24,13 @@ export const nasStorageEnabledAtom = atom<boolean>(false);
 export const messagesModeAtom = atom<MessagesMode>('off');
 
 /**
+ * Atom for the Messages image-upload sub-toggle (`app:messagesImageUploadEnabled`).
+ * Only meaningful when `messagesModeAtom` is not `off`. Defaults true, matching
+ * the server-side default.
+ */
+export const messagesImageUploadEnabledAtom = atom<boolean>(true);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

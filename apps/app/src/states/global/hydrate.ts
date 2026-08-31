@@ -5,6 +5,7 @@ import { useHydrateAtoms } from 'jotai/utils';
 import type { CommonEachProps, CommonInitialProps } from '~/pages/common-props';
 import {
   aiEnabledAtom,
+  messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
 } from '~/states/server-configurations';
@@ -69,6 +70,10 @@ export const useHydrateGlobalInitialAtoms = (
             commonInitialProps.nasStorageEnabled,
           ),
           createAtomTuple(messagesModeAtom, commonInitialProps.messagesMode),
+          createAtomTuple(
+            messagesImageUploadEnabledAtom,
+            commonInitialProps.messagesImageUploadEnabled,
+          ),
         ];
 
   useHydrateAtoms(tuples);

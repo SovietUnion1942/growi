@@ -31,6 +31,7 @@ export type CommonInitialProps = {
   aiEnabled: boolean;
   nasStorageEnabled: boolean;
   messagesMode: MessagesMode;
+  messagesImageUploadEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -85,6 +86,9 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // never reach the client as anything but a valid MessagesMode.
       messagesMode: normalizeMessagesMode(
         configManager.getConfig('app:messagesMode'),
+      ),
+      messagesImageUploadEnabled: configManager.getConfig(
+        'app:messagesImageUploadEnabled',
       ),
     } satisfies CommonInitialProps,
   };

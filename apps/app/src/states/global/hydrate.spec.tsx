@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommonInitialProps } from '~/pages/common-props';
 import {
+  messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
 } from '~/states/server-configurations';
@@ -24,6 +25,7 @@ const baseProps: CommonInitialProps = {
   aiEnabled: false,
   nasStorageEnabled: false,
   messagesMode: 'off',
+  messagesImageUploadEnabled: true,
 };
 
 const NasStorageEnabledProbe = ({
@@ -80,5 +82,31 @@ describe('useHydrateGlobalInitialAtoms - messagesModeAtom', () => {
       </Provider>,
     );
     expect(screen.getByTestId('value')).toHaveTextContent('full');
+  });
+});
+
+const ImageUploadEnabledProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  const value = useAtomValue(messagesImageUploadEnabledAtom);
+  return <span data-testid="value">{String(value)}</span>;
+};
+
+describe('useHydrateGlobalInitialAtoms - messagesImageUploadEnabledAtom', () => {
+  it('hydrates the atom to false when the server prop disables uploads', () => {
+    render(
+      <Provider>
+        <ImageUploadEnabledProbe
+          commonInitialProps={{
+            ...baseProps,
+            messagesImageUploadEnabled: false,
+          }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('false');
   });
 });

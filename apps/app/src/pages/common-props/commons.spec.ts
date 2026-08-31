@@ -113,6 +113,31 @@ describe('getServerSideCommonInitialProps - messagesMode supply', () => {
   });
 });
 
+const getMessagesImageUploadEnabledProp = async (
+  raw: boolean | undefined,
+): Promise<boolean> => {
+  const req = mockDeep<CrowiRequest>();
+  req.crowi.configManager.getConfig.mockImplementation((key) =>
+    key === 'app:messagesImageUploadEnabled' ? raw : undefined,
+  );
+  const context = mock<GetServerSidePropsContext>({
+    req: req as unknown as GetServerSidePropsContext['req'],
+  });
+  const result = await getServerSideCommonInitialProps(context);
+  if (!('props' in result)) {
+    throw new Error('expected a props result');
+  }
+  const props = await result.props;
+  return props.messagesImageUploadEnabled;
+};
+
+describe('getServerSideCommonInitialProps - messagesImageUploadEnabled supply', () => {
+  it('mirrors the app:messagesImageUploadEnabled config value', async () => {
+    expect(await getMessagesImageUploadEnabledProp(true)).toBe(true);
+    expect(await getMessagesImageUploadEnabledProp(false)).toBe(false);
+  });
+});
+
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {
   it('supplies aiEnabled=true when AI is ready (enabled && configured)', async () => {
     expect(await getAiEnabledProp(true)).toBe(true);

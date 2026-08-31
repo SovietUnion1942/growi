@@ -14,13 +14,13 @@ import {
   normalizeMessagesMode,
 } from '~/interfaces/messages-mode';
 import { SocketEventName } from '~/interfaces/websocket';
-import { configManager } from '~/server/service/config-manager';
 import type Crowi from '~/server/crowi';
 import { AttachmentType } from '~/server/interfaces/attachment';
 import { accessTokenParser } from '~/server/middlewares/access-token-parser';
 import loginRequiredFactory from '~/server/middlewares/login-required';
 import { UserStatus } from '~/server/models/user/conts';
 import { validateImageContentType } from '~/server/routes/attachment/image-content-type-validator';
+import { configManager } from '~/server/service/config-manager';
 import { findOrCreateGrowiBotUser } from '~/server/service/growi-bot-user';
 import { sendPushNotificationToUsers } from '~/server/service/push-notification';
 import {
@@ -76,6 +76,11 @@ export const setup = (crowi: Crowi): Router => {
     configManager.getConfig('app:messagesMode'),
   );
   const allowedTypes = allowedConversationTypes(messagesMode);
+  // Sub-toggle: when false, messages are text-only (the client also hides the
+  // attach affordance; this is the enforcement point for direct API callers).
+  const imageUploadEnabled = configManager.getConfig(
+    'app:messagesImageUploadEnabled',
+  );
 
   // MESSAGES_MODE=off: the feature is dark. Every route under this router
   // replies 404 so the client (which also hides the entry point) and any
@@ -679,6 +684,9 @@ export const setup = (crowi: Crowi): Router => {
       }
 
       if (file != null) {
+        if (!imageUploadEnabled) {
+          return res.apiv3Err(new Error('Image upload is disabled'), 403);
+        }
         const { isValid, error } = validateImageContentType(file.mimetype);
         if (!isValid) {
           return res.apiv3Err(new Error(error ?? 'Invalid file type.'), 400);

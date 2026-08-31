@@ -37,6 +37,11 @@ type ReqBody = {
   // the default model rather than rejected here.
   modelKey?: string;
   messages: AIV6Type.UIMessage[];
+  // Discord bot only — see request-context.ts's discordContext doc comment.
+  discordContext?: {
+    channelId: string;
+    beforeMessageId: string;
+  };
 };
 
 type Req = Request<Record<string, string>, Response, ReqBody> & {
@@ -60,7 +65,7 @@ export const postMessageHandlersFactory: PostMessageHandlersFactory = (
     ...validator,
     apiV3FormValidator,
     async (req: Req, res: ApiV3Response) => {
-      const { threadId, modelKey, messages } = req.body;
+      const { threadId, modelKey, messages, discordContext } = req.body;
 
       const growiAgent = mastra.getAgent('growiAgent');
       const memory = await growiAgent.getMemory();
@@ -82,6 +87,9 @@ export const postMessageHandlersFactory: PostMessageHandlersFactory = (
       // router level (see ./index.ts).
       requestContext.set('user', req.user);
       requestContext.set('searchService', crowi.searchService);
+      if (discordContext != null) {
+        requestContext.set('discordContext', discordContext);
+      }
 
       try {
         // Resolve the effective modelKey ONCE per request — the single allow-list

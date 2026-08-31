@@ -27,9 +27,21 @@ import type SearchService from '~/server/service/search';
  *   an idempotent defense-in-depth re-validation rather than the first rounding
  *   pass. It stays optional only for the type's sake; the handler always sets a
  *   concrete resolved key when AI is configured.
+ *
+ * Notes on `discordContext`:
+ * - Set only when the request originated from the Discord bot (see
+ *   post-message.ts and post-message-validator.ts) — the browser chat and
+ *   Messages DM paths never set it. `fetchDiscordHistoryTool` reads it to
+ *   know which channel/message to page Discord history back from; when
+ *   absent, that tool returns a clear "not available in this conversation"
+ *   result instead of attempting anything.
  */
 export type MastraRequestContextShape = {
   user: IUserHasId;
   searchService: SearchService;
   modelKey?: string;
+  discordContext?: {
+    channelId: string;
+    beforeMessageId: string;
+  };
 };

@@ -1,3 +1,4 @@
+import type { FetchDiscordHistoryToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/fetch-discord-history-tool';
 import type { FullTextSearchToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/full-text-search-tool';
 import type { GetPageContentToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/get-page-content-tool';
 import type { GetUserBadgesToolOutput } from '~/features/mastra/server/services/mastra-modules/tools/get-user-badges-tool';
@@ -30,4 +31,8 @@ export type GrowiChatTools = {
     output: ProposePageCreateToolOutput;
   };
   webSearchTool: { input: unknown; output: WebSearchToolOutput };
+  fetchDiscordHistoryTool: {
+    input: unknown;
+    output: FetchDiscordHistoryToolOutput;
+  };
 };

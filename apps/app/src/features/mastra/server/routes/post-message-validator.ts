@@ -38,4 +38,28 @@ export const buildPostMessageValidator = (
   body('messages').custom(async (data) => {
     await validateUIMessages({ messages: data });
   }),
+
+  // Discord bot only (see request-context.ts's discordContext doc comment).
+  // Discord snowflake ids are numeric strings, comfortably under 32 chars —
+  // the length caps here are defensive bounds, not a real snowflake format
+  // check (fetchDiscordHistoryTool's own HTTP call to the bot is where an
+  // actually-invalid id fails, harmlessly, as a 404/empty result).
+  body('discordContext')
+    .optional()
+    .isObject()
+    .withMessage('discordContext must be an object'),
+  body('discordContext.channelId')
+    .if(body('discordContext').exists())
+    .isString()
+    .isLength({ max: 32 })
+    .withMessage(
+      'discordContext.channelId must be a string up to 32 characters',
+    ),
+  body('discordContext.beforeMessageId')
+    .if(body('discordContext').exists())
+    .isString()
+    .isLength({ max: 32 })
+    .withMessage(
+      'discordContext.beforeMessageId must be a string up to 32 characters',
+    ),
 ];

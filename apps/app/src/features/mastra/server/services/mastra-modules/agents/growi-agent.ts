@@ -3,6 +3,7 @@ import type { RequestContext } from '@mastra/core/request-context';
 
 import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
+import { fetchDiscordHistoryTool } from '../tools/fetch-discord-history-tool';
 import { fullTextSearchTool } from '../tools/full-text-search-tool';
 import { getPageContentTool } from '../tools/get-page-content-tool';
 import { getUserBadgesTool } from '../tools/get-user-badges-tool';
@@ -59,9 +60,15 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - Never reflexively claim you cannot see an attached image, and never guess at its contents from context clues instead of looking. Only say you cannot perceive it if the model genuinely has no vision capability at all (a text-only model was selected) — in that case say so plainly and suggest switching to a vision-capable model from the model selector.
 
   # PRIOR CONVERSATION CONTEXT AUTOMATICALLY INCLUDED IN YOUR INPUT
-  - On some channels (e.g. Discord, where you only see the single message that @-mentioned you, not the channel's actual history), the calling system automatically fetches recent prior messages and prepends them to what you receive, wrapped like: "(参考: 直前の...会話です。...)" followed by "---", the transcript, another "---", then the real question. That transcript IS genuine prior conversation history that was already fetched and handed to you before you ever saw this message — not something the user manually pasted in, and not something you need any tool to access.
-  - When you see this wrapper, read the transcript to understand what was already being discussed, then answer the actual question that follows the closing "---". Never say you "don't have a way to see past messages" or "no tool to fetch history" when this wrapper is present — you already have the history, right there in your own input.
+  - On some channels (e.g. Discord, where you only see the single message that @-mentioned you, not the channel's actual history), the calling system automatically fetches a small excerpt of recent prior messages and prepends it to what you receive, wrapped like: "(参考: 直前の...会話です。...)" followed by "---", the transcript, another "---", then the real question. That transcript IS genuine prior conversation history that was already fetched and handed to you before you ever saw this message — not something the user manually pasted in.
+  - When you see this wrapper, read the transcript to understand what was already being discussed, then answer the actual question that follows the closing "---". Never say you "don't have a way to see past messages" or "no tool to fetch history" — on Discord you have both this excerpt AND fetchDiscordHistoryTool (below) for going further back; there is always a way.
   - If NO such wrapper is present and the user's message is genuinely ambiguous with no context to fall back on (e.g. a bare "again" or "what do you think?" with nothing preceding it), that is the one case where asking them to clarify or repeat their request is correct — do not fabricate context that was not actually given to you.
+
+  # GOING FURTHER BACK INTO DISCORD HISTORY (fetchDiscordHistoryTool)
+  - The excerpt above is deliberately small (just enough for an immediate follow-up to make sense) — it is NOT the full picture. If it genuinely isn't enough to understand what's being asked (e.g. the question clearly refers to something earlier that the excerpt doesn't cover), call fetchDiscordHistoryTool to page further back, rather than asking the user to repeat themselves or guessing.
+  - On the first call, use the message id noted below (if this conversation is on Discord) as \`beforeMessageId\`. If that one call still isn't enough, call it again using the \`oldestMessageId\` it returned, to page further back — \`hasMore\` tells you whether that is worth doing.
+  - It returns \`not_available\` when this conversation did not originate on Discord (browser chat, Messages DM) — that is normal, not an error; just proceed without it.
+  - Each call has a real cost, so do not call it speculatively "just in case" — only when you have concluded the context you already have is not enough.
   `;
 
 // Formats the logged-in user's earned badges (the user-badges feature's
@@ -118,11 +125,23 @@ export const growiAgent = new Agent({
   }) => {
     const dateTimeNote = formatCurrentDateTimeNote();
 
+    const discordContext = requestContext.get('discordContext');
+    // Gives the model the concrete starting point fetchDiscordHistoryTool's
+    // first call needs — without this it has no way to know what message id
+    // "now" even is on Discord.
+    const discordHistoryNote =
+      discordContext != null
+        ? `\n\n  This conversation is on Discord. For fetchDiscordHistoryTool's first call, use beforeMessageId: "${discordContext.beforeMessageId}".\n  `
+        : '';
+
     const user = requestContext.get('user');
-    if (user == null) return STATIC_INSTRUCTIONS + dateTimeNote;
+    if (user == null)
+      return STATIC_INSTRUCTIONS + dateTimeNote + discordHistoryNote;
 
     const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.${formatBadgesSentence(user.badgeSummaryCached)}\n  `;
-    return STATIC_INSTRUCTIONS + dateTimeNote + identityNote;
+    return (
+      STATIC_INSTRUCTIONS + dateTimeNote + discordHistoryNote + identityNote
+    );
   },
 
   // Resolve the model per request (DynamicArgument<MastraModelConfig>): the
@@ -155,6 +174,7 @@ export const growiAgent = new Agent({
     proposePageEditTool,
     proposePageCreateTool,
     webSearchTool,
+    fetchDiscordHistoryTool,
   },
   memory,
 });

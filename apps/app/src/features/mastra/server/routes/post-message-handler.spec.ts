@@ -25,17 +25,31 @@ import { mock } from 'vitest-mock-extended';
 import type Crowi from '~/server/crowi';
 import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-response';
 
-const { resolveEffectiveModelKey, getProviderOptionsForModel } = vi.hoisted(
-  () => ({
+const { resolveEffectiveModelKey, getProviderOptionsForModel, featureFlags } =
+  vi.hoisted(() => ({
     resolveEffectiveModelKey: vi.fn(),
     getProviderOptionsForModel: vi.fn(),
-  }),
-);
+    featureFlags: {
+      value: {
+        pageEdit: true,
+        pageCreate: true,
+        webSearch: true,
+        vision: true,
+      },
+    },
+  }));
 vi.mock('../services/ai-sdk-modules/llm-providers/effective-model-key', () => ({
   resolveEffectiveModelKey,
 }));
 vi.mock('../services/ai-sdk-modules/resolve-provider-options', () => ({
   getProviderOptionsForModel,
+}));
+// The route reads agent capability flags to decide whether to strip image
+// parts. A hoisted mutable holder (default: vision on) keeps the
+// model-selection tests on the pass-through path without loading real config,
+// while the vision-strip test flips it.
+vi.mock('../services/agent-feature-flags', () => ({
+  getAgentFeatureFlags: () => featureFlags.value,
 }));
 
 const { stream, getMemory, getOrCreateThread } = vi.hoisted(() => ({
@@ -147,6 +161,12 @@ const invoke = (
 
 beforeEach(() => {
   vi.clearAllMocks();
+  featureFlags.value = {
+    pageEdit: true,
+    pageCreate: true,
+    webSearch: true,
+    vision: true,
+  };
   getMemory.mockResolvedValue({});
   getOrCreateThread.mockResolvedValue({ id: 'thread-1', resourceId: 'user-1' });
   // stream resolves to a usable stub: a readable-like + usage promise.
@@ -235,5 +255,60 @@ describe('post-message handler — model selection (Req 4.3, 4.6)', () => {
     const safe = createArgs.onError(new Error('boom: secret leak'));
     expect(resolveChatErrorMessage).toHaveBeenCalledWith(expect.any(Error));
     expect(safe).toBe('SAFE_MESSAGE');
+  });
+});
+
+describe('post-message handler — vision gate (ai:vision)', () => {
+  const buildReqResWithImage = () => {
+    const { req, res } = buildReqRes(undefined);
+    req.body.messages = [
+      {
+        id: '1',
+        role: 'user',
+        parts: [
+          { type: 'text', text: 'what is this?' },
+          {
+            type: 'file',
+            mediaType: 'image/png',
+            url: 'data:image/png;base64,AAAA',
+          },
+          { type: 'file', mediaType: 'application/pdf', url: 'data:...' },
+        ],
+      },
+    ];
+    return { req, res };
+  };
+
+  it('forwards image parts unchanged when vision is on', async () => {
+    resolveEffectiveModelKey.mockReturnValue('openai/gpt-4o');
+    getProviderOptionsForModel.mockReturnValue({});
+
+    const { req, res } = buildReqResWithImage();
+    await invoke(req, res);
+
+    const sentMessages = stream.mock.calls[0][0];
+    const partTypes = sentMessages[0].parts.map(
+      (p: { type: string }) => p.type,
+    );
+    expect(partTypes).toEqual(['text', 'file', 'file']);
+  });
+
+  it('strips image file-parts (but not other files or text) when vision is off', async () => {
+    featureFlags.value = { ...featureFlags.value, vision: false };
+    resolveEffectiveModelKey.mockReturnValue('openai/gpt-4o');
+    getProviderOptionsForModel.mockReturnValue({});
+
+    const { req, res } = buildReqResWithImage();
+    await invoke(req, res);
+
+    const sentMessages = stream.mock.calls[0][0];
+    const parts = sentMessages[0].parts as {
+      type: string;
+      mediaType?: string;
+    }[];
+    expect(parts.map((p) => p.type)).toEqual(['text', 'file']);
+    expect(parts.find((p) => p.type === 'file')?.mediaType).toBe(
+      'application/pdf',
+    );
   });
 });

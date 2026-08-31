@@ -19,6 +19,7 @@ import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-respo
 import loggerFactory from '~/utils/logger';
 
 import type { CustomUIMessageMetadata } from '../../interfaces/chat-message';
+import { getAgentFeatureFlags } from '../services/agent-feature-flags';
 import { resolveEffectiveModelKey } from '../services/ai-sdk-modules/llm-providers/effective-model-key';
 import { getProviderOptionsForModel } from '../services/ai-sdk-modules/resolve-provider-options';
 import { getOrCreateThread } from '../services/get-or-create-thread';
@@ -65,7 +66,29 @@ export const postMessageHandlersFactory: PostMessageHandlersFactory = (
     ...validator,
     apiV3FormValidator,
     async (req: Req, res: ApiV3Response) => {
-      const { threadId, modelKey, messages, discordContext } = req.body;
+      const {
+        threadId,
+        modelKey,
+        messages: rawMessages,
+        discordContext,
+      } = req.body;
+
+      // Vision gate (ai:vision): when off, drop image file-parts before the
+      // model call so an attached image can never reach the LLM. The client
+      // also hides the attach affordance; this is the server-side enforcement.
+      const messages = getAgentFeatureFlags().vision
+        ? rawMessages
+        : rawMessages.map((m) => ({
+            ...m,
+            parts: (m.parts ?? []).filter(
+              (p) =>
+                !(
+                  p.type === 'file' &&
+                  typeof p.mediaType === 'string' &&
+                  p.mediaType.startsWith('image/')
+                ),
+            ),
+          }));
 
       const growiAgent = mastra.getAgent('growiAgent');
       const memory = await growiAgent.getMemory();

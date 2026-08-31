@@ -32,6 +32,7 @@ export type CommonInitialProps = {
   nasStorageEnabled: boolean;
   messagesMode: MessagesMode;
   messagesImageUploadEnabled: boolean;
+  aiVisionEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -90,6 +91,10 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       messagesImageUploadEnabled: configManager.getConfig(
         'app:messagesImageUploadEnabled',
       ),
+      // ai:vision — drives whether the AI chat composer offers image
+      // attachment. Enforcement is server-side (post-message strips image
+      // parts); this only hides a useless affordance.
+      aiVisionEnabled: configManager.getConfig('ai:vision'),
     } satisfies CommonInitialProps,
   };
 };

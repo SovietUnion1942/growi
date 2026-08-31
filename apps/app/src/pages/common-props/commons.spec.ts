@@ -138,6 +138,31 @@ describe('getServerSideCommonInitialProps - messagesImageUploadEnabled supply', 
   });
 });
 
+const getAiVisionEnabledProp = async (
+  raw: boolean | undefined,
+): Promise<boolean> => {
+  const req = mockDeep<CrowiRequest>();
+  req.crowi.configManager.getConfig.mockImplementation((key) =>
+    key === 'ai:vision' ? raw : undefined,
+  );
+  const context = mock<GetServerSidePropsContext>({
+    req: req as unknown as GetServerSidePropsContext['req'],
+  });
+  const result = await getServerSideCommonInitialProps(context);
+  if (!('props' in result)) {
+    throw new Error('expected a props result');
+  }
+  const props = await result.props;
+  return props.aiVisionEnabled;
+};
+
+describe('getServerSideCommonInitialProps - aiVisionEnabled supply', () => {
+  it('mirrors the ai:vision config value', async () => {
+    expect(await getAiVisionEnabledProp(true)).toBe(true);
+    expect(await getAiVisionEnabledProp(false)).toBe(false);
+  });
+});
+
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {
   it('supplies aiEnabled=true when AI is ready (enabled && configured)', async () => {
     expect(await getAiEnabledProp(true)).toBe(true);

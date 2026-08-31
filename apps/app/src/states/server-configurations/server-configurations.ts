@@ -31,6 +31,13 @@ export const messagesModeAtom = atom<MessagesMode>('off');
 export const messagesImageUploadEnabledAtom = atom<boolean>(true);
 
 /**
+ * Atom for the AI vision sub-toggle (`ai:vision`). When false the AI chat
+ * composer hides its image-attach affordance. Defaults false, matching the
+ * server-side default. Server-side enforcement is in the post-message route.
+ */
+export const aiVisionEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

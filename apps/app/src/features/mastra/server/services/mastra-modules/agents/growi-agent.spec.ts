@@ -20,10 +20,24 @@ interface CapturedAgentConfig {
   id?: string;
   name?: string;
   instructions: unknown;
-  tools: Record<string, unknown>;
+  // `tools` is a DynamicArgument: either a plain record or a function
+  // returning one. The stub's listTools() resolves both shapes.
+  tools: Record<string, unknown> | (() => Record<string, unknown>);
   model?: unknown;
   memory?: unknown;
 }
+
+// Capability flags the agent reads via `getAgentFeatureFlags()`. A hoisted
+// mutable holder lets each test choose which capabilities are on; the default
+// (all true) keeps the pre-existing "all tools present / prompt is rich" tests
+// meaningful without every one of them opting in.
+const featureFlags = vi.hoisted(() => ({
+  value: { pageEdit: true, pageCreate: true, webSearch: true, vision: true },
+}));
+
+vi.mock('../../agent-feature-flags', () => ({
+  getAgentFeatureFlags: () => featureFlags.value,
+}));
 
 vi.mock('@mastra/core/agent', () => {
   class StubAgent {
@@ -38,7 +52,8 @@ vi.mock('@mastra/core/agent', () => {
       return this.__config.instructions;
     }
     listTools(): Record<string, unknown> {
-      return this.__config.tools;
+      const t = this.__config.tools;
+      return typeof t === 'function' ? t() : t;
     }
     // Test-only accessor: expose the raw constructor config so the spec can
     // read the `model` dynamic function that growi-agent.ts supplied.
@@ -146,6 +161,12 @@ const makeModelFnArg = (
 describe('growiAgent', () => {
   beforeEach(() => {
     resolverMock.fn.mockReset();
+    featureFlags.value = {
+      pageEdit: true,
+      pageCreate: true,
+      webSearch: true,
+      vision: true,
+    };
   });
 
   describe('construction (requirement 4.3 — import never throws)', () => {
@@ -235,6 +256,49 @@ describe('growiAgent', () => {
       expect(toolKeys).toContain('proposePageEditTool');
       expect(toolKeys).toContain('proposePageCreateTool');
       expect(toolKeys).not.toContain('fileSearchTool');
+    });
+
+    it('always exposes the search / read / badge tools regardless of flags', async () => {
+      featureFlags.value = {
+        pageEdit: false,
+        pageCreate: false,
+        webSearch: false,
+        vision: false,
+      };
+      const toolKeys = Object.keys(await growiAgent.listTools());
+      expect(toolKeys).toEqual(
+        expect.arrayContaining([
+          'fullTextSearchTool',
+          'getPageContentTool',
+          'getUserBadgesTool',
+        ]),
+      );
+    });
+
+    it('omits proposePageEditTool / proposePageCreateTool / webSearchTool when their flag is off', async () => {
+      featureFlags.value = {
+        pageEdit: false,
+        pageCreate: false,
+        webSearch: false,
+        vision: true,
+      };
+      const toolKeys = Object.keys(await growiAgent.listTools());
+      expect(toolKeys).not.toContain('proposePageEditTool');
+      expect(toolKeys).not.toContain('proposePageCreateTool');
+      expect(toolKeys).not.toContain('webSearchTool');
+    });
+
+    it('includes each opt-in tool exactly when its own flag is on', async () => {
+      featureFlags.value = {
+        pageEdit: true,
+        pageCreate: false,
+        webSearch: false,
+        vision: false,
+      };
+      const toolKeys = Object.keys(await growiAgent.listTools());
+      expect(toolKeys).toContain('proposePageEditTool');
+      expect(toolKeys).not.toContain('proposePageCreateTool');
+      expect(toolKeys).not.toContain('webSearchTool');
     });
   });
 
@@ -397,6 +461,36 @@ describe('growiAgent', () => {
     // intentionally: they made every prompt iteration a test-maintenance
     // chore without catching real defects. Instruction phrasing is verified
     // by exercising the agent end-to-end, not by string-matching here.
+
+    it('includes the EDITING / CREATING / WEB / IMAGES sections when every flag is on', async () => {
+      const instructions = await getInstructionsString();
+      expect(instructions).toContain('# EDITING PAGES');
+      expect(instructions).toContain('# CREATING NEW PAGES');
+      expect(instructions).toContain('# SEARCHING THE WEB');
+      expect(instructions).toContain('# IMAGES ATTACHED TO THE CONVERSATION');
+    });
+
+    it('drops each capability section when its flag is off, keeping BASE and PRIOR CONTEXT', async () => {
+      featureFlags.value = {
+        pageEdit: false,
+        pageCreate: false,
+        webSearch: false,
+        vision: false,
+      };
+      const instructions = await getInstructionsString();
+      expect(instructions).not.toContain('# EDITING PAGES');
+      expect(instructions).not.toContain('# CREATING NEW PAGES');
+      expect(instructions).not.toContain('# PROACTIVELY SUGGESTING A NEW PAGE');
+      expect(instructions).not.toContain('# SEARCHING THE WEB');
+      expect(instructions).not.toContain(
+        '# IMAGES ATTACHED TO THE CONVERSATION',
+      );
+      // still a usable prompt
+      expect(instructions).toContain('CRITICAL INSTRUCTION');
+      expect(instructions).toContain(
+        '# PRIOR CONVERSATION CONTEXT AUTOMATICALLY INCLUDED IN YOUR INPUT',
+      );
+    });
 
     it('contains NO uncommented "Use the fileSearch tool" line (FB Issue 2)', async () => {
       const instructions = await getInstructionsString();

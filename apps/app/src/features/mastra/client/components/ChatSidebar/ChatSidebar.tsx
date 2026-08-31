@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { useChat } from '@ai-sdk/react';
+import { useAtomValue } from 'jotai';
 import {
   CopyIcon,
   Maximize2,
@@ -70,6 +71,7 @@ import {
 import { useSWRxWikiGapSuggestions } from '~/features/wiki-gap-suggestions/client/stores/wiki-gap-suggestions';
 import { useCurrentUser } from '~/states/global/global';
 import { useCurrentPagePath } from '~/states/page/hooks';
+import { aiVisionEnabledAtom } from '~/states/server-configurations';
 
 import {
   useChatSidebarActions,
@@ -132,6 +134,7 @@ export const ChatSidebar = (): JSX.Element => {
 
   const chatSidebarStatus = useChatSidebarStatus();
   const { close } = useChatSidebarActions();
+  const isAiVisionEnabled = useAtomValue(aiVisionEnabledAtom);
   const threadId = chatSidebarStatus.threadId;
   const openSeq = chatSidebarStatus.openSeq;
 
@@ -600,7 +603,7 @@ export const ChatSidebar = (): JSX.Element => {
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
-                <AttachImageButton />
+                {isAiVisionEnabled && <AttachImageButton />}
               </PromptInputTools>
               <PromptInputModelSelect
                 value={modelKey ?? ''}

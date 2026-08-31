@@ -315,6 +315,13 @@ export const CONFIG_KEYS = [
   // Opt-in refresh paths for the vendored model catalog (both default OFF)
   'ai:modelCatalogRefreshOnStartup',
   'ai:modelCatalogRefreshCronSchedule',
+  // Per-capability switches for the chat agent, all gated by app:aiEnabled and
+  // all default OFF (opt-in). See ~/features/mastra/server/services/agent-feature-flags.
+  'ai:agentTools:pageEdit',
+  'ai:agentTools:pageCreate',
+  'ai:agentTools:webSearch',
+  'ai:vision',
+  'ai:messagesBot',
 
   // OpenTelemetry Settings
   'otel:enabled',
@@ -1401,6 +1408,33 @@ export const CONFIG_DEFINITIONS = {
   'ai:modelCatalogRefreshCronSchedule': defineConfig<string>({
     envVarName: 'AI_MODEL_CATALOG_REFRESH_CRON_SCHEDULE',
     defaultValue: '0 4 * * *',
+  }),
+  // Chat-agent capability switches (all gated by app:aiEnabled, all default
+  // OFF). Each removes both the tool and its system-prompt section, or (vision)
+  // strips image parts before the model call. See agent-feature-flags.
+  'ai:agentTools:pageEdit': defineConfig<boolean>({
+    envVarName: 'AI_PAGE_EDIT',
+    defaultValue: false,
+  }),
+  'ai:agentTools:pageCreate': defineConfig<boolean>({
+    envVarName: 'AI_PAGE_CREATE',
+    defaultValue: false,
+  }),
+  'ai:agentTools:webSearch': defineConfig<boolean>({
+    envVarName: 'AI_WEB_SEARCH',
+    defaultValue: false,
+  }),
+  // Whether attached images reach a vision-capable model (chat + Messages DM
+  // bot). OFF strips image parts before the model call.
+  'ai:vision': defineConfig<boolean>({
+    envVarName: 'AI_VISION',
+    defaultValue: false,
+  }),
+  // Whether the Messages DM bot (Butsuri-Wikier) replies to DMs / @-mentions.
+  // Also gated by app:messagesMode being != off.
+  'ai:messagesBot': defineConfig<boolean>({
+    envVarName: 'AI_MESSAGES_BOT',
+    defaultValue: false,
   }),
 
   // OpenTelemetry Settings

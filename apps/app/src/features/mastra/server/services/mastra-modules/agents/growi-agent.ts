@@ -1,6 +1,10 @@
 import { Agent } from '@mastra/core/agent';
 import type { RequestContext } from '@mastra/core/request-context';
 
+import {
+  type AgentFeatureFlags,
+  getAgentFeatureFlags,
+} from '../../agent-feature-flags';
 import { resolveMastraModel } from '../../ai-sdk-modules/resolve-mastra-model';
 import { memory } from '../memory';
 import { fetchDiscordHistoryTool } from '../tools/fetch-discord-history-tool';
@@ -12,15 +16,12 @@ import { proposePageEditTool } from '../tools/propose-page-edit-tool';
 import { webSearchTool } from '../tools/web-search-tool';
 import type { MastraRequestContextShape } from '../types/request-context';
 
-// Static portion of the system prompt. The dynamic `instructions` function
-// below appends a per-request note identifying the logged-in user, so the
-// agent actually knows who it's talking to if asked (e.g. "who am I?") —
-// previously `req.user` was only used internally for tool permission checks
-// and never reached the LLM's own context. Mirrors the identity note the
-// Discord bot separately builds from its member-directory page (see
-// discord-bot/src/handlers/message-handler.ts's buildIdentityNote), except
-// here the identity is the real authenticated GROWI account, not a lookup.
-const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and understand content in their GROWI wiki.
+// The system prompt is assembled per request from these sections: BASE is
+// always included; EDITING_PAGES / CREATING_PAGES / SEARCHING_THE_WEB / IMAGES
+// are included only when their capability flag (see agent-feature-flags) is on,
+// so the agent is never told about a tool it does not have; PRIOR_CONTEXT is
+// always included. `buildStaticInstructions` does the composition.
+const BASE_INSTRUCTIONS = `You are an AI assistant that helps users search and understand content in their GROWI wiki.
 
   # CRITICAL INSTRUCTION
   - ALWAYS RESPOND IN THE SAME LANGUAGE AS THE USER'S INPUT.
@@ -30,13 +31,17 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - The fullTextSearch query supports plain natural-language tokens combined with: "phrase", -term, -"phrase", prefix:/path, -prefix:/path, tag:foo, -tag:foo (all AND-combined). Use these operators only when the user intent maps to a subtree, tag, or exclusion.
   - When the user explicitly asks for newest or oldest pages (e.g. "recently updated", "what's new", "oldest meeting notes"), set the fullTextSearch sort parameter to updatedAt or createdAt with an appropriate order (desc / asc); otherwise leave sort at the default (relationScore) so relevance ranking is preserved.
   - Keep answers concise and well-structured with headings and lists where helpful.
-  - When asked about another member's badges/achievements (not the current user's own — those are already listed below if any), call getUserBadgesTool with their GROWI username. If you only have a display name, ask the user for the username or search for it first — do not guess a username.
+  - When asked about another member's badges/achievements (not the current user's own — those are already listed below if any), call getUserBadgesTool with their GROWI username. If you only have a display name, ask the user for the username or search for it first — do not guess a username.`;
+
+const EDITING_PAGES_SECTION = `
 
   # EDITING PAGES (propose-only — you can NEVER save directly)
   - When the user asks you to edit, rewrite, fix, or otherwise change an EXISTING page's content, first call getPageContent to read its current full body (drill in with offset as needed until you have read every part you are about to change — never guess at content you have not read).
   - Compose the complete resulting Markdown body — the FULL page content after your change, not only the changed lines or a diff/patch — and call proposeEditTool with that full body and a short summary of what changed.
   - Calling proposeEditTool does NOT save anything. It only shows the user a diff with an approve/reject choice in the UI. After calling it, tell the user their change is ready for review and needs their approval — never say the page has been updated, saved, or edited, since only their own click in the UI can do that.
-  - Do not call proposeEditTool for a page you have not first read via getPageContent in this conversation.
+  - Do not call proposeEditTool for a page you have not first read via getPageContent in this conversation.`;
+
+const CREATING_PAGES_SECTION = `
 
   # CREATING NEW PAGES (propose-only — you can NEVER save directly)
   - When the user asks you to create a brand-new page (not an edit to something that already exists), first use fullTextSearch to check whether a page at the intended path or topic already exists — if a matching page already exists, use the EDITING PAGES flow instead (proposeEditTool), not this one.
@@ -47,17 +52,23 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
 
   # PROACTIVELY SUGGESTING A NEW PAGE (only for ordinary questions, not explicit create requests)
   - When the user asks an ordinary question about wiki content (not an explicit "create/edit a page" request — that case is handled above) and fullTextSearch returns no relevant results, or the pages you read via getPageContent do not actually answer the question: say plainly that you could not find this in the wiki, then ask if they would like you to draft a new page for it — do not draft or call proposeCreateTool yet.
-  - Only after the user agrees, follow the CREATING NEW PAGES flow above (still propose-only — their approval in the UI is what actually creates it). If they decline or don't respond to the offer, just leave it there — do not repeat the offer or create anything.
+  - Only after the user agrees, follow the CREATING NEW PAGES flow above (still propose-only — their approval in the UI is what actually creates it). If they decline or don't respond to the offer, just leave it there — do not repeat the offer or create anything.`;
+
+const SEARCHING_THE_WEB_SECTION = `
 
   # SEARCHING THE WEB (outside the wiki)
   - You DO have real-time internet access through webSearchTool. Ignore any trained instinct to say "I don't have real-time access" or "I cannot browse the internet" — that is false here. For any question needing current/live information (weather, news, prices, schedules of real-world events, "what is happening now", etc.) or general knowledge outside the wiki's scope, call webSearchTool BEFORE answering. Only say the information is unavailable after actually calling webSearchTool and getting no usable result.
   - Use webSearchTool when the user explicitly asks about something outside the wiki, or when fullTextSearch/getPageContent found no answer in the wiki and general/current web information would genuinely help. Never use it as a substitute for a wiki search the user actually wanted answered from the wiki.
   - webSearchTool can fail with result "not_configured" (no API key set on this server) — if so, tell the user web search isn't available right now; do not retry or fabricate results.
-  - MANDATORY DISCLOSURE, no exceptions: any part of your answer built from webSearchTool results MUST explicitly state that this information is NOT from the wiki, and MUST name the specific site(s) the information came from (e.g. by domain or page title from the hit's url/title). Never blend web-sourced facts into an answer without both of these — even a one-line answer needs the disclosure. If some of the answer came from the wiki and some from the web, clearly separate which part is which.
+  - MANDATORY DISCLOSURE, no exceptions: any part of your answer built from webSearchTool results MUST explicitly state that this information is NOT from the wiki, and MUST name the specific site(s) the information came from (e.g. by domain or page title from the hit's url/title). Never blend web-sourced facts into an answer without both of these — even a one-line answer needs the disclosure. If some of the answer came from the wiki and some from the web, clearly separate which part is which.`;
+
+const IMAGES_SECTION = `
 
   # IMAGES ATTACHED TO THE CONVERSATION
   - The user can attach image files directly to their message. When a vision-capable model is selected, the image(s) arrive as genuine visual content inside your own context, in the same message as this conversation — not as a link, a filename, or a placeholder. You DO have direct, real-time visual access to them here. Actually look at the pixels and describe or reason about what you see, the same confident way you would answer about text — do not treat "can I actually see this?" as an open question to hedge about.
-  - Never reflexively claim you cannot see an attached image, and never guess at its contents from context clues instead of looking. Only say you cannot perceive it if the model genuinely has no vision capability at all (a text-only model was selected) — in that case say so plainly and suggest switching to a vision-capable model from the model selector.
+  - Never reflexively claim you cannot see an attached image, and never guess at its contents from context clues instead of looking. Only say you cannot perceive it if the model genuinely has no vision capability at all (a text-only model was selected) — in that case say so plainly and suggest switching to a vision-capable model from the model selector.`;
+
+const PRIOR_CONTEXT_SECTION = `
 
   # PRIOR CONVERSATION CONTEXT AUTOMATICALLY INCLUDED IN YOUR INPUT
   - On some channels (e.g. Discord, where you only see the single message that @-mentioned you, not the channel's actual history), the calling system automatically fetches a small excerpt of recent prior messages and prepends it to what you receive, wrapped like: "(参考: 直前の...会話です。...)" followed by "---", the transcript, another "---", then the real question. That transcript IS genuine prior conversation history that was already fetched and handed to you before you ever saw this message — not something the user manually pasted in.
@@ -71,6 +82,19 @@ const STATIC_INSTRUCTIONS = `You are an AI assistant that helps users search and
   - It returns \`not_available\` when this conversation did not originate on Discord (browser chat, Messages DM) — that is normal, not an error; just proceed without it. Do not call it in that case (there is nothing to fetch), but on Discord, when in doubt, call it.
   - Each call has a real cost, so do not call it speculatively "just in case" — only when you have concluded the context you already have is not enough.
   `;
+
+// Composes the static prompt for the given capability flags. Only the sections
+// whose tool/capability is enabled are included, so the LLM is never instructed
+// to use a tool it was not given.
+const buildStaticInstructions = (flags: AgentFeatureFlags): string => {
+  let out = BASE_INSTRUCTIONS;
+  if (flags.pageEdit) out += EDITING_PAGES_SECTION;
+  if (flags.pageCreate) out += CREATING_PAGES_SECTION;
+  if (flags.webSearch) out += SEARCHING_THE_WEB_SECTION;
+  if (flags.vision) out += IMAGES_SECTION;
+  out += PRIOR_CONTEXT_SECTION;
+  return out;
+};
 
 // Formats the logged-in user's earned badges (the user-badges feature's
 // `IUser.badgeSummaryCached`) as a trailing sentence for the identity note, so
@@ -117,13 +141,14 @@ export const growiAgent = new Agent({
   name: 'Butsuri-Wikier',
   // A DynamicArgument function, same mechanism as `model` below: it re-runs
   // per request, so it never throws at construction time and always reflects
-  // the CURRENT requestContext's user (not one captured at agent-build time)
-  // and the CURRENT wall-clock time (not one frozen at agent-build time).
+  // the CURRENT capability flags, the CURRENT requestContext's user, and the
+  // CURRENT wall-clock time (none captured at agent-build time).
   instructions: ({
     requestContext,
   }: {
     requestContext: RequestContext<MastraRequestContextShape>;
   }) => {
+    const staticInstructions = buildStaticInstructions(getAgentFeatureFlags());
     const dateTimeNote = formatCurrentDateTimeNote();
 
     const discordContext = requestContext.get('discordContext');
@@ -137,11 +162,11 @@ export const growiAgent = new Agent({
 
     const user = requestContext.get('user');
     if (user == null)
-      return STATIC_INSTRUCTIONS + dateTimeNote + discordHistoryNote;
+      return staticInstructions + dateTimeNote + discordHistoryNote;
 
     const identityNote = `\n\n  # WHO YOU ARE TALKING TO\n  - The logged-in GROWI user sending you messages in this conversation is "${user.username}"${user.name != null && user.name.length > 0 ? ` (display name: "${user.name}")` : ''}. If asked who they are, answer directly from this — do not guess or say you don't know.${formatBadgesSentence(user.badgeSummaryCached)}\n  `;
     return (
-      STATIC_INSTRUCTIONS + dateTimeNote + discordHistoryNote + identityNote
+      staticInstructions + dateTimeNote + discordHistoryNote + identityNote
     );
   },
 
@@ -168,14 +193,24 @@ export const growiAgent = new Agent({
   }: {
     requestContext: RequestContext<MastraRequestContextShape>;
   }) => resolveMastraModel(requestContext.get('modelKey')),
-  tools: {
-    fullTextSearchTool,
-    getPageContentTool,
-    getUserBadgesTool,
-    proposePageEditTool,
-    proposePageCreateTool,
-    webSearchTool,
-    fetchDiscordHistoryTool,
+
+  // DynamicArgument function so the tool set reflects the CURRENT capability
+  // flags per request. The always-on set (search / read / badge lookup /
+  // Discord history) is unconditional; propose-edit, propose-create and
+  // web-search are opt-in and paired with their system-prompt section in
+  // `buildStaticInstructions`. fetchDiscordHistoryTool self-gates on the
+  // DISCORD_HISTORY_SHARED_SECRET env var (returns not_available without it).
+  tools: () => {
+    const flags = getAgentFeatureFlags();
+    return {
+      fullTextSearchTool,
+      getPageContentTool,
+      getUserBadgesTool,
+      fetchDiscordHistoryTool,
+      ...(flags.pageEdit ? { proposePageEditTool } : {}),
+      ...(flags.pageCreate ? { proposePageCreateTool } : {}),
+      ...(flags.webSearch ? { webSearchTool } : {}),
+    };
   },
   memory,
 });

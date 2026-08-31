@@ -81,6 +81,13 @@ export const setup = (crowi: Crowi): Router => {
   const imageUploadEnabled = configManager.getConfig(
     'app:messagesImageUploadEnabled',
   );
+  // ai:messagesBot — whether the Butsuri-Wikier bot replies in DMs / to
+  // @-mentions. When off: no bot User is provisioned and no reply is
+  // triggered. Read once here, same as messagesMode above.
+  const messagesBotEnabled = configManager.getConfig('ai:messagesBot');
+  // ai:vision — whether an image attached to a message is forwarded to the
+  // bot's vision-capable model (only relevant when messagesBotEnabled).
+  const aiVisionEnabled = configManager.getConfig('ai:vision');
 
   // MESSAGES_MODE=off: the feature is dark. Every route under this router
   // replies 404 so the client (which also hides the entry point) and any
@@ -263,6 +270,7 @@ export const setup = (crowi: Crowi): Router => {
     const triggeringAttachment = triggeringMessage?.attachment;
     let historyWithImage = history;
     if (
+      aiVisionEnabled &&
       triggeringAttachment != null &&
       triggeringAttachment.fileFormat.startsWith('image/') &&
       history.length > 0
@@ -382,8 +390,11 @@ export const setup = (crowi: Crowi): Router => {
         // searched for, mirroring findOrCreateBroadcast()'s own
         // ensure-on-list-fetch pattern below: a user opens the Messages
         // panel (which fetches this list) before they'd ever open "start a
-        // new conversation" and search for the bot by name.
-        await findOrCreateGrowiBotUser(User);
+        // new conversation" and search for the bot by name. Skipped when the
+        // bot is disabled (ai:messagesBot) so it is never provisioned.
+        if (messagesBotEnabled) {
+          await findOrCreateGrowiBotUser(User);
+        }
 
         const paginationResult = await Conversation.findByUser(
           user._id,
@@ -759,26 +770,29 @@ export const setup = (crowi: Crowi): Router => {
             logger.error('Failed to send push notification for message', err);
           });
 
-        // fire-and-forget: the human sender doesn't wait on agent inference
-        const botUser = await findOrCreateGrowiBotUser(User);
-        if (
-          shouldTriggerBotReply(
-            conversation,
-            user._id,
-            mentionedUserIds,
-            botUser._id,
-          )
-        ) {
-          // CrowiRequest types req.user as HydratedDocument<IUser> (_id:
-          // ObjectId), while IUserHasId types _id as string -- the same
-          // known mismatch documented in attachment-add-activity.integ.ts.
-          triggerBotReply(
-            conversation,
-            botUser,
-            user as unknown as IUserHasId,
-          ).catch((err) => {
-            logger.error('Failed to generate bot reply', err);
-          });
+        // fire-and-forget: the human sender doesn't wait on agent inference.
+        // Skipped entirely when the bot is disabled (ai:messagesBot).
+        if (messagesBotEnabled) {
+          const botUser = await findOrCreateGrowiBotUser(User);
+          if (
+            shouldTriggerBotReply(
+              conversation,
+              user._id,
+              mentionedUserIds,
+              botUser._id,
+            )
+          ) {
+            // CrowiRequest types req.user as HydratedDocument<IUser> (_id:
+            // ObjectId), while IUserHasId types _id as string -- the same
+            // known mismatch documented in attachment-add-activity.integ.ts.
+            triggerBotReply(
+              conversation,
+              botUser,
+              user as unknown as IUserHasId,
+            ).catch((err) => {
+              logger.error('Failed to generate bot reply', err);
+            });
+          }
         }
 
         return res.apiv3({ message });

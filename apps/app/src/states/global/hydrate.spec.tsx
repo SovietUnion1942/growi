@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommonInitialProps } from '~/pages/common-props';
 import {
+  aiVisionEnabledAtom,
   messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
@@ -26,6 +27,7 @@ const baseProps: CommonInitialProps = {
   nasStorageEnabled: false,
   messagesMode: 'off',
   messagesImageUploadEnabled: true,
+  aiVisionEnabled: false,
 };
 
 const NasStorageEnabledProbe = ({
@@ -108,5 +110,28 @@ describe('useHydrateGlobalInitialAtoms - messagesImageUploadEnabledAtom', () => 
       </Provider>,
     );
     expect(screen.getByTestId('value')).toHaveTextContent('false');
+  });
+});
+
+const AiVisionEnabledProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  const value = useAtomValue(aiVisionEnabledAtom);
+  return <span data-testid="value">{String(value)}</span>;
+};
+
+describe('useHydrateGlobalInitialAtoms - aiVisionEnabledAtom', () => {
+  it('hydrates the atom to true when the server prop enables vision', () => {
+    render(
+      <Provider>
+        <AiVisionEnabledProbe
+          commonInitialProps={{ ...baseProps, aiVisionEnabled: true }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('true');
   });
 });

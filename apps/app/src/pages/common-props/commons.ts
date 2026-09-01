@@ -35,6 +35,7 @@ export type CommonInitialProps = {
   aiVisionEnabled: boolean;
   pwaEnabled: boolean;
   pushNotificationEnabled: boolean;
+  userBadgeEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -104,6 +105,9 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       pushNotificationEnabled: configManager.getConfig(
         'app:pushNotificationEnabled',
       ),
+      // app:userBadgeEnabled — hides the admin badge section, all badge
+      // display and the badge-type catalog fetch when off.
+      userBadgeEnabled: configManager.getConfig('app:userBadgeEnabled'),
     } satisfies CommonInitialProps,
   };
 };

@@ -15,6 +15,7 @@ import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-respo
 import { validateImageContentType } from '~/server/routes/attachment/image-content-type-validator';
 import loggerFactory from '~/utils/logger';
 
+import { isUserBadgeEnabled } from '../is-user-badge-enabled';
 import {
   BadgeTypeNotFoundError,
   BadgeTypeValidationError,
@@ -105,6 +106,18 @@ function validateUploadedImageOrRespond(
  */
 export const setup = (crowi: BadgeTypeRouteCrowi): Router => {
   const router = Router();
+
+  // Feature gate (app:userBadgeEnabled): every route below (incl. the
+  // non-admin /catalog) 404s when off.
+  router.use((_req, res, next) => {
+    if (!isUserBadgeEnabled()) {
+      return (res as ApiV3Response).apiv3Err(
+        new ErrorV3('User badges are disabled', 'user-badge-disabled'),
+        404,
+      );
+    }
+    next();
+  });
 
   const loginRequiredStrictly = loginRequiredFactory(
     crowi as unknown as Parameters<typeof loginRequiredFactory>[0],

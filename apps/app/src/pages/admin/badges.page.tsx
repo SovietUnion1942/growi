@@ -1,5 +1,7 @@
-import type { GetServerSideProps } from 'next';
+import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import dynamic from 'next/dynamic';
+
+import type { CrowiRequest } from '~/interfaces/crowi-request';
 
 import type { NextPageWithLayout } from '../_app.page';
 import type { AdminCommonProps } from './_shared';
@@ -25,7 +27,14 @@ AdminBadgesPage.getLayout = createAdminPageLayout<Props>({
   title: (_p, t) => t('badge_management.badge_management'),
 });
 
-export const getServerSideProps: GetServerSideProps =
-  getServerSideAdminCommonProps;
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext,
+) => {
+  const { crowi } = context.req as CrowiRequest;
+  if (!crowi.configManager.getConfig('app:userBadgeEnabled')) {
+    return { notFound: true };
+  }
+  return getServerSideAdminCommonProps(context);
+};
 
 export default AdminBadgesPage;

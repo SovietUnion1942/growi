@@ -11,6 +11,7 @@ import {
   nasStorageEnabledAtom,
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
+  userBadgeEnabledAtom,
 } from '~/states/server-configurations';
 import { createAtomTuple } from '~/utils/jotai-utils';
 
@@ -85,6 +86,10 @@ export const useHydrateGlobalInitialAtoms = (
           createAtomTuple(
             pushNotificationEnabledAtom,
             commonInitialProps.pushNotificationEnabled,
+          ),
+          createAtomTuple(
+            userBadgeEnabledAtom,
+            commonInitialProps.userBadgeEnabled,
           ),
         ];
 

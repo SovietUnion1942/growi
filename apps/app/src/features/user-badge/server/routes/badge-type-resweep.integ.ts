@@ -158,6 +158,11 @@ vi.mock('~/server/middlewares/add-activity', () => ({
     },
 }));
 
+// Real route end-to-end; keep the feature gate open (config default is OFF).
+vi.mock('../is-user-badge-enabled', () => ({
+  isUserBadgeEnabled: () => true,
+}));
+
 function withApiV3Helpers(app: express.Express) {
   app.use((_req, res, next) => {
     (res as unknown as ApiV3Response).apiv3 = (body: unknown, status = 200) =>

@@ -962,6 +962,11 @@ class Crowi {
    * this feature module out of the core server bundle.
    */
   async setupBadgeGrantService(): Promise<void> {
+    // Feature gate (app:userBadgeEnabled): skip the auto-grant listener
+    // entirely when badges are off.
+    if (!this.configManager.getConfig('app:userBadgeEnabled')) {
+      return;
+    }
     const { initBadgeGrantEventListener } = await import(
       '~/features/user-badge/server/services/badge-grant-service'
     );

@@ -63,6 +63,7 @@ export const CONFIG_KEYS = [
   'app:messagesImageUploadEnabled',
   'app:pwaEnabled',
   'app:pushNotificationEnabled',
+  'app:userBadgeEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -500,6 +501,14 @@ export const CONFIG_DEFINITIONS = {
   // prompt, the /me push tab is hidden, and the server sends nothing.
   'app:pushNotificationEnabled': defineConfig<boolean>({
     envVarName: 'PUSH_NOTIFICATION',
+    defaultValue: false,
+  }),
+  // User badges (contribution badges): threshold auto-grant + admin manual
+  // grant + badge display on avatars / profiles. OFF: the boot listener is
+  // not registered, the /badge-types and /user-badges routes 404, the admin
+  // section and all badge UI are hidden.
+  'app:userBadgeEnabled': defineConfig<boolean>({
+    envVarName: 'USER_BADGE',
     defaultValue: false,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({

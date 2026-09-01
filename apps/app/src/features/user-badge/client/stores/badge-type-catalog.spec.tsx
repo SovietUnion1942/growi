@@ -60,4 +60,15 @@ describe('useSWRxBadgeTypeCatalog', () => {
       expect(result.current.error).toBe(error);
     });
   });
+
+  it('does not fetch when passed enabled=false', () => {
+    apiv3Get.mockResolvedValue({ data: { badgeTypes: [] } });
+
+    const { result } = renderHook(() => useSWRxBadgeTypeCatalog(false), {
+      wrapper,
+    });
+
+    expect(result.current.data).toBeUndefined();
+    expect(apiv3Get).not.toHaveBeenCalled();
+  });
 });

@@ -12,6 +12,7 @@ import loginRequiredFactory from '~/server/middlewares/login-required';
 import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-response';
 import loggerFactory from '~/utils/logger';
 
+import { isUserBadgeEnabled } from '../is-user-badge-enabled';
 import {
   grantManualBadge,
   listUserBadges,
@@ -72,6 +73,17 @@ interface AuthorizedRequest extends Request {
  */
 export const setup = (crowi: UserBadgeRouteCrowi): Router => {
   const router = Router();
+
+  // Feature gate (app:userBadgeEnabled): every route below 404s when off.
+  router.use((_req, res, next) => {
+    if (!isUserBadgeEnabled()) {
+      return (res as ApiV3Response).apiv3Err(
+        new ErrorV3('User badges are disabled', 'user-badge-disabled'),
+        404,
+      );
+    }
+    next();
+  });
 
   const loginRequiredStrictly = loginRequiredFactory(
     crowi as unknown as Parameters<typeof loginRequiredFactory>[0],

@@ -189,6 +189,19 @@ describe('getServerSideCommonInitialProps - PWA / push supply', () => {
     if (!('props' in result)) throw new Error('expected a props result');
     expect((await result.props).pushNotificationEnabled).toBe(true);
   });
+
+  it('mirrors app:userBadgeEnabled', async () => {
+    const req = mockDeep<CrowiRequest>();
+    req.crowi.configManager.getConfig.mockImplementation((k) =>
+      k === 'app:userBadgeEnabled' ? true : undefined,
+    );
+    const context = mock<GetServerSidePropsContext>({
+      req: req as unknown as GetServerSidePropsContext['req'],
+    });
+    const result = await getServerSideCommonInitialProps(context);
+    if (!('props' in result)) throw new Error('expected a props result');
+    expect((await result.props).userBadgeEnabled).toBe(true);
+  });
 });
 
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {

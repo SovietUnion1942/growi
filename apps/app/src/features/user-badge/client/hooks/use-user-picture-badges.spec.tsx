@@ -2,7 +2,10 @@
 
 import type { PropsWithChildren } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { createStore, Provider } from 'jotai';
 import { SWRConfig } from 'swr';
+
+import { userBadgeEnabledAtom } from '~/states/server-configurations';
 
 import {
   type UserPictureBadgeSource,
@@ -20,9 +23,18 @@ vi.mock('next-i18next', () => ({
   }),
 }));
 
-const wrapper = ({ children }: PropsWithChildren): JSX.Element => (
-  <SWRConfig value={{ provider: () => new Map() }}>{children}</SWRConfig>
-);
+const makeWrapper = (userBadgeEnabled: boolean) => {
+  const store = createStore();
+  store.set(userBadgeEnabledAtom, userBadgeEnabled);
+  return ({ children }: PropsWithChildren): JSX.Element => (
+    <Provider store={store}>
+      <SWRConfig value={{ provider: () => new Map() }}>{children}</SWRConfig>
+    </Provider>
+  );
+};
+
+// Existing tests exercise the feature-on path.
+const wrapper = makeWrapper(true);
 
 const badgeSummary: UserPictureBadgeSource[] = [
   {
@@ -151,5 +163,18 @@ describe('useUserPictureBadges', () => {
         description: '...',
       },
     ]);
+  });
+
+  it('returns [] and never fetches the catalog when the feature is disabled', () => {
+    apiv3Get.mockResolvedValue({
+      data: { badgeTypes: [{ _id: 'badge-type-1', description: 'x' }] },
+    });
+
+    const { result } = renderHook(() => useUserPictureBadges(badgeSummary), {
+      wrapper: makeWrapper(false),
+    });
+
+    expect(result.current).toEqual([]);
+    expect(apiv3Get).not.toHaveBeenCalled();
   });
 });

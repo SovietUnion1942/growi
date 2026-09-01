@@ -108,6 +108,11 @@ vi.mock('../services/badge-type-service', () => ({
   deleteBadgeType: vi.fn(),
 }));
 
+const userBadgeEnabled = vi.hoisted(() => ({ value: true }));
+vi.mock('../is-user-badge-enabled', () => ({
+  isUserBadgeEnabled: () => userBadgeEnabled.value,
+}));
+
 import {
   createBadgeType,
   deleteBadgeType,
@@ -174,6 +179,16 @@ const automaticBadgeType = {
 describe('/badge-types route', () => {
   beforeEach(() => {
     currentUser = adminUser;
+    userBadgeEnabled.value = true;
+  });
+
+  it('404s (incl. /catalog) when the user-badge feature is disabled', async () => {
+    userBadgeEnabled.value = false;
+    const { app } = buildApp();
+    expect((await request(app).get('/_api/v3/badge-types')).status).toBe(404);
+    expect(
+      (await request(app).get('/_api/v3/badge-types/catalog')).status,
+    ).toBe(404);
   });
 
   afterEach(() => {

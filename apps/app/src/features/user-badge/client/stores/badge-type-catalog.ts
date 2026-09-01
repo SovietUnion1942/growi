@@ -36,11 +36,13 @@ type BadgeTypeCatalogResult = {
  * (design.md, Implementation Notes on `UserPicture(拡張)`: "クライアント側で
  * 一度取得済みのバッジ種類カタログ...から名前・説明を解決する").
  */
-export const useSWRxBadgeTypeCatalog = (): SWRResponse<
-  IBadgeTypeCatalogEntry[],
-  Error
-> => {
-  return useSWRImmutable('/badge-types/catalog', (endpoint) =>
+export const useSWRxBadgeTypeCatalog = (
+  // `false` (the user-badge feature is off) suppresses the fetch — the
+  // endpoint 404s in that state. Defaults true so existing callers are
+  // unchanged.
+  enabled = true,
+): SWRResponse<IBadgeTypeCatalogEntry[], Error> => {
+  return useSWRImmutable(enabled ? '/badge-types/catalog' : null, (endpoint) =>
     apiv3Get<BadgeTypeCatalogResult>(endpoint).then(
       (result) => result.data.badgeTypes,
     ),

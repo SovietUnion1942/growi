@@ -10,6 +10,7 @@ import {
   nasStorageEnabledAtom,
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
+  userBadgeEnabledAtom,
 } from '~/states/server-configurations';
 
 import { useHydrateGlobalInitialAtoms } from './hydrate';
@@ -32,6 +33,7 @@ const baseProps: CommonInitialProps = {
   aiVisionEnabled: false,
   pwaEnabled: false,
   pushNotificationEnabled: false,
+  userBadgeEnabled: false,
 };
 
 const NasStorageEnabledProbe = ({
@@ -168,5 +170,31 @@ describe('useHydrateGlobalInitialAtoms - pwa / push atoms', () => {
       </Provider>,
     );
     expect(screen.getByTestId('value')).toHaveTextContent('true/true');
+  });
+});
+
+const UserBadgeProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  return (
+    <span data-testid="value">
+      {String(useAtomValue(userBadgeEnabledAtom))}
+    </span>
+  );
+};
+
+describe('useHydrateGlobalInitialAtoms - userBadgeEnabledAtom', () => {
+  it('hydrates from the server prop', () => {
+    render(
+      <Provider>
+        <UserBadgeProbe
+          commonInitialProps={{ ...baseProps, userBadgeEnabled: true }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('true');
   });
 });

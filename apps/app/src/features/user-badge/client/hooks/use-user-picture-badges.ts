@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import type { UserPictureBadge } from '@growi/ui/dist/components';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'next-i18next';
+
+import { userBadgeEnabledAtom } from '~/states/server-configurations';
 
 import { useSWRxBadgeTypeCatalog } from '../stores/badge-type-catalog';
 
@@ -55,10 +58,13 @@ export const useUserPictureBadges = (
   badgeSummary: UserPictureBadgeSource[] | undefined,
 ): UserPictureBadge[] => {
   const { t } = useTranslation();
-  const { data: catalog, isLoading } = useSWRxBadgeTypeCatalog();
+  const isEnabled = useAtomValue(userBadgeEnabledAtom);
+  // Pass `undefined` when the feature is off so useSWRxBadgeTypeCatalog skips
+  // the (now-404ing) /badge-types/catalog fetch entirely.
+  const { data: catalog, isLoading } = useSWRxBadgeTypeCatalog(isEnabled);
 
   return useMemo(() => {
-    if (badgeSummary == null || badgeSummary.length === 0) {
+    if (!isEnabled || badgeSummary == null || badgeSummary.length === 0) {
       return [];
     }
 
@@ -83,5 +89,5 @@ export const useUserPictureBadges = (
         };
       },
     );
-  }, [badgeSummary, catalog, isLoading, t]);
+  }, [isEnabled, badgeSummary, catalog, isLoading, t]);
 };

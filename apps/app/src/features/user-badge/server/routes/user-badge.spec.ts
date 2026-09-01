@@ -106,6 +106,13 @@ vi.mock('../services/badge-grant-service', () => ({
   revokeManualBadge: vi.fn(),
 }));
 
+// Feature gate — default enabled so the existing route tests are unchanged;
+// flipped in the "disabled" test below.
+const userBadgeEnabled = vi.hoisted(() => ({ value: true }));
+vi.mock('../is-user-badge-enabled', () => ({
+  isUserBadgeEnabled: () => userBadgeEnabled.value,
+}));
+
 import {
   grantManualBadge,
   listUserBadges,
@@ -176,11 +183,20 @@ const revokedUserBadge = {
 describe('/user-badges route', () => {
   beforeEach(() => {
     currentUser = nonAdminUser;
+    userBadgeEnabled.value = true;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     currentUser = undefined;
+  });
+
+  it('404s every route when the user-badge feature is disabled', async () => {
+    userBadgeEnabled.value = false;
+    const { app } = buildApp();
+    const res = await request(app).get('/_api/v3/user-badges?targetUserId=u1');
+    expect(res.status).toBe(404);
+    expect(listUserBadgesMock).not.toHaveBeenCalled();
   });
 
   describe('GET /', () => {

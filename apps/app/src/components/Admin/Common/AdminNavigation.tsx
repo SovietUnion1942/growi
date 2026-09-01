@@ -1,10 +1,12 @@
 import React, { type JSX, useCallback } from 'react';
 import Link from 'next/link';
 import { pathUtils } from '@growi/core/dist/utils';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'next-i18next';
 import urljoin from 'url-join';
 
 import { useGrowiAppIdForGrowiCloud, useGrowiCloudUri } from '~/states/global';
+import { userBadgeEnabledAtom } from '~/states/server-configurations';
 
 import styles from './AdminNavigation.module.scss';
 
@@ -213,6 +215,7 @@ export const AdminNavigation = (): JSX.Element => {
 
   const growiCloudUri = useGrowiCloudUri();
   const growiAppIdForGrowiCloud = useGrowiAppIdForGrowiCloud();
+  const isUserBadgeEnabled = useAtomValue(userBadgeEnabledAtom);
 
   const isActiveMenu = useCallback(
     (path: string | string[]) => {
@@ -306,11 +309,13 @@ export const AdminNavigation = (): JSX.Element => {
             isListGroupItems={isListGroupItems}
             isActive={isActiveMenu('/audit-log')}
           />
-          <MenuLink
-            menu="badges"
-            isListGroupItems={isListGroupItems}
-            isActive={isActiveMenu('/badges')}
-          />
+          {isUserBadgeEnabled && (
+            <MenuLink
+              menu="badges"
+              isListGroupItems={isListGroupItems}
+              isActive={isActiveMenu('/badges')}
+            />
+          )}
 
           <hr />
 
@@ -371,7 +376,14 @@ export const AdminNavigation = (): JSX.Element => {
         </>
       );
     },
-    [growiAppIdForGrowiCloud, growiCloudUri, isActiveMenu, pathname, t],
+    [
+      growiAppIdForGrowiCloud,
+      growiCloudUri,
+      isActiveMenu,
+      isUserBadgeEnabled,
+      pathname,
+      t,
+    ],
   );
 
   return (
@@ -413,7 +425,9 @@ export const AdminNavigation = (): JSX.Element => {
             )}
             {isActiveMenu('/search') && <MenuLabel menu="search" />}
             {isActiveMenu('/audit-log') && <MenuLabel menu="audit-log" />}
-            {isActiveMenu('/badges') && <MenuLabel menu="badges" />}
+            {isUserBadgeEnabled && isActiveMenu('/badges') && (
+              <MenuLabel menu="badges" />
+            )}
             {isActiveMenu('/vault') && <MenuLabel menu="vault" />}
             {isActiveMenu('/nas-storage') && <MenuLabel menu="nas-storage" />}
             {isActiveMenu('/plugins') && <MenuLabel menu="plugins" />}

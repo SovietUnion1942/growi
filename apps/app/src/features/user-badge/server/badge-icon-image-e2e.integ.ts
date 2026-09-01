@@ -122,6 +122,12 @@ vi.mock('~/server/middlewares/add-activity', () => ({
     },
 }));
 
+// This file drives the real badge-type route end-to-end; keep its feature
+// gate open (the config default is OFF).
+vi.mock('./is-user-badge-enabled', () => ({
+  isUserBadgeEnabled: () => true,
+}));
+
 function withApiV3Helpers(app: express.Express) {
   app.use((_req, res, next) => {
     (res as unknown as ApiV3Response).apiv3 = (body: unknown, status = 200) =>

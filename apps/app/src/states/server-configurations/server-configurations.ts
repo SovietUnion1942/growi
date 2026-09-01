@@ -48,6 +48,13 @@ export const pwaEnabledAtom = atom<boolean>(false);
 export const pushNotificationEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atom for the user-badge feature switch (`app:userBadgeEnabled`). Defaults
+ * false. Gates badge display, the /me and admin badge UI, and the badge-type
+ * catalog fetch.
+ */
+export const userBadgeEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

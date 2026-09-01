@@ -1,10 +1,12 @@
 import { type JSX, Suspense, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'next-i18next';
 
 import { RecentActivity } from '~/client/components/RecentActivity/RecentActivity';
 import { RecentCreated } from '~/client/components/RecentCreated/RecentCreated';
 import { BadgeShelf } from '~/features/user-badge/client/components/BadgeShelf';
 import { useCurrentUser } from '~/states/global';
+import { userBadgeEnabledAtom } from '~/states/server-configurations';
 
 import { BookmarkFolderTree } from './Bookmarks/BookmarkFolderTree';
 import { ContributionGraph } from './ContributionGraph/ContributionGraph';
@@ -29,6 +31,7 @@ export const UsersHomepageFooter = (
   const { creatorId } = props;
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const currentUser = useCurrentUser();
+  const isUserBadgeEnabled = useAtomValue(userBadgeEnabledAtom);
   const isOperable = currentUser?._id === creatorId;
 
   return (
@@ -86,18 +89,24 @@ export const UsersHomepageFooter = (
         </Suspense>
       </div>
 
-      <h2
-        id={BADGE_SHELF_ID}
-        className="grw-user-page-header border-bottom pb-2 mb-3 d-flex"
-      >
-        <span className="material-symbols-outlined me-2">military_tech</span>
-        {t('user_home_page.badges')}
-      </h2>
-      <div>
-        <Suspense fallback={<div>Loading badges...</div>}>
-          <BadgeShelf userId={creatorId} />
-        </Suspense>
-      </div>
+      {isUserBadgeEnabled && (
+        <>
+          <h2
+            id={BADGE_SHELF_ID}
+            className="grw-user-page-header border-bottom pb-2 mb-3 d-flex"
+          >
+            <span className="material-symbols-outlined me-2">
+              military_tech
+            </span>
+            {t('user_home_page.badges')}
+          </h2>
+          <div>
+            <Suspense fallback={<div>Loading badges...</div>}>
+              <BadgeShelf userId={creatorId} />
+            </Suspense>
+          </div>
+        </>
+      )}
 
       <div className="grw-user-page-list-m mt-5 d-edit-none">
         <h2

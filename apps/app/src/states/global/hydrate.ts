@@ -9,6 +9,8 @@ import {
   messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
+  pushNotificationEnabledAtom,
+  pwaEnabledAtom,
 } from '~/states/server-configurations';
 import { createAtomTuple } from '~/utils/jotai-utils';
 
@@ -78,6 +80,11 @@ export const useHydrateGlobalInitialAtoms = (
           createAtomTuple(
             aiVisionEnabledAtom,
             commonInitialProps.aiVisionEnabled,
+          ),
+          createAtomTuple(pwaEnabledAtom, commonInitialProps.pwaEnabled),
+          createAtomTuple(
+            pushNotificationEnabledAtom,
+            commonInitialProps.pushNotificationEnabled,
           ),
         ];
 

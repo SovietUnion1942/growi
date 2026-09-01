@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'next-i18next';
 
 import { apiv3Delete, apiv3Get, apiv3Put } from '~/client/util/apiv3-client';
 import { toastError, toastSuccess } from '~/client/util/toastr';
 import { useCurrentUser } from '~/states/global';
+import {
+  pushNotificationEnabledAtom,
+  pwaEnabledAtom,
+} from '~/states/server-configurations';
 
 // VAPID公開鍵(Base64URL文字列)をpushManager.subscribeが要求するUint8Arrayに変換する
 const urlBase64ToUint8Array = (
@@ -163,6 +168,9 @@ export const usePushNotificationSubscription =
 // permanently), so this only ever prompts once per browser/user.
 export const useAutoRequestPushNotificationPermission = (): void => {
   const currentUser = useCurrentUser();
+  const isPwaEnabled = useAtomValue(pwaEnabledAtom);
+  const isPushEnabled = useAtomValue(pushNotificationEnabledAtom);
+  const isEnabled = isPwaEnabled && isPushEnabled;
   const { supportState, subscribe } = usePushNotificationSubscription();
 
   // Read Notification.permission directly rather than the `permission` state
@@ -175,10 +183,11 @@ export const useAutoRequestPushNotificationPermission = (): void => {
   // most once per mount, driven only by "did the user log in"
   // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
+    if (!isEnabled) return;
     if (currentUser == null) return;
     if (supportState !== 'supported') return;
     if (Notification.permission !== 'default') return;
 
     subscribe({ silent: true });
-  }, [currentUser]);
+  }, [currentUser, isEnabled]);
 };

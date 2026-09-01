@@ -61,6 +61,8 @@ export const CONFIG_KEYS = [
   'app:aiEnabled',
   'app:messagesMode',
   'app:messagesImageUploadEnabled',
+  'app:pwaEnabled',
+  'app:pushNotificationEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -486,6 +488,19 @@ export const CONFIG_DEFINITIONS = {
   'app:messagesImageUploadEnabled': defineConfig<boolean>({
     envVarName: 'MESSAGES_IMAGE_UPLOAD',
     defaultValue: true,
+  }),
+  // PWA: whether the web-app manifest is linked and the service worker is
+  // registered (makes the site installable + is the substrate push needs).
+  'app:pwaEnabled': defineConfig<boolean>({
+    envVarName: 'PWA_ENABLED',
+    defaultValue: false,
+  }),
+  // Web Push notifications. Only effective when app:pwaEnabled is on (needs
+  // the service worker) AND the VAPID_* env vars are set. OFF: no permission
+  // prompt, the /me push tab is hidden, and the server sends nothing.
+  'app:pushNotificationEnabled': defineConfig<boolean>({
+    envVarName: 'PUSH_NOTIFICATION',
+    defaultValue: false,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({
     envVarName: 'PUBLISH_OPEN_API',

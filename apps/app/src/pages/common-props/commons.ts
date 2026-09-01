@@ -33,6 +33,8 @@ export type CommonInitialProps = {
   messagesMode: MessagesMode;
   messagesImageUploadEnabled: boolean;
   aiVisionEnabled: boolean;
+  pwaEnabled: boolean;
+  pushNotificationEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -95,6 +97,13 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // attachment. Enforcement is server-side (post-message strips image
       // parts); this only hides a useless affordance.
       aiVisionEnabled: configManager.getConfig('ai:vision'),
+      // app:pwaEnabled — manifest link (_document) + service-worker
+      // registration (_app). app:pushNotificationEnabled — post-login
+      // permission prompt + the /me push tab (also needs pwaEnabled).
+      pwaEnabled: configManager.getConfig('app:pwaEnabled'),
+      pushNotificationEnabled: configManager.getConfig(
+        'app:pushNotificationEnabled',
+      ),
     } satisfies CommonInitialProps,
   };
 };

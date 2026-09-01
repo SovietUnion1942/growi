@@ -8,6 +8,8 @@ import {
   messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
+  pushNotificationEnabledAtom,
+  pwaEnabledAtom,
 } from '~/states/server-configurations';
 
 import { useHydrateGlobalInitialAtoms } from './hydrate';
@@ -28,6 +30,8 @@ const baseProps: CommonInitialProps = {
   messagesMode: 'off',
   messagesImageUploadEnabled: true,
   aiVisionEnabled: false,
+  pwaEnabled: false,
+  pushNotificationEnabled: false,
 };
 
 const NasStorageEnabledProbe = ({
@@ -133,5 +137,36 @@ describe('useHydrateGlobalInitialAtoms - aiVisionEnabledAtom', () => {
       </Provider>,
     );
     expect(screen.getByTestId('value')).toHaveTextContent('true');
+  });
+});
+
+const PwaPushProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  return (
+    <span data-testid="value">
+      {String(useAtomValue(pwaEnabledAtom))}/
+      {String(useAtomValue(pushNotificationEnabledAtom))}
+    </span>
+  );
+};
+
+describe('useHydrateGlobalInitialAtoms - pwa / push atoms', () => {
+  it('hydrates both from the server props', () => {
+    render(
+      <Provider>
+        <PwaPushProbe
+          commonInitialProps={{
+            ...baseProps,
+            pwaEnabled: true,
+            pushNotificationEnabled: true,
+          }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('true/true');
   });
 });

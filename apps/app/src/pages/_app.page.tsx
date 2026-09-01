@@ -5,7 +5,7 @@ import type { AppContext, AppProps } from 'next/app';
 import App from 'next/app';
 import { useRouter } from 'next/router';
 import type { Locale } from '@growi/core/dist/interfaces';
-import { Provider } from 'jotai';
+import { Provider, useAtomValue } from 'jotai';
 import { appWithTranslation } from 'next-i18next';
 import { SWRConfig } from 'swr';
 
@@ -17,6 +17,7 @@ import {
   useHydrateGlobalEachAtoms,
   useHydrateGlobalInitialAtoms,
 } from '~/states/global/hydrate';
+import { pwaEnabledAtom } from '~/states/server-configurations';
 import { useAutoRequestPushNotificationPermission } from '~/stores/push-notification';
 import loggerFactory from '~/utils/logger';
 import { swrGlobalConfiguration } from '~/utils/swr-utils';
@@ -107,13 +108,14 @@ const GrowiAppSubstance = ({
     import('bootstrap/dist/js/bootstrap');
   }, []);
 
+  const isPwaEnabled = useAtomValue(pwaEnabledAtom);
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if (isPwaEnabled && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
         logger.error('Service Worker registration failed:', err);
       });
     }
-  }, []);
+  }, [isPwaEnabled]);
 
   // ask for push notification permission once, right after login, instead
   // of waiting for the user to opt in from personal settings

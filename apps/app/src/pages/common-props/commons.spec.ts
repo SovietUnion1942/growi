@@ -163,6 +163,34 @@ describe('getServerSideCommonInitialProps - aiVisionEnabled supply', () => {
   });
 });
 
+describe('getServerSideCommonInitialProps - PWA / push supply', () => {
+  it('mirrors app:pwaEnabled', async () => {
+    const req = mockDeep<CrowiRequest>();
+    req.crowi.configManager.getConfig.mockImplementation((k) =>
+      k === 'app:pwaEnabled' ? true : undefined,
+    );
+    const context = mock<GetServerSidePropsContext>({
+      req: req as unknown as GetServerSidePropsContext['req'],
+    });
+    const result = await getServerSideCommonInitialProps(context);
+    if (!('props' in result)) throw new Error('expected a props result');
+    expect((await result.props).pwaEnabled).toBe(true);
+  });
+
+  it('mirrors app:pushNotificationEnabled', async () => {
+    const req = mockDeep<CrowiRequest>();
+    req.crowi.configManager.getConfig.mockImplementation((k) =>
+      k === 'app:pushNotificationEnabled' ? true : undefined,
+    );
+    const context = mock<GetServerSidePropsContext>({
+      req: req as unknown as GetServerSidePropsContext['req'],
+    });
+    const result = await getServerSideCommonInitialProps(context);
+    if (!('props' in result)) throw new Error('expected a props result');
+    expect((await result.props).pushNotificationEnabled).toBe(true);
+  });
+});
+
 describe('getServerSideCommonInitialProps - aiEnabled supply', () => {
   it('supplies aiEnabled=true when AI is ready (enabled && configured)', async () => {
     expect(await getAiEnabledProp(true)).toBe(true);

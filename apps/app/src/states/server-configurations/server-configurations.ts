@@ -38,6 +38,16 @@ export const messagesImageUploadEnabledAtom = atom<boolean>(true);
 export const aiVisionEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atoms for the PWA / Web Push feature switches (`app:pwaEnabled` /
+ * `app:pushNotificationEnabled`). Both default false, matching the server.
+ * `pwaEnabled` gates service-worker registration; `pushNotificationEnabled`
+ * gates the post-login permission prompt and the /me push tab and is only
+ * meaningful when `pwaEnabled` is also true.
+ */
+export const pwaEnabledAtom = atom<boolean>(false);
+export const pushNotificationEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

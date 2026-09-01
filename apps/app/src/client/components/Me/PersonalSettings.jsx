@@ -1,5 +1,11 @@
 import React, { useMemo } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'next-i18next';
+
+import {
+  pushNotificationEnabledAtom,
+  pwaEnabledAtom,
+} from '~/states/server-configurations';
 
 import CustomNavAndContents from '../CustomNavigation/CustomNavAndContents';
 import ApiSettings from './ApiSettings';
@@ -77,6 +83,10 @@ const OtherSettingsIcon = () => (
 const PersonalSettings = () => {
   const { t } = useTranslation();
 
+  const isPwaEnabled = useAtomValue(pwaEnabledAtom);
+  const isPushEnabled = useAtomValue(pushNotificationEnabledAtom);
+  const isPushNotificationEnabled = isPwaEnabled && isPushEnabled;
+
   const navTabMapping = useMemo(() => {
     return {
       user_infomation: {
@@ -114,13 +124,17 @@ const PersonalSettings = () => {
         Content: OtherSettings,
         i18n: t('Other Settings'),
       },
-      push_notification_settings: {
-        Icon: PushNotificationSettingsIcon,
-        Content: PushNotificationSettings,
-        i18n: t('push_notification_settings.push_notification_settings'),
-      },
+      ...(isPushNotificationEnabled
+        ? {
+            push_notification_settings: {
+              Icon: PushNotificationSettingsIcon,
+              Content: PushNotificationSettings,
+              i18n: t('push_notification_settings.push_notification_settings'),
+            },
+          }
+        : {}),
     };
-  }, [t]);
+  }, [t, isPushNotificationEnabled]);
 
   const getDefaultTabIndex = () => {
     // e.g) '/me#password_settings' sets password settings tab as default

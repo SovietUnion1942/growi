@@ -3,6 +3,7 @@ import webpush from 'web-push';
 import loggerFactory from '~/utils/logger';
 
 import PushSubscription from '../models/push-subscription';
+import { configManager } from './config-manager';
 
 const logger = loggerFactory('growi:service:push-notification');
 
@@ -44,6 +45,12 @@ export const sendPushNotificationToUser = async (
   userId: string,
   payload: PushNotificationPayload,
 ): Promise<{ sent: number; failed: number }> => {
+  // Feature gate (app:pushNotificationEnabled): even with VAPID configured,
+  // an operator can turn push delivery off entirely.
+  if (!configManager.getConfig('app:pushNotificationEnabled')) {
+    return { sent: 0, failed: 0 };
+  }
+
   configureWebPushOnce();
 
   if (!isConfigured) {

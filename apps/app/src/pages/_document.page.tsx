@@ -48,6 +48,7 @@ interface GrowiDocumentProps {
   customNoscript: string | undefined;
   pluginResourceEntries: GrowiPluginResourceEntries;
   locale: Locale;
+  pwaEnabled: boolean;
 }
 declare type GrowiDocumentInitialProps = DocumentInitialProps &
   GrowiDocumentProps;
@@ -77,6 +78,8 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
 
     const locale = getLocaleAtServerSide(req);
 
+    const pwaEnabled = crowi.configManager.getConfig('app:pwaEnabled');
+
     return {
       ...initialProps,
       themeHref,
@@ -85,6 +88,7 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
       customNoscript,
       pluginResourceEntries,
       locale,
+      pwaEnabled,
     };
   }
 
@@ -129,6 +133,7 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
       themeHref,
       pluginResourceEntries,
       locale,
+      pwaEnabled,
     } = this.props;
 
     return (
@@ -138,7 +143,7 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
           <link rel="stylesheet" key="link-theme" href={themeHref} />
           <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <link rel="alternate icon" href="/favicon.ico" />
-          <link rel="manifest" href="/manifest.json" />
+          {pwaEnabled && <link rel="manifest" href="/manifest.json" />}
           <HeadersForGrowiPlugin
             pluginResourceEntries={pluginResourceEntries}
           />

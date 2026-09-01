@@ -4,6 +4,7 @@ import type { Request, RequestHandler } from 'express';
 
 import type Crowi from '~/server/crowi';
 import loginRequiredFactory from '~/server/middlewares/login-required';
+import { configManager } from '~/server/service/config-manager';
 import loggerFactory from '~/utils/logger';
 
 import PushSubscription from '../../../models/push-subscription';
@@ -29,6 +30,15 @@ export const getVapidPublicKeyHandlerFactory = (
   return [
     loginRequiredStrictly,
     async (req: AuthedRequest, res: ApiV3Response) => {
+      if (!configManager.getConfig('app:pushNotificationEnabled')) {
+        return res.apiv3Err(
+          new ErrorV3(
+            'Push notifications are disabled',
+            'push-notification-disabled',
+          ),
+          404,
+        );
+      }
       const publicKey = process.env.VAPID_PUBLIC_KEY;
       if (publicKey == null) {
         return res.apiv3Err(

@@ -1,5 +1,6 @@
 import loggerFactory from '~/utils/logger';
 
+import { isWikiGapSuggestionsEnabled } from '../is-wiki-gap-suggestions-enabled';
 import WikiGapQuery from '../models/wiki-gap-query-model';
 import { normalizeSearchQuery } from './normalize-search-query';
 
@@ -14,6 +15,10 @@ const logger = loggerFactory(
  * response to the user. Never records who asked.
  */
 export const recordNoResultSearch = async (rawQuery: string): Promise<void> => {
+  if (!isWikiGapSuggestionsEnabled()) {
+    return;
+  }
+
   const normalizedQuery = normalizeSearchQuery(rawQuery);
   if (normalizedQuery.length === 0) {
     return;

@@ -11,6 +11,7 @@ vi.mock('~/utils/logger', () => ({
 
 const mocks = vi.hoisted(() => ({
   findOneAndUpdate: vi.fn(),
+  enabled: { value: true },
 }));
 
 vi.mock('../models/wiki-gap-query-model', () => ({
@@ -18,11 +19,15 @@ vi.mock('../models/wiki-gap-query-model', () => ({
     findOneAndUpdate: mocks.findOneAndUpdate,
   },
 }));
+vi.mock('../is-wiki-gap-suggestions-enabled', () => ({
+  isWikiGapSuggestionsEnabled: () => mocks.enabled.value,
+}));
 
 import { recordNoResultSearch } from './record-no-result-search';
 
 describe('recordNoResultSearch', () => {
   beforeEach(() => {
+    mocks.enabled.value = true;
     mocks.findOneAndUpdate.mockReset();
     mocks.findOneAndUpdate.mockReturnValue({
       exec: vi.fn().mockResolvedValue(undefined),
@@ -53,5 +58,13 @@ describe('recordNoResultSearch', () => {
     });
 
     await expect(recordNoResultSearch('physics')).resolves.toBeUndefined();
+  });
+
+  it('records nothing when the feature is disabled', async () => {
+    mocks.enabled.value = false;
+
+    await recordNoResultSearch('physics');
+
+    expect(mocks.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });

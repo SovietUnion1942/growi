@@ -55,6 +55,13 @@ export const pushNotificationEnabledAtom = atom<boolean>(false);
 export const userBadgeEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atom for the wiki-gap-suggestions feature switch
+ * (`app:wikiGapSuggestionsEnabled`). Defaults false. Gates the
+ * :::wiki-gap-suggestions page viewer and the AI-chat gap suggestion chips.
+ */
+export const wikiGapSuggestionsEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

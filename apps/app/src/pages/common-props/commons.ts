@@ -36,6 +36,7 @@ export type CommonInitialProps = {
   pwaEnabled: boolean;
   pushNotificationEnabled: boolean;
   userBadgeEnabled: boolean;
+  wikiGapSuggestionsEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -108,6 +109,11 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // app:userBadgeEnabled — hides the admin badge section, all badge
       // display and the badge-type catalog fetch when off.
       userBadgeEnabled: configManager.getConfig('app:userBadgeEnabled'),
+      // app:wikiGapSuggestionsEnabled — the :::wiki-gap-suggestions viewer
+      // and the AI-chat gap chips render nothing when off.
+      wikiGapSuggestionsEnabled: configManager.getConfig(
+        'app:wikiGapSuggestionsEnabled',
+      ),
     } satisfies CommonInitialProps,
   };
 };

@@ -64,6 +64,7 @@ export const CONFIG_KEYS = [
   'app:pwaEnabled',
   'app:pushNotificationEnabled',
   'app:userBadgeEnabled',
+  'app:wikiGapSuggestionsEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -509,6 +510,14 @@ export const CONFIG_DEFINITIONS = {
   // section and all badge UI are hidden.
   'app:userBadgeEnabled': defineConfig<boolean>({
     envVarName: 'USER_BADGE',
+    defaultValue: false,
+  }),
+  // Wiki-gap suggestions ("no-results ranking"): log queries the AI agent's
+  // wiki search found nothing for, and surface the aggregated ranking on
+  // pages via the :::wiki-gap-suggestions directive. OFF: nothing is logged,
+  // the report route 404s, and the viewer renders nothing.
+  'app:wikiGapSuggestionsEnabled': defineConfig<boolean>({
+    envVarName: 'WIKI_GAP_SUGGESTIONS',
     defaultValue: false,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({

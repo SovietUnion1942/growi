@@ -11,6 +11,7 @@ import {
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
   userBadgeEnabledAtom,
+  wikiGapSuggestionsEnabledAtom,
 } from '~/states/server-configurations';
 
 import { useHydrateGlobalInitialAtoms } from './hydrate';
@@ -34,6 +35,7 @@ const baseProps: CommonInitialProps = {
   pwaEnabled: false,
   pushNotificationEnabled: false,
   userBadgeEnabled: false,
+  wikiGapSuggestionsEnabled: false,
 };
 
 const NasStorageEnabledProbe = ({
@@ -192,6 +194,35 @@ describe('useHydrateGlobalInitialAtoms - userBadgeEnabledAtom', () => {
       <Provider>
         <UserBadgeProbe
           commonInitialProps={{ ...baseProps, userBadgeEnabled: true }}
+        />
+      </Provider>,
+    );
+    expect(screen.getByTestId('value')).toHaveTextContent('true');
+  });
+});
+
+const WikiGapProbe = ({
+  commonInitialProps,
+}: {
+  commonInitialProps: CommonInitialProps;
+}) => {
+  useHydrateGlobalInitialAtoms(commonInitialProps);
+  return (
+    <span data-testid="value">
+      {String(useAtomValue(wikiGapSuggestionsEnabledAtom))}
+    </span>
+  );
+};
+
+describe('useHydrateGlobalInitialAtoms - wikiGapSuggestionsEnabledAtom', () => {
+  it('hydrates from the server prop', () => {
+    render(
+      <Provider>
+        <WikiGapProbe
+          commonInitialProps={{
+            ...baseProps,
+            wikiGapSuggestionsEnabled: true,
+          }}
         />
       </Provider>,
     );

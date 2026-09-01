@@ -1,3 +1,4 @@
+import { ErrorV3 } from '@growi/core/dist/models';
 import type { Request, Router } from 'express';
 import express from 'express';
 
@@ -6,6 +7,7 @@ import loginRequiredFactory from '~/server/middlewares/login-required';
 import type { ApiV3Response } from '~/server/routes/apiv3/interfaces/apiv3-response';
 
 import type { WikiGapSuggestion } from '../../interfaces/wiki-gap-suggestion';
+import { isWikiGapSuggestionsEnabled } from '../is-wiki-gap-suggestions-enabled';
 import WikiGapQuery from '../models/wiki-gap-query-model';
 
 const DEFAULT_LIMIT = 20;
@@ -20,6 +22,20 @@ const router = express.Router();
  */
 export const setup = (crowi: Crowi): Router => {
   const loginRequiredStrictly = loginRequiredFactory(crowi);
+
+  // Feature gate (app:wikiGapSuggestionsEnabled): every route below 404s.
+  router.use((_req, res: ApiV3Response, next) => {
+    if (!isWikiGapSuggestionsEnabled()) {
+      return res.apiv3Err(
+        new ErrorV3(
+          'Wiki-gap suggestions are disabled',
+          'wiki-gap-suggestions-disabled',
+        ),
+        404,
+      );
+    }
+    next();
+  });
 
   router.get(
     '/',

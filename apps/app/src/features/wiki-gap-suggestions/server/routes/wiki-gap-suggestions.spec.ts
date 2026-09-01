@@ -26,6 +26,11 @@ vi.mock('../models/wiki-gap-query-model', () => ({
   default: { find: findMock },
 }));
 
+const enabled = vi.hoisted(() => ({ value: true }));
+vi.mock('../is-wiki-gap-suggestions-enabled', () => ({
+  isWikiGapSuggestionsEnabled: () => enabled.value,
+}));
+
 import { setup } from './wiki-gap-suggestions';
 
 function withApiV3Helpers(app: express.Express) {
@@ -71,6 +76,14 @@ describe('/wiki-gap-suggestions route', () => {
   beforeEach(() => {
     currentUser = { _id: 'user-1' };
     findMock.mockReset();
+    enabled.value = true;
+  });
+
+  it('404s when the feature is disabled', async () => {
+    enabled.value = false;
+    const res = await request(buildApp()).get('/_api/v3/wiki-gap-suggestions');
+    expect(res.status).toBe(404);
+    expect(findMock).not.toHaveBeenCalled();
   });
 
   it('returns 401 when not logged in', async () => {

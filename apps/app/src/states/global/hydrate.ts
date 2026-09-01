@@ -12,6 +12,7 @@ import {
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
   userBadgeEnabledAtom,
+  wikiGapSuggestionsEnabledAtom,
 } from '~/states/server-configurations';
 import { createAtomTuple } from '~/utils/jotai-utils';
 
@@ -90,6 +91,10 @@ export const useHydrateGlobalInitialAtoms = (
           createAtomTuple(
             userBadgeEnabledAtom,
             commonInitialProps.userBadgeEnabled,
+          ),
+          createAtomTuple(
+            wikiGapSuggestionsEnabledAtom,
+            commonInitialProps.wikiGapSuggestionsEnabled,
           ),
         ];
 

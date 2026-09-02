@@ -62,6 +62,12 @@ export const userBadgeEnabledAtom = atom<boolean>(false);
 export const wikiGapSuggestionsEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atom for the board feature switch (`app:boardEnabled`). Defaults false.
+ * Gates the `:board` page directive viewer and the `/board/*` editor pages.
+ */
+export const boardEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

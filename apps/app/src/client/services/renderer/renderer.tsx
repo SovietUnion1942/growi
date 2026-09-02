@@ -21,6 +21,7 @@ import { Header } from '~/client/components/ReactMarkdownComponents/Header';
 import { LightBox } from '~/client/components/ReactMarkdownComponents/LightBox';
 import { RichAttachment } from '~/client/components/ReactMarkdownComponents/RichAttachment';
 import { TableWithEditButton } from '~/client/components/ReactMarkdownComponents/TableWithEditButton';
+import * as board from '~/features/board';
 import * as callout from '~/features/callout';
 import {
   remarkPlugin as mermaidRemarkPlugin,
@@ -85,6 +86,7 @@ export const generateViewOptions = (
     lsxGrowiDirective.remarkPlugin,
     refsGrowiDirective.remarkPlugin,
     wikiGapSuggestions.remarkPlugin,
+    board.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -106,6 +108,7 @@ export const generateViewOptions = (
             refsGrowiDirective.sanitizeOption,
             codeBlock.sanitizeOption,
             wikiGapSuggestions.sanitizeOption,
+            board.sanitizeOption,
           ),
         ]
       : () => {};
@@ -148,6 +151,7 @@ export const generateViewOptions = (
     components.attachment = RichAttachment;
     components.img = LightBox;
     components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
+    components.board = board.BoardViewer;
   }
 
   if (config.isEnabledXssPrevention) {
@@ -379,6 +383,7 @@ export const generatePreviewOptions = (
     lsxGrowiDirective.remarkPlugin,
     refsGrowiDirective.remarkPlugin,
     wikiGapSuggestions.remarkPlugin,
+    board.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -400,6 +405,7 @@ export const generatePreviewOptions = (
             addLineNumberAttribute.sanitizeOption,
             codeBlock.sanitizeOption,
             wikiGapSuggestions.sanitizeOption,
+            board.sanitizeOption,
           ),
         ]
       : () => {};
@@ -434,6 +440,7 @@ export const generatePreviewOptions = (
     components.attachment = RichAttachment;
     components.img = LightBox;
     components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
+    components.board = board.BoardViewer;
   }
 
   if (config.isEnabledXssPrevention) {

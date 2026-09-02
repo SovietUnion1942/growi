@@ -65,6 +65,7 @@ export const CONFIG_KEYS = [
   'app:pushNotificationEnabled',
   'app:userBadgeEnabled',
   'app:wikiGapSuggestionsEnabled',
+  'app:boardEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -518,6 +519,15 @@ export const CONFIG_DEFINITIONS = {
   // the report route 404s, and the viewer renders nothing.
   'app:wikiGapSuggestionsEnabled': defineConfig<boolean>({
     envVarName: 'WIKI_GAP_SUGGESTIONS',
+    defaultValue: false,
+  }),
+  // Miro-like infinite-canvas board feature. Boards are independent of wiki
+  // pages: a page embeds one with the `:board{id=...}` directive, which only
+  // frames the standalone `/board/{id}` editor. OFF: the `/board/*` pages
+  // 404, the directive renders nothing, and the board Yjs namespace is not
+  // registered.
+  'app:boardEnabled': defineConfig<boolean>({
+    envVarName: 'BOARD_MODE',
     defaultValue: false,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({

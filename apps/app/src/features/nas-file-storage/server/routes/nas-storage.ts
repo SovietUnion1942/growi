@@ -333,7 +333,10 @@ export const setupNasStorage = (
     res.apiv3(result.value, 201);
   });
 
-  router.patch('/entries', async (req: Request, res: ApiV3Response) => {
+  // PUT, not PATCH — GROWI's global csrf middleware does not exempt PATCH
+  // (see the /uploads/:uploadId note below), so a PATCH here 403s before the
+  // handler runs. Rename / move is "replace the entry's path".
+  router.put('/entries', async (req: Request, res: ApiV3Response) => {
     const from = asString(req.body?.from);
     const to = asString(req.body?.to);
     if (from == null || to == null) {
@@ -411,7 +414,12 @@ export const setupNasStorage = (
     res.apiv3(result.value, 201);
   });
 
-  router.patch(
+  // PUT, not PATCH, for the chunk append: GROWI's global csrf middleware
+  // (crowi/express-init) has `ignoreMethods: [GET, HEAD, OPTIONS, PUT, POST,
+  // DELETE]` — PATCH is enforced, so a PATCH here 403s with "invalid csrf
+  // token" before reaching this handler. Every other NAS route already uses an
+  // exempt method.
+  router.put(
     '/uploads/:uploadId',
     async (req: NasRequest, res: ApiV3Response) => {
       const range = parseContentRange(req.headers['content-range']);

@@ -10,7 +10,7 @@ import { NasRequestError, nasApiRequest } from './use-nas-list';
 /**
  * Files at or below this size go through the ordinary single-shot `POST /files`
  * path; larger files are sliced and streamed via the chunked-upload protocol
- * (`POST /uploads` -> sequential `PATCH /uploads/:id` -> `POST
+ * (`POST /uploads` -> sequential `PUT /uploads/:id` -> `POST
  * /uploads/:id/complete`). The default (90 MiB) stays safely inside a typical
  * 100 MiB reverse-proxy / CDN request-body limit. Exported so the dropzone
  * (task 11.5) picks the same threshold when routing each queued file.
@@ -89,7 +89,7 @@ export const useNasChunkedUpload = (
             const end = Math.min(offset + chunkSize, totalBytes);
             const blob = file.slice(offset, end);
             // biome-ignore lint/performance/noAwaitInLoops: chunks MUST be sent sequentially -- the server accepts a PATCH only when its Content-Range start equals the bytes received so far (design: "Content-Range 逐次追記").
-            await nasApiRequest<void>('patch', `/uploads/${uploadId}`, {
+            await nasApiRequest<void>('put', `/uploads/${uploadId}`, {
               data: blob,
               headers: {
                 'Content-Range': `bytes ${offset}-${end - 1}/${totalBytes}`,

@@ -33,7 +33,7 @@ addCustomFunctionToResponse(express);
  * scenarios the task-3.x suites did not already assert:
  *   - `DELETE /entries` on a non-empty folder WITHOUT `recursive` -> 409, and
  *     WITH `recursive=true` -> 200 + the folder is gone (API contract / Req 5.3)
- *   - `PATCH /entries` (move) with an out-of-root `from` or `to` -> 422 (Req 3.5)
+ *   - `PUT /entries` (move) with an out-of-root `from` or `to` -> 422 (Req 3.5)
  *   - `POST /folders` with an out-of-root `parentDir` -> 422 (Req 3.5)
  *   - `nasAccess` is applied uniformly to every method, not just GET: a write
  *     method (POST/PATCH/DELETE) unauthenticated -> 401, and a logged-in
@@ -148,26 +148,26 @@ describe('setupNasStorage router — task 6.1 coverage gaps', () => {
   });
 
   describe('out-of-root paths on write methods -> 422 (Req 3.5)', () => {
-    it('rejects PATCH /entries when `from` escapes the root', async () => {
+    it('rejects PUT /entries when `from` escapes the root', async () => {
       const root = await newRoot();
       currentUser = await seedUser('move-from-probe');
       const app = await buildReadyApp(root);
 
       const res = await request(app)
-        .patch('/_api/v3/nas-storage/entries')
+        .put('/_api/v3/nas-storage/entries')
         .send({ from: '../../etc/passwd', to: '/passwd' });
 
       expect(res.status).toBe(422);
     });
 
-    it('rejects PATCH /entries when `to` escapes the root', async () => {
+    it('rejects PUT /entries when `to` escapes the root', async () => {
       const root = await newRoot();
       await writeFile(path.join(root, 'src.txt'), 'x');
       currentUser = await seedUser('move-to-probe');
       const app = await buildReadyApp(root);
 
       const res = await request(app)
-        .patch('/_api/v3/nas-storage/entries')
+        .put('/_api/v3/nas-storage/entries')
         .send({ from: '/src.txt', to: '../../escape.txt' });
 
       expect(res.status).toBe(422);
@@ -190,7 +190,7 @@ describe('setupNasStorage router — task 6.1 coverage gaps', () => {
   describe('nasAccess is enforced on every method, not just GET (Req 6.2)', () => {
     it.each([
       ['post', '/_api/v3/nas-storage/folders', { parentDir: '/', name: 'd' }],
-      ['patch', '/_api/v3/nas-storage/entries', { from: '/a', to: '/b' }],
+      ['put', '/_api/v3/nas-storage/entries', { from: '/a', to: '/b' }],
     ] as const)('unauthenticated %s %s -> 401', async (method, url, body) => {
       const root = await newRoot();
       const app = await buildReadyApp(root);

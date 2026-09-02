@@ -77,7 +77,7 @@ describe('useNasChunkedUpload', () => {
       if (cfg.url.endsWith('/nas-storage/uploads') && cfg.method === 'post') {
         return Promise.resolve({ data: { uploadId: 'u1', chunkSize: 8 } });
       }
-      if (cfg.url.endsWith('/uploads/u1') && cfg.method === 'patch') {
+      if (cfg.url.endsWith('/uploads/u1') && cfg.method === 'put') {
         return Promise.resolve({ status: 204, data: undefined });
       }
       if (cfg.url.endsWith('/uploads/u1/complete')) {
@@ -169,7 +169,7 @@ describe('useNasChunkedUpload', () => {
       if (cfg.url.endsWith('/nas-storage/uploads') && cfg.method === 'post') {
         return Promise.resolve({ data: { uploadId: 'u1', chunkSize: 8 } });
       }
-      if (cfg.method === 'patch') {
+      if (cfg.method === 'put') {
         return Promise.reject(rejectWith('STORAGE_UNAVAILABLE'));
       }
       if (cfg.method === 'delete') {
@@ -184,7 +184,7 @@ describe('useNasChunkedUpload', () => {
     ).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
 
     expect(
-      callsTo('/uploads/u1').filter((c) => c.method === 'patch'),
+      callsTo('/uploads/u1').filter((c) => c.method === 'put'),
     ).toHaveLength(1); // stopped after the first
     const deletes = request.mock.calls
       .map((c) => c[0] as Call)
@@ -203,7 +203,7 @@ describe('useNasChunkedUpload', () => {
           data: { uploadId: `u${beginCount}`, chunkSize: 8 },
         });
       }
-      if (cfg.method === 'patch') {
+      if (cfg.method === 'put') {
         if (cfg.url.endsWith('/uploads/u1')) {
           return Promise.reject(rejectWith('CHUNK_OUT_OF_ORDER'));
         }
@@ -235,7 +235,7 @@ describe('useNasChunkedUpload', () => {
       if (cfg.url.endsWith('/nas-storage/uploads') && cfg.method === 'post') {
         return Promise.resolve({ data: { uploadId: 'u1', chunkSize: 8 } });
       }
-      if (cfg.method === 'patch') {
+      if (cfg.method === 'put') {
         return Promise.reject(rejectWith('CHUNK_OUT_OF_ORDER'));
       }
       if (cfg.method === 'delete') {
@@ -255,7 +255,7 @@ describe('useNasChunkedUpload', () => {
       if (cfg.url.endsWith('/nas-storage/uploads') && cfg.method === 'post') {
         return Promise.resolve({ data: { uploadId: 'u1', chunkSize: 8 } });
       }
-      if (cfg.method === 'patch') {
+      if (cfg.method === 'put') {
         return Promise.resolve({ status: 204, data: undefined });
       }
       if (cfg.url.endsWith('/uploads/u1/complete')) {

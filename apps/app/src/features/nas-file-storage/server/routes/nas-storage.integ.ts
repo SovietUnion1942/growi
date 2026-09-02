@@ -171,14 +171,14 @@ describe('setupNasStorage router (integration)', () => {
       expect(again.status).toBe(409);
     });
 
-    it('PATCH /entries renames an entry', async () => {
+    it('PUT /entries renames an entry', async () => {
       const root = await newRoot();
       await writeFile(path.join(root, 'old.txt'), 'x');
       currentUser = await seedUser('renamer');
       const app = await buildReadyApp(root);
 
       const res = await request(app)
-        .patch('/_api/v3/nas-storage/entries')
+        .put('/_api/v3/nas-storage/entries')
         .send({ from: '/old.txt', to: '/new.txt' });
 
       expect(res.status).toBe(200);
@@ -262,7 +262,7 @@ describe('setupNasStorage router (integration)', () => {
       ['get', '/_api/v3/nas-storage/entries'],
       ['get', '/_api/v3/nas-storage/file'],
       ['post', '/_api/v3/nas-storage/folders'],
-      ['patch', '/_api/v3/nas-storage/entries'],
+      ['put', '/_api/v3/nas-storage/entries'],
       ['delete', '/_api/v3/nas-storage/entries'],
     ] as const)('%s %s -> 404', async (method, url) => {
       const res = await request(app)[method](url).send({});

@@ -65,7 +65,7 @@ export interface BeginChunkedUploadResponse {
   chunkSize: number;
 }
 
-/** Response body for `PATCH /api/v3/nas-storage/uploads/:uploadId`. */
+/** Response body for `PUT /api/v3/nas-storage/uploads/:uploadId`. */
 export interface AppendChunkResult {
   receivedBytes: number;
 }

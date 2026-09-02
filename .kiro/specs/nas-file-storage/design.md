@@ -200,7 +200,7 @@ apps/app/src/features/nas-file-storage/
     │   ├── use-nas-list.ts                   # SWR: paginated folder listing
     │   ├── use-nas-entry-actions.ts          # upload/mkdir/rename/move/delete mutations + confirm gating
     │   ├── use-nas-preview.ts                # preview modal open state + current entry + inline URL builder
-    │   ├── use-nas-chunked-upload.ts         # slice a File into <threshold chunks, sequential Content-Range PATCH, complete/abort
+    │   ├── use-nas-chunked-upload.ts         # slice a File into <threshold chunks, sequential Content-Range PUT, complete/abort
     │   └── use-nas-folder-upload.ts          # directory walk (showDirectoryPicker | webkitdirectory), batch orchestration with one conflict policy
     ├── components/
     │   ├── NasStorageBrowser.tsx             # main browser: breadcrumb + list + toolbar (+ preview trigger)
@@ -315,7 +315,7 @@ sequenceDiagram
     Reg-->>R: uploadId
     R-->>U: 201 uploadId chunkSize
     loop 各チャンク 順序どおり
-        U->>R: PATCH /uploads/:id  body chunk  Content-Range bytes start-end-total
+        U->>R: PUT /uploads/:id  body chunk  Content-Range bytes start-end-total
         R->>Reg: append uploadId userId start chunkStream
         Note over Reg: start not equal receivedBytes -> 409 CHUNK_OUT_OF_ORDER<br/>別ユーザー -> 403 / 不明な id -> 404
         Reg->>F: appendChunk to .part with O_APPEND
@@ -387,7 +387,7 @@ sequenceDiagram
 | 9.5 | テキストは一定サイズで先頭打ち切り＋DL 誘導 | NasPreviewModal（`Range: bytes=0-N` 要求）, nas-storage route（206）| `Content-Range` 総サイズ比較 | ファイル配信 |
 | 9.6 | スクリプト実行可能形式はブラウザ内実行させず DL 扱い | nas-content-disposition（svg/html/xml/js → attachment 強制）, CSP ヘッダ | — | ファイル配信 |
 | 9.7 | フォルダ/不存在/範囲外のプレビュー拒否 | FsNasFileStore.resolveContentPath, normalize-nas-error | `NasErrorCode in {IS_DIRECTORY,NOT_FOUND,OUT_OF_ROOT}` | ファイル配信 |
-| 10.1 | 上限超の単一ファイルを分割受信し同一内容で保存 | ChunkedUploadRegistry, FsNasFileStore（.part append + moveIntoRoot）, use-nas-chunked-upload | `POST /uploads` → `PATCH /uploads/:id` → `POST /uploads/:id/complete` | 分割アップロード |
+| 10.1 | 上限超の単一ファイルを分割受信し同一内容で保存 | ChunkedUploadRegistry, FsNasFileStore（.part append + moveIntoRoot）, use-nas-chunked-upload | `POST /uploads` → `PUT /uploads/:id` → `POST /uploads/:id/complete` | 分割アップロード |
 | 10.2 | 全区間完了後にのみ最終状態にする（部分ファイルを見せない） | ChunkedUploadRegistry.complete, FsNasFileStore.moveIntoRoot, list の `.growi-nas-tmp` 除外 | — | 分割アップロード |
 | 10.3 | 中断時は部分データ破棄・中途半端なファイルを残さない | ChunkedUploadRegistry（abort / TTL sweep）, initializeNasFileStorage 起動時掃除 | `DELETE /uploads/:id` | 分割アップロード |
 | 10.4 | 再実行は最初からやり直し（途中再開なし） | ChunkedUploadRegistry（逐次 append・セッション再利用なし）, use-nas-chunked-upload | `CHUNK_OUT_OF_ORDER` → クライアント再試行 | 分割アップロード |
@@ -738,23 +738,30 @@ interface RootHealthChecker {
 
 ##### API Contract（`setupNasStorage`、すべて `nasAccess` 適用、ベース `/api/v3/nas-storage`）
 
+> **メソッド選定**: GROWI 本体の global csrf ミドルウェア（`crowi/express-init`）は
+> `ignoreMethods: [GET, HEAD, OPTIONS, PUT, POST, DELETE]` で **PATCH を除外していない**。
+> GROWI はクライアントに CSRF トークンを露出しておらず（`XSRF-TOKEN` cookie も張らない）、
+> かつ GROWI 自身に `PATCH` ルートは 1 本も無い。よって NAS ルートは全て csrf 免除メソッド
+> （GET / POST / PUT / DELETE）のみを使う。rename/move とチャンク追記は当初 `PATCH` 設計
+> だったが `PUT` に変更（本番で `403 invalid csrf token` になっていた）。
+
 | Method | Endpoint | Request | Response | Errors |
 |--------|----------|---------|----------|--------|
 | GET | `/entries?path=&cursor=&limit=&includeHidden=` | query | `NasListPage` | 400, 401, 403, 404 (`NOT_FOUND`), 409 (`TOO_MANY_ENTRIES` + `limitEntries`), 503 |
 | GET | `/file?path=&inline=` | query (+ optional `Range` header) | ファイル本体。`inline=1` かつ inline 可の種別なら `Content-Disposition: inline`、それ以外は `attachment`。`Content-Type`＝拡張子判定、`Content-Security-Policy` / `X-Content-Type-Options: nosniff` 付与。`Range` 指定時 206 + `Content-Range` | 401, 403, 404, 409 (`IS_DIRECTORY`), 416 (Range 不正、`res.sendFile` が返す), 422 (`OUT_OF_ROOT`), 503 |
 | POST | `/files` | multipart: `file`, `dir`, `name?`, `overwrite?` | `NasEntry` | 400, 401, 403, 409 (`CONFLICT` + `suggestedName`), 413 (`TOO_LARGE` + `limitBytes`), 422 (`OUT_OF_ROOT`), 503 |
 | POST | `/folders` | json: `{ parentDir, name }` | `NasEntry` | 400, 401, 403, 409, 422, 503 |
-| PATCH | `/entries` | json: `{ from, to, overwrite? }` | `NasEntry` | 400, 401, 403, 409, 422, 503 |
+| PUT | `/entries` | json: `{ from, to, overwrite? }` | `NasEntry` | 400, 401, 403, 409, 422, 503 |
 | DELETE | `/entries?path=&recursive=` | query | `{ ok: true }` | 400, 401, 403, 404, 409 (`NOT_A_DIRECTORY`/`recursive` 未指定でフォルダ), 422, 503 |
 | POST | `/uploads` | json: `{ dir, name, totalBytes, overwrite? }` | `{ uploadId, chunkSize }` | 400, 401, 403, 413 (`TOO_LARGE` + `limitBytes`), 422 (`OUT_OF_ROOT`), 503 |
-| PATCH | `/uploads/:uploadId` | raw body = chunk、`Content-Range: bytes start-end/total` | `204` (`{ receivedBytes }` を返してもよい) | 400 (Content-Range 不正), 401, 403 (別ユーザー), 404 (`UPLOAD_SESSION_NOT_FOUND`), 409 (`CHUNK_OUT_OF_ORDER`), 413, 503 |
+| PUT | `/uploads/:uploadId` | raw body = chunk、`Content-Range: bytes start-end/total` | `204` (`{ receivedBytes }` を返してもよい) | 400 (Content-Range 不正), 401, 403 (別ユーザー), 404 (`UPLOAD_SESSION_NOT_FOUND`), 409 (`CHUNK_OUT_OF_ORDER`), 413, 503 |
 | POST | `/uploads/:uploadId/complete` | — | `NasEntry` | 401, 403, 404, 409 (`CONFLICT` + `suggestedName`), 413, 422, 500 (`UNKNOWN`＝サイズ不一致), 503 |
 | DELETE | `/uploads/:uploadId` | — | `{ ok: true }` | 401, 403, 404, 503 |
 
 - Idempotency: `DELETE /entries` は対象不存在時 404（厳密）。`POST /folders` は既存時 409（非冪等、意図的）。`DELETE /uploads/:id` は不明 id でも 404、二重 abort は無害。
 - 上限検査: `POST /files` は `multer` の `limits.fileSize = NasStorageConfig.maxFileSize()` で弾き、超過を 413。`POST /uploads` は `totalBytes` を、`complete` は実 `receivedBytes` を同じ上限で検査（Req 10.5）。
 - 配信: `GET /file` は `NasStorageService.resolveContent` が返す絶対パスを `res.sendFile(absPath, { acceptRanges: true, cacheControl: false, lastModified: true, headers })` に渡す。ルートはパスを組み立てない。
-- 分割アップロードの逐次性: `PATCH /uploads/:id` は `Content-Range` の `start` が現在の `receivedBytes` と一致するときのみ受理。クライアントは順番に 1 チャンクずつ送る。
+- 分割アップロードの逐次性: `PUT /uploads/:id` は `Content-Range` の `start` が現在の `receivedBytes` と一致するときのみ受理。クライアントは順番に 1 チャンクずつ送る。
 - 無効時（`getStatus().state` が `ready`/`unavailable` 以外）: 全エンドポイント 404（Req 7.3）。
 
 ##### API Contract（`setupNasStorageAdmin`、`adminRequired` 適用、ベース `/api/v3/admin/nas-storage`）
@@ -773,7 +780,7 @@ interface RootHealthChecker {
 - Risks: 大量ファイルのドラッグ&ドロップは逐次 `POST /files`（並列度は小さく固定）。一覧は無限スクロールで `nextCursor` を追う。
 - Confirm: 削除・上書きを伴う移動は `NasConfirmDialog` を必ず経由（Req 5.6）。
 - Preview（Req 9）: `NasEntryRow` は `getNasPreviewKind(name) != null` のとき「プレビュー」操作を出す（null ならダウンロードのみ、Req 9.4）。`NasPreviewModal` は `useNasPreview` の現在エントリを `reactstrap` の `Modal` で表示し、kind で分岐（`image` → `<img>`、`video`/`audio` → `<video controls>`/`<audio controls>`（`src` は `GET /file?path=&inline=1`、ブラウザが Range を送る）、`pdf` → `<iframe sandbox src=...inline=1>`、`text` → `fetch(url, { headers: { Range: 'bytes=0-262143' } })` の結果を `<pre>` 表示し、`Content-Range` の総サイズが取得長を超えるとき「先頭のみ・全体はダウンロード」を示す（Req 9.5））。モーダルは `dynamic({ ssr: false })`。
-- Chunked upload（Req 10）: `NasUploadDropzone` は各ファイルの `size` を見て、閾値（既定 90 MiB）超なら `useNasChunkedUpload`（`POST /uploads` → 逐次 `PATCH /uploads/:id`（`file.slice` で `chunkSize` ごと、`Content-Range` 付き）→ `POST /uploads/:id/complete`）、未満なら従来の `POST /files`。失敗時は `DELETE /uploads/:id`（best-effort）＋キュー行にエラー表示。`CONFLICT` は単発アップロードと同じ overwrite/save-as/skip UI。
+- Chunked upload（Req 10）: `NasUploadDropzone` は各ファイルの `size` を見て、閾値（既定 90 MiB）超なら `useNasChunkedUpload`（`POST /uploads` → 逐次 `PUT /uploads/:id`（`file.slice` で `chunkSize` ごと、`Content-Range` 付き）→ `POST /uploads/:id/complete`）、未満なら従来の `POST /files`。失敗時は `DELETE /uploads/:id`（best-effort）＋キュー行にエラー表示。`CONFLICT` は単発アップロードと同じ overwrite/save-as/skip UI。
 - Folder upload（Req 11）: `useNasFolderUpload` は `window.showDirectoryPicker`（あれば、空フォルダも列挙可）→ なければ `<input type=file webkitdirectory multiple>` フォールバック。走査してディレクトリ集合とファイル集合を作り、**開始前に一度だけ**「すべて上書き / すべてスキップ / すべて別名」を選ばせ（`NasUploadDropzone` のバッチ用プロンプト、Req 11.3）、`POST /folders`（既存時 409 はバッチ内では成功として無視）→ 各ファイルを（大きければ chunked 経路で）方針付き `POST /files`。個別失敗は収集して続行し、最後に失敗一覧を表示（Req 11.4）。完了後 `useNasList().reload()`（Req 11.6）。
 
 ## Error Handling
@@ -812,7 +819,7 @@ interface RootHealthChecker {
 - `nas-access`: 未ログイン→401、グループ未設定→ログインユーザー許可、グループ設定時に非所属→403・所属→200（Req 6.1–6.4）。プレビュー配信・分割アップロードの各エンドポイントにも同じゲートがかかる（Req 6.7）。
 - `setupNasStorage` ルーティング: 各エンドポイントの正常系＋範囲外パスで 422、`GROWI_NAS_ROOT` 未設定時に全エンドポイント 404（Req 7.3）。
 - `GET /file?inline=1`: 画像は `Content-Disposition: inline` + `Content-Security-Policy` + `X-Content-Type-Options: nosniff`、`.svg` は `inline=1` でも `attachment`（Req 9.1/9.6）。`Range: bytes=0-99` で 206 + `Content-Range`（Req 9.3/9.5）。
-- 分割アップロード: `POST /uploads` → `PATCH` ×N → `complete` で単発アップロードと同一内容のファイルができる（Req 10.1）。順序違反チャンクが 409、`totalBytes` 超過が 413、`complete` 前に `DELETE /uploads/:id` すると `.part` が消える（Req 10.3/10.4/10.5）。`complete` 時の宛先衝突が 409 `suggestedName`（Req 10.6）。
+- 分割アップロード: `POST /uploads` → `PUT` ×N → `complete` で単発アップロードと同一内容のファイルができる（Req 10.1）。順序違反チャンクが 409、`totalBytes` 超過が 413、`complete` 前に `DELETE /uploads/:id` すると `.part` が消える（Req 10.3/10.4/10.5）。`complete` 時の宛先衝突が 409 `suggestedName`（Req 10.6）。
 - `POST /files`: `multer` の `limits.fileSize` 超過が 413 `limitBytes` 付きで返る（Req 3.3）。
 - `DELETE /entries`: フォルダに `recursive` 未指定で 409、指定で配下ごと削除（Req 5.3）。
 - 非干渉: NAS 機能有効化後も `/api/v3/attachment/*` の既存 integ テストが緑のまま（Req 7.1）。
@@ -829,7 +836,7 @@ interface RootHealthChecker {
 ## Security Considerations
 - **パス封じ込め**: すべての FS アクセスは `resolveSafePath` 経由。`path.join` 後の `resolve` + `isPathWithinBase` に加え、実在祖先の `realpath` 再検証でシンボリックリンク脱出を防ぐ。`FsNasFileStore` から `node:fs` を直接呼ぶ箇所は `resolveSafePath` の戻り値のみを使う（レビュー時の不変条件）。`resolveContentPath` と `.part` 系も同じ経路。
 - **プレビュー配信の XSS 防止（Req 9.6）**: `wiki.*` は GROWI と同一オリジンでセッション Cookie を持つため、利用者がアップロードした `.html`/`.svg`/`.xml`/`.js` を `inline` 配信すると蓄積型 XSS になる。`nasContentDisposition` がこれらを常に `attachment` に固定し、`inline=1` でも覆らない。加えて全 `GET /file` レスポンスに `Content-Security-Policy: default-src 'none'; media-src 'self'; img-src 'self'; style-src 'unsafe-inline'; object-src 'none';` 相当と `X-Content-Type-Options: nosniff`（拡張子偽装した実行形式のスニッフィング防止）を付与。PDF は `<iframe sandbox>` で隔離表示。
-- **分割アップロードの保護**: `uploadId` は `crypto.randomUUID()`（推測不能）。`PATCH`/`complete`/`DELETE` は開始した本人（`session.userId`）のみ。`Content-Range` の `start` が現在サイズと一致しなければ拒否（ギャップ/上書き注入の防止）。`totalBytes` と実受信量の双方にサイズ上限。`.part` は `.growi-nas-tmp/` 内・一覧除外。孤児は TTL スイープ。
+- **分割アップロードの保護**: `uploadId` は `crypto.randomUUID()`（推測不能）。`PUT`/`complete`/`DELETE` は開始した本人（`session.userId`）のみ。`Content-Range` の `start` が現在サイズと一致しなければ拒否（ギャップ/上書き注入の防止）。`totalBytes` と実受信量の双方にサイズ上限。`.part` は `.growi-nas-tmp/` 内・一覧除外。孤児は TTL スイープ。
 - **破壊的操作の保護**: `remove` はルート自身を対象にできない。クライアントは削除・上書き移動で必ず確認ダイアログを挟む。
 - **認可の一律適用**: `nasAccess` を router レベルで全ルートに適用（GET・プレビュー・分割アップロード含む、Req 6.7）。個別ルートで付け外ししない。
 - **情報漏えい防止**: エラーレスポンス・ログの利用者向け文言から絶対パス／errno／ディレクトリ構造を除外（Req 8.2）。

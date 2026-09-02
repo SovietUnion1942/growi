@@ -207,7 +207,7 @@ const postFileChunked = async (
     for (let offset = 0; offset < file.size; offset += chunkSize) {
       const end = Math.min(offset + chunkSize, file.size);
       // biome-ignore lint/performance/noAwaitInLoops: chunks MUST be sent sequentially (Content-Range 逐次追記)
-      await nasApiRequest<void>('patch', `/uploads/${uploadId}`, {
+      await nasApiRequest<void>('put', `/uploads/${uploadId}`, {
         data: file.slice(offset, end),
         headers: {
           'Content-Range': `bytes ${offset}-${end - 1}/${file.size}`,

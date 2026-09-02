@@ -37,6 +37,7 @@ export type CommonInitialProps = {
   pushNotificationEnabled: boolean;
   userBadgeEnabled: boolean;
   wikiGapSuggestionsEnabled: boolean;
+  boardEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -114,6 +115,9 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       wikiGapSuggestionsEnabled: configManager.getConfig(
         'app:wikiGapSuggestionsEnabled',
       ),
+      // app:boardEnabled — the :board directive viewer and /board/* editor
+      // pages are inert when off.
+      boardEnabled: configManager.getConfig('app:boardEnabled'),
     } satisfies CommonInitialProps,
   };
 };

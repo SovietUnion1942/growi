@@ -114,7 +114,7 @@ describe('setupNasStorage /uploads — chunked upload', () => {
     body: Buffer,
   ) =>
     request(app)
-      .patch(`/_api/v3/nas-storage/uploads/${uploadId}`)
+      .put(`/_api/v3/nas-storage/uploads/${uploadId}`)
       .set('Content-Range', range)
       .set('Content-Type', 'application/octet-stream')
       .send(body);
@@ -225,7 +225,7 @@ describe('setupNasStorage /uploads — chunked upload', () => {
     expect(wrongUnit.status).toBe(400);
 
     const missing = await request(app)
-      .patch(`/_api/v3/nas-storage/uploads/${uploadId}`)
+      .put(`/_api/v3/nas-storage/uploads/${uploadId}`)
       .set('Content-Type', 'application/octet-stream')
       .send(Buffer.from('AB'));
     expect(missing.status).toBe(400);

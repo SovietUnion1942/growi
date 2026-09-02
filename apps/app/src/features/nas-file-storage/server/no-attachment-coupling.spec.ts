@@ -146,4 +146,20 @@ describe('nas-file-storage: no coupling to the existing attachment / share-link 
     const hits = findViolations().filter((v) => v.bannedLabel === label);
     expect(hits.map((h) => `${h.file} -> ${h.specifier}`)).toEqual([]);
   });
+
+  // GROWI's global csrf middleware (crowi/express-init) does not exempt PATCH
+  // (ignoreMethods: [GET, HEAD, OPTIONS, PUT, POST, DELETE]) and GROWI exposes
+  // no CSRF token to the client. A router.patch(...) here 403s in production
+  // before the handler runs. Keep every NAS route on a csrf-exempt method.
+  it('registers no PATCH route (GROWI csrf blocks PATCH)', () => {
+    const offenders: string[] = [];
+    for (const file of collectSourceFiles(FEATURE_ROOT)) {
+      if (!file.endsWith('.ts')) continue;
+      const text = fs.readFileSync(file, 'utf8');
+      if (/\brouter\.patch\s*\(/.test(text)) {
+        offenders.push(path.relative(FEATURE_ROOT, file));
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

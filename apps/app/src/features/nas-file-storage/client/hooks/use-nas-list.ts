@@ -99,7 +99,7 @@ type NasQueryValue = string | number | boolean | undefined;
  * `NasRequestError` so callers never see a raw axios error or a bare array.
  */
 export const nasApiRequest = async <T>(
-  method: 'get' | 'post' | 'patch' | 'delete',
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete',
   path: string,
   opts: {
     params?: Record<string, NasQueryValue>;

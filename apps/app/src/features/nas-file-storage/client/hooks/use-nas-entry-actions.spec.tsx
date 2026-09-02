@@ -126,7 +126,7 @@ describe('useNasEntryActions', () => {
 
     expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'patch',
+        method: 'put',
         url: '/_api/v3/nas-storage/entries',
         data: { from: '/docs/a.txt', to: '/docs/b.txt' },
       }),

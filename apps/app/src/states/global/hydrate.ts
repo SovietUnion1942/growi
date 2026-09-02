@@ -6,6 +6,7 @@ import type { CommonEachProps, CommonInitialProps } from '~/pages/common-props';
 import {
   aiEnabledAtom,
   aiVisionEnabledAtom,
+  boardEnabledAtom,
   messagesImageUploadEnabledAtom,
   messagesModeAtom,
   nasStorageEnabledAtom,
@@ -96,6 +97,7 @@ export const useHydrateGlobalInitialAtoms = (
             wikiGapSuggestionsEnabledAtom,
             commonInitialProps.wikiGapSuggestionsEnabled,
           ),
+          createAtomTuple(boardEnabledAtom, commonInitialProps.boardEnabled),
         ];
 
   useHydrateAtoms(tuples);

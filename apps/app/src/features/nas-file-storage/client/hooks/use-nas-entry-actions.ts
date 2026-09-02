@@ -35,7 +35,7 @@ export const useNasEntryActions = (
 ): UseNasEntryActionsResult => {
   const patchEntry = useCallback(
     (from: string, to: string, overwrite?: boolean): Promise<NasEntry> =>
-      nasApiRequest<NasEntry>('patch', '/entries', {
+      nasApiRequest<NasEntry>('put', '/entries', {
         data: { from, to, ...(overwrite != null ? { overwrite } : {}) },
       }),
     [],

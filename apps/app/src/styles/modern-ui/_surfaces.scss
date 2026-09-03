@@ -4,30 +4,25 @@
 // NOTE: no `backdrop-filter` here. A non-none backdrop-filter makes the
 // element a containing block for its `position: fixed` descendants, which
 // strands things that expect to be viewport-positioned (the Messages /
-// AI-chat FloatingPanel, the rail's fixed bottom cluster, portal-less
-// popovers). The frosted look comes from the translucent fill + sheen +
-// shadow lifting the panel off the tinted ground instead.
+// AI-chat FloatingPanel, portal-less popovers). The frosted look comes from
+// the translucent fill + sheen instead.
+//
+// The sidebar (rail + contents) is treated as a flush frosted column, not a
+// floating card: its header strip (logo + collapse toggle) has no clean CSS
+// hook, so floating only the panels below it left a visible corner step.
+// Only the main-column content card floats.
 
-// Ground painted behind the floating panels.
+// Ground painted behind the panels.
 :root[data-grw-ui='modern'] body {
   background-image: var(--grw-page-ground);
   background-attachment: fixed;
 }
 
-// --- Icon rail (floating card) -------------------------------------------
+// --- Icon rail -----------------------------------------------------------
 :root[data-grw-ui='modern'] .grw-sidebar-nav {
-  margin: 10px 8px 10px 10px;
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
-  border-right: 0;
-  border-radius: var(--grw-radius-lg);
-  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
-}
-
-// The rail's fixed bottom cluster is viewport-positioned; nudge it to line up
-// with the floated rail (which sits 10px in from the viewport edge).
-:root[data-grw-ui='modern'] .grw-sidebar-nav-secondary-container {
-  left: 10px;
+  border-right: 1px solid var(--grw-glass-border);
 }
 
 // Selected primary item: soft accent pill with a left accent bar.
@@ -49,19 +44,16 @@
   box-shadow: var(--grw-glass-inner-hi), inset 3px 0 0 var(--grw-accent);
 }
 
-// --- Sidebar panel (floating card) -------------------------------------
+// --- Sidebar panel -----------------------------------------------------
 :root[data-grw-ui='modern'] [data-testid='grw-sidebar'] {
-  background: transparent !important;
-  border: 0 !important;
+  background-color: var(--grw-glass-bg) !important;
+  background-image: var(--grw-glass-sheen);
+  border-right: 1px solid var(--grw-glass-border) !important;
 }
 
 :root[data-grw-ui='modern'] .sidebar-contents-container {
-  margin: 10px 10px 10px 0;
-  background-color: var(--grw-glass-bg) !important;
-  background-image: var(--grw-glass-sheen);
+  background-color: transparent !important;
   border-color: var(--grw-glass-border) !important;
-  border-radius: var(--grw-radius-lg);
-  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
 // --- Contextual sub-navigation ----------------------------------------
@@ -71,9 +63,9 @@
 }
 
 // --- Page content card ----------------------------------------------------
-// Only in view mode: `.grw-container-convertible` is also the editor's flex
+// View mode only: `.grw-container-convertible` is also the editor's flex
 // container, and a bordered/padded card there squashes the CodeMirror split.
-// `.layout-root.editing` is GROWI's editor-mode marker (see styles/mixins/_editing).
+// `.layout-root.editing` is GROWI's editor-mode marker (styles/mixins/_editing).
 :root[data-grw-ui='modern'] .layout-root:not(.editing) .grw-container-convertible {
   padding-block: 1.75rem;
   padding-inline: clamp(1rem, 3vw, 2.5rem);

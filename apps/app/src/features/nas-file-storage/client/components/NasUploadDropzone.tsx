@@ -1,5 +1,5 @@
 import type { ChangeEvent, JSX } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'next-i18next';
 import prettyBytes from 'pretty-bytes';
 import { useDropzone } from 'react-dropzone';
@@ -119,6 +119,16 @@ export const NasUploadDropzone = ({
   const [folderResult, setFolderResult] =
     useState<NasFolderUploadResult | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // The queue and any folder-upload summary belong to the folder they were
+  // started in — drop them when the user navigates elsewhere so a stale "done"
+  // row does not linger in an unrelated folder.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentDirPath is the reset trigger, not a value read in the body
+  useEffect(() => {
+    setItems([]);
+    setFolderResult(null);
+    setFolderProgress(null);
+  }, [currentDirPath]);
 
   const patchItem = useCallback(
     (id: string, patch: Partial<QueueItem>): void => {

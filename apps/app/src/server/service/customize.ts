@@ -37,6 +37,15 @@ export class CustomizeService implements S2sMessageHandlable {
 
   forcedColorScheme?: ColorScheme;
 
+  /**
+   * preset-themes vite manifest (theme file name -> built asset). Loaded once
+   * in initGrowiTheme() and cached so the per-request preset-theme lookup
+   * (resolvePresetThemeAsset) never does a dynamic JSON import - see
+   * apps/app/.claude/rules/esm-authoring.md ("JSON imports require an import
+   * attribute": a dynamic manifest import on a request path once 500-ed prod).
+   */
+  private presetThemesManifest?: Record<string, { file: string }>;
+
   constructor(crowi: Crowi) {
     this.s2sMessagingService = crowi.s2sMessagingService;
     this.appService = crowi.appService;
@@ -138,26 +147,50 @@ export class CustomizeService implements S2sMessageHandlable {
     }
     // retrieve preset theme
     else {
-      // import preset-themes manifest
-      const presetThemesManifest = await import(
+      // Load the manifest once, here, and cache it for resolvePresetThemeAsset.
+      this.presetThemesManifest = await import(
         path.join('@growi/preset-themes', manifestPath),
         { with: { type: 'json' } }
       ).then((imported) => imported.default);
 
-      const themeMetadata = PresetThemesMetadatas.find((p) => p.name === theme);
-      this.forcedColorScheme = getForcedColorScheme(themeMetadata?.schemeType);
-
-      const manifestKey =
-        themeMetadata?.manifestKey ?? DefaultThemeMetadata.manifestKey;
-      if (
-        themeMetadata == null ||
-        !(themeMetadata.manifestKey in presetThemesManifest)
-      ) {
+      const configured = this.resolvePresetThemeAsset(theme);
+      if (configured == null) {
         logger.warn(
-          `Use default theme because the key for '${theme} does not exist in preset-themes manifest`,
+          `Use default theme because '${theme}' is not a known preset theme`,
         );
       }
-      this.themeHref = `/static/preset-themes/${presetThemesManifest[manifestKey].file}`; // configured by express.static
+      const asset =
+        configured ?? this.resolvePresetThemeAsset(DefaultThemeMetadata.name);
+      this.themeHref = asset?.href;
+      this.forcedColorScheme = asset?.forcedColorScheme;
     }
+  }
+
+  /**
+   * Resolve a preset theme name to its served CSS href + forced color scheme,
+   * or null for an unknown name (plugin themes included - those are only
+   * resolvable as the instance default via findThemePlugin). Synchronous:
+   * reads the manifest cached in initGrowiTheme(). Used both for the instance
+   * default and for a viewer's per-browser `grw-theme` cookie override
+   * (_document / common-props).
+   */
+  resolvePresetThemeAsset(
+    themeName: string | undefined,
+  ): { href: string; forcedColorScheme?: ColorScheme } | null {
+    if (themeName == null || this.presetThemesManifest == null) {
+      return null;
+    }
+
+    const metadata = PresetThemesMetadatas.find((p) => p.name === themeName);
+    const entry =
+      metadata != null ? this.presetThemesManifest[metadata.manifestKey] : null;
+    if (metadata == null || entry == null) {
+      return null;
+    }
+
+    return {
+      href: `/static/preset-themes/${entry.file}`, // served by express.static
+      forcedColorScheme: getForcedColorScheme(metadata.schemeType),
+    };
   }
 }

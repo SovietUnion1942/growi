@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 
 import { ColorModeSettings } from './ColorModeSettings';
-import { ModernUiSettings } from './ModernUiSettings';
+import { ThemeSettings } from './ThemeSettings';
 import { UISettings } from './UISettings';
 
 const OtherSettings = (): JSX.Element => {
@@ -16,7 +16,7 @@ const OtherSettings = (): JSX.Element => {
       </div>
 
       <div className="mt-4">
-        <ModernUiSettings />
+        <ThemeSettings />
       </div>
     </>
   );

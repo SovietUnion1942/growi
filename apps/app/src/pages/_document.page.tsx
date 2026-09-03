@@ -11,6 +11,7 @@ import {
   isModernUiActive,
   MODERN_UI_COOKIE,
   normalizeModernUiMode,
+  THEME_COOKIE,
 } from '~/interfaces/modern-ui-mode';
 import loggerFactory from '~/utils/logger';
 
@@ -69,7 +70,13 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
     const { crowi } = req;
     const { customizeService } = crowi;
 
-    const { themeHref } = customizeService;
+    // Preset color theme: a viewer's `grw-theme` cookie overrides the instance
+    // default for their own browser (validated against the preset-themes
+    // manifest; unknown -> instance default). Emitted in the initial <link>
+    // so there is no flash.
+    const themeHref =
+      customizeService.resolvePresetThemeAsset(req.cookies?.[THEME_COOKIE])
+        ?.href ?? customizeService.themeHref;
     const customScript: string | undefined = customizeService.getCustomScript();
     const customCss: string | undefined = customizeService.getCustomCss();
     const customNoscript: string | undefined =

@@ -10,6 +10,7 @@ import {
 import {
   type ModernUiMode,
   normalizeModernUiMode,
+  THEME_COOKIE,
 } from '~/interfaces/modern-ui-mode';
 import { getGrowiVersion } from '~/utils/growi-version';
 import loggerFactory from '~/utils/logger';
@@ -62,7 +63,16 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
   const isDefaultLogo =
     crowi.configManager.getConfig('customize:isDefaultLogo') ||
     !isCustomizedLogoUploaded;
-  const forcedColorScheme = crowi.customizeService.forcedColorScheme;
+  // A viewer's `grw-theme` cookie override (see _document) can carry its own
+  // forced color scheme (a light-/dark-only preset). Fall back to the
+  // instance theme's when the cookie is absent or invalid.
+  const themeCookieAsset = customizeService.resolvePresetThemeAsset(
+    req.cookies?.[THEME_COOKIE],
+  );
+  const forcedColorScheme =
+    themeCookieAsset != null
+      ? themeCookieAsset.forcedColorScheme
+      : crowi.customizeService.forcedColorScheme;
 
   return {
     props: {

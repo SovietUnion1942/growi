@@ -29,6 +29,35 @@
   "headers": {
     "app_settings": "App Settings"
   },
+  "system_requirements": {
+    "banner": "Your browser / OS is below this wiki's recommended requirements. Showing the lighter classic layout.",
+    "details": "System requirements",
+    "minimum": "Minimum",
+    "recommended": "Recommended",
+    "dismiss": "Dismiss",
+    "os": {
+      "windows": {
+        "min": "Windows 7 SP1 / 4GB RAM / Chrome 109 or Firefox 115 ESR+",
+        "rec": "Windows 10 22H2+ / quad-core / 8GB RAM / SSD"
+      },
+      "macos": {
+        "min": "Mac from ~2015 / Safari 15+",
+        "rec": "Apple Silicon / latest Safari or Chrome"
+      },
+      "linux": {
+        "min": "64-bit dual-core / 4GB RAM / Firefox ESR",
+        "rec": "2nd-gen Core or newer / Wayland ok"
+      },
+      "android": {
+        "min": "Android 10 / Snapdragon 660-class / 3GB RAM",
+        "rec": "Android 12+ / 4GB RAM"
+      },
+      "ios": {
+        "min": "iPhone 6s / iOS 15",
+        "rec": "iOS 16+"
+      }
+    }
+  },
   "header_search_box": {
     "label": {
       "All pages": "All pages",

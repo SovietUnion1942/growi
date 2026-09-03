@@ -8,10 +8,12 @@ import {
   normalizeMessagesMode,
 } from '~/interfaces/messages-mode';
 import {
+  MODERN_UI_COOKIE,
   type ModernUiMode,
   normalizeModernUiMode,
   THEME_COOKIE,
 } from '~/interfaces/modern-ui-mode';
+import { parseUa, resolveUiTier, type UiTier } from '~/interfaces/ui-tier';
 import { getGrowiVersion } from '~/utils/growi-version';
 import loggerFactory from '~/utils/logger';
 
@@ -37,6 +39,14 @@ export type CommonInitialProps = {
   nasStorageEnabled: boolean;
   messagesMode: MessagesMode;
   modernUiMode: ModernUiMode;
+  /** The resolved UI tier for this request (mode x cookie x User-Agent). */
+  uiTier: UiTier;
+  /** This client's UA is below the documented minimum (drives the banner). */
+  uaBelowMin: boolean;
+  /** OS key for the system-requirements table highlight. */
+  uaOs: string;
+  /** Whether the system-requirements notice/banner is enabled instance-wide. */
+  sysreqNotice: boolean;
   messagesImageUploadEnabled: boolean;
   aiVisionEnabled: boolean;
   pwaEnabled: boolean;
@@ -113,6 +123,19 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       modernUiMode: normalizeModernUiMode(
         configManager.getConfig('app:modernUiMode'),
       ),
+      // Resolved UI tier + UA facts for this request. `_document` does its own
+      // resolveUiTier for the FOUC-critical attribute; these feed client-side
+      // UI (the /me modern card, the system-requirements banner).
+      uiTier: resolveUiTier({
+        mode: normalizeModernUiMode(
+          configManager.getConfig('app:modernUiMode'),
+        ),
+        cookie: req.cookies?.[MODERN_UI_COOKIE],
+        ua: req.headers['user-agent'],
+      }),
+      uaBelowMin: parseUa(req.headers['user-agent']).belowMin,
+      uaOs: parseUa(req.headers['user-agent']).os,
+      sysreqNotice: configManager.getConfig('app:sysreqNotice'),
       messagesImageUploadEnabled: configManager.getConfig(
         'app:messagesImageUploadEnabled',
       ),

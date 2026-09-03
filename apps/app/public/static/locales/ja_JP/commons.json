@@ -32,6 +32,35 @@
   "headers": {
     "app_settings": "アプリ設定"
   },
+  "system_requirements": {
+    "banner": "お使いのブラウザ／OS はこの wiki の推奨環境を下回っています。従来の軽いレイアウトで表示しています。",
+    "details": "動作環境を見る",
+    "minimum": "最低",
+    "recommended": "推奨",
+    "dismiss": "閉じる",
+    "os": {
+      "windows": {
+        "min": "Windows 7 SP1 / 4GB RAM / Chrome 109・Firefox 115 ESR 以降",
+        "rec": "Windows 10 22H2 以降 / 4コア / 8GB RAM / SSD"
+      },
+      "macos": {
+        "min": "2015年前後の Mac / Safari 15 以降",
+        "rec": "Apple Silicon / 最新の Safari・Chrome"
+      },
+      "linux": {
+        "min": "64bit デュアルコア / 4GB RAM / Firefox ESR",
+        "rec": "第2世代 Core 以降 / Wayland 可"
+      },
+      "android": {
+        "min": "Android 10 / Snapdragon 660 相当 / 3GB RAM",
+        "rec": "Android 12 以降 / 4GB RAM"
+      },
+      "ios": {
+        "min": "iPhone 6s / iOS 15",
+        "rec": "iOS 16 以降"
+      }
+    }
+  },
   "header_search_box": {
     "label": {
       "All pages": "全てのページ",

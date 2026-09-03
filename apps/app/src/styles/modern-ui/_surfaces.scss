@@ -1,5 +1,12 @@
-// Glass treatment for the page-view surfaces. Selectors use stable global
+// Surface treatment for the page-view chrome. Selectors use stable global
 // hooks (plain classNames / data-testid / ids), never CSS-module hashes.
+//
+// NOTE: no `backdrop-filter` here. A non-none backdrop-filter makes the
+// element a containing block for its `position: fixed` descendants, which
+// strands things that expect to be viewport-positioned (the Messages /
+// AI-chat FloatingPanel, the rail's fixed bottom cluster, portal-less
+// popovers). The frosted look comes from the translucent fill + sheen +
+// shadow lifting the panel off the tinted ground instead.
 
 // Ground painted behind the floating panels.
 :root[data-grw-ui='modern'] body {
@@ -12,17 +19,15 @@
   margin: 10px 8px 10px 10px;
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
-  backdrop-filter: var(--grw-glass-blur);
   border-right: 0;
   border-radius: var(--grw-radius-lg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
-// The rail's `backdrop-filter` makes it the containing block for this
-// position:fixed cluster, so pin it to the rail's left edge — its buttons are
-// already rail-width, so it then lines up with the icons above.
+// The rail's fixed bottom cluster is viewport-positioned; nudge it to line up
+// with the floated rail (which sits 10px in from the viewport edge).
 :root[data-grw-ui='modern'] .grw-sidebar-nav-secondary-container {
-  left: 0;
+  left: 10px;
 }
 
 // Selected primary item: soft accent pill with a left accent bar.
@@ -54,7 +59,6 @@
   margin: 10px 10px 10px 0;
   background-color: var(--grw-glass-bg) !important;
   background-image: var(--grw-glass-sheen);
-  backdrop-filter: var(--grw-glass-blur);
   border-color: var(--grw-glass-border) !important;
   border-radius: var(--grw-radius-lg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
@@ -62,18 +66,19 @@
 
 // --- Contextual sub-navigation ----------------------------------------
 :root[data-grw-ui='modern'] #grw-contextual-sub-nav {
-  backdrop-filter: var(--grw-glass-blur);
   border-bottom: 1px solid var(--grw-glass-border);
   box-shadow: var(--grw-glass-inner-hi), 0 8px 20px -12px rgba(20, 45, 70, 0.25);
 }
 
 // --- Page content card ----------------------------------------------------
-:root[data-grw-ui='modern'] .grw-container-convertible {
+// Only in view mode: `.grw-container-convertible` is also the editor's flex
+// container, and a bordered/padded card there squashes the CodeMirror split.
+// `.layout-root.editing` is GROWI's editor-mode marker (see styles/mixins/_editing).
+:root[data-grw-ui='modern'] .layout-root:not(.editing) .grw-container-convertible {
   padding-block: 1.75rem;
   padding-inline: clamp(1rem, 3vw, 2.5rem);
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
-  backdrop-filter: var(--grw-glass-blur);
   border: 1px solid var(--grw-glass-border);
   border-radius: var(--grw-radius-lg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);

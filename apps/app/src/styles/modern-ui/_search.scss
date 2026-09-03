@@ -1,0 +1,32 @@
+// Search-results list: turn the flush list-group into spaced, lightly-carded
+// rows. Scoped to the search page's list so the same PageListItemL used in the
+// sidebar (recent changes etc.) is unaffected.
+
+:root[data-grw-ui='modern'] [data-testid='search-result-list'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='search-result-list']
+  > [data-testid='page-list-item-L'] {
+  padding-block: 0.6rem;
+  background-color: var(--grw-glass-bg);
+  border: 1px solid var(--grw-glass-border);
+  border-radius: var(--grw-radius-md);
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='search-result-list']
+  > [data-testid='page-list-item-L']:hover {
+  border-color: rgba(var(--grw-accent-rgb), 0.35);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='search-result-list']
+  > [data-testid='page-list-item-L'].active {
+  border-color: rgba(var(--grw-accent-rgb), 0.5);
+}

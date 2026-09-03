@@ -2,6 +2,7 @@ import express from 'express';
 
 import { factory as aiToolsRouteFactory } from '~/features/ai-tools/server/routes/apiv3';
 import { factory as auditLogBulkExportRouteFactory } from '~/features/audit-log-bulk-export/server/routes/apiv3';
+import { setup as setupBoard } from '~/features/board/server/routes/board';
 import { setup as setupExternalUserGroup } from '~/features/external-user-group/server/routes/apiv3/external-user-group';
 import { setup as setupExternalUserGroupRelation } from '~/features/external-user-group/server/routes/apiv3/external-user-group-relation';
 import { setup as growiPlugin } from '~/features/growi-plugin/server/routes/apiv3/admin';
@@ -192,6 +193,7 @@ export const setup = (crowi, app) => {
 
   router.use('/messages', setupMessages(crowi));
   router.use('/wiki-gap-suggestions', setupWikiGapSuggestions(crowi));
+  router.use('/board', setupBoard(crowi));
   router.use('/in-app-notification', setupInAppNotification(crowi));
   router.use('/news', newsRoute(crowi));
 

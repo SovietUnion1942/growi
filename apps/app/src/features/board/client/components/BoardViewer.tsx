@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import React, { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 
+import { useCurrentPageId } from '~/states/page';
 import { boardEnabledAtom } from '~/states/server-configurations';
 
 type Props = {
@@ -38,13 +39,19 @@ const parseHeight = (raw?: string): number => {
 export const BoardViewer = React.memo((props: Props): JSX.Element | null => {
   const { id, height } = props;
   const enabled = useAtomValue(boardEnabledAtom);
+  // so the board's "insert image" picker can default to this page's attachments
+  const currentPageId = useCurrentPageId(true);
 
   const src = useMemo(() => {
     if (id == null || id === '') {
       return null;
     }
-    return `/board/${encodeURIComponent(id)}?embed=1`;
-  }, [id]);
+    const params = new URLSearchParams({ embed: '1' });
+    if (currentPageId != null && currentPageId !== '') {
+      params.set('fromPageId', String(currentPageId));
+    }
+    return `/board/${encodeURIComponent(id)}?${params.toString()}`;
+  }, [id, currentPageId]);
 
   if (!enabled || src == null) {
     return null;

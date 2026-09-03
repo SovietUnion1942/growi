@@ -9,6 +9,8 @@ import {
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 
+import { boardAssetStore } from './board-editor/board-asset-store';
+
 /**
  * Binds a tldraw store to a Yjs document synced over a `y-websocket`
  * provider. Adapted from tldraw's official `yjs` example, trimmed to a
@@ -31,6 +33,9 @@ export const useYjsStore = (
     createTLStore({
       shapeUtils: defaultShapeUtils,
       bindingUtils: defaultBindingUtils,
+      // upload dropped/pasted images to /_api/v3/board/assets instead of
+      // inlining them as base64 in the shared Yjs doc
+      assets: boardAssetStore,
     }),
   );
   const [storeWithStatus, setStoreWithStatus] = useState<TLStoreWithStatus>({

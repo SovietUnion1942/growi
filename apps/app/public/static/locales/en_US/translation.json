@@ -312,10 +312,14 @@
     "settings": "Color mode settings",
     "description": "Select whether to display in light mode, dark mode, or a system-specific display.<br>Only supported themes can be switched."
   },
-  "modern_ui_settings": {
-    "settings": "New UI (preview)",
+  "theme_settings": {
+    "settings": "Theme (this browser only)",
     "use_modern_ui": "Use the new UI",
-    "description": "Switches this browser to the new \"Aero-Fluent Glass\" UI. The page reloads when toggled; other people are not affected."
+    "modern_ui_desc": "Switches the layout to the new \"Aero-Fluent Glass\" chrome. Independent of the color theme.",
+    "color_theme": "Color theme",
+    "reset_to_default": "Reset to default",
+    "light_and_dark": "Light & dark",
+    "single_mode": "Single mode"
   },
   "editor_settings": {
     "editor_settings": "Editor Settings"

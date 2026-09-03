@@ -23,6 +23,16 @@ export type ModernUiMode = (typeof MODERN_UI_MODES)[number];
 export const MODERN_UI_COOKIE = 'grw-ui';
 export const MODERN_UI_COOKIE_ON = 'modern';
 
+/**
+ * Cookie a viewer sets (via `?grw-theme=<name>` or the /me picker) to override
+ * the instance's preset color theme for their own browser. Validated
+ * server-side against the preset-themes manifest
+ * (`customizeService.resolvePresetThemeAsset`); an unknown value falls back to
+ * the instance default. Cleared with `?grw-theme=default`.
+ */
+export const THEME_COOKIE = 'grw-theme';
+export const THEME_COOKIE_RESET = 'default';
+
 /** Narrowing type guard for values coming from env / the config store. */
 export const isModernUiMode = (value: unknown): value is ModernUiMode =>
   typeof value === 'string' &&

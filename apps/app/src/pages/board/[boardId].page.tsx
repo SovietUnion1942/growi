@@ -13,7 +13,14 @@ import {
 import { mergeGetServerSidePropsResults } from '../utils/server-side-props';
 import { resolveBoardPageGate } from './board-page-gate';
 
-type Props = CommonInitialProps & CommonEachProps;
+type Props = CommonInitialProps &
+  CommonEachProps & {
+    // tldraw SDK license key (env `TLDRAW_LICENSE_KEY`). Passed as a prop
+    // rather than `NEXT_PUBLIC_*` so the key can be rotated with an env
+    // change + restart, no rebuild. Without it tldraw blanks the editor a
+    // few seconds after load on an HTTPS production domain.
+    tldrawLicenseKey: string | null;
+  };
 
 // biome-ignore-start lint/style/noRestrictedImports: no-problem dynamic import
 const TldrawBoard = dynamic(
@@ -30,7 +37,7 @@ const TldrawBoard = dynamic(
  * or framed by the `:board{id=...}` wiki directive (`?embed=1`). The canvas is
  * independent of any wiki page.
  */
-const BoardPage: NextPageWithLayout<Props> = () => {
+const BoardPage: NextPageWithLayout<Props> = (props: Props) => {
   const router = useRouter();
   const boardId = String(router.query.boardId ?? '');
   const embed = router.query.embed === '1';
@@ -40,7 +47,13 @@ const BoardPage: NextPageWithLayout<Props> = () => {
       <Head>
         <title>{`board: ${boardId}`}</title>
       </Head>
-      {boardId !== '' && <TldrawBoard boardId={boardId} embed={embed} />}
+      {boardId !== '' && (
+        <TldrawBoard
+          boardId={boardId}
+          embed={embed}
+          licenseKey={props.tldrawLicenseKey ?? undefined}
+        />
+      )}
     </>
   );
 };
@@ -61,8 +74,11 @@ export const getServerSideProps: GetServerSideProps = async (
     ]);
 
   return mergeGetServerSidePropsResults(
-    commonInitialResult,
-    mergeGetServerSidePropsResults(commonEachResult, i18nPropsResult),
+    { props: { tldrawLicenseKey: process.env.TLDRAW_LICENSE_KEY ?? null } },
+    mergeGetServerSidePropsResults(
+      commonInitialResult,
+      mergeGetServerSidePropsResults(commonEachResult, i18nPropsResult),
+    ),
   );
 };
 

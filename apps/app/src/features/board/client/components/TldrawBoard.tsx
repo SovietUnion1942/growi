@@ -11,6 +11,13 @@ type Props = {
   boardId: string;
   /** true when framed inside a wiki page via the `:board` directive */
   embed?: boolean;
+  /**
+   * tldraw SDK license key. Required on an HTTPS production domain -- without
+   * it tldraw switches to `unlicensed-production` and hides the editor ~5s
+   * after mount. Sourced from env (`TLDRAW_LICENSE_KEY`) via the page's
+   * getServerSideProps.
+   */
+  licenseKey?: string;
 };
 
 const resolveHostUrl = (): string => {
@@ -31,7 +38,7 @@ const resolveHostUrl = (): string => {
  * an iframe rather than mounting the component inline.
  */
 export const TldrawBoard = React.memo((props: Props): JSX.Element => {
-  const { boardId, embed } = props;
+  const { boardId, embed, licenseKey } = props;
   const hostUrl = useMemo(resolveHostUrl, []);
   const storeWithStatus = useYjsStore(boardId, hostUrl);
 
@@ -40,7 +47,7 @@ export const TldrawBoard = React.memo((props: Props): JSX.Element => {
       data-testid="tldraw-board"
       style={{ position: embed ? 'absolute' : 'fixed', inset: 0 }}
     >
-      <Tldraw store={storeWithStatus} />
+      <Tldraw store={storeWithStatus} licenseKey={licenseKey} />
     </div>
   );
 });

@@ -59,7 +59,7 @@
 // --- Contextual sub-navigation ----------------------------------------
 :root[data-grw-ui='modern'] #grw-contextual-sub-nav {
   border-bottom: 1px solid var(--grw-glass-border);
-  box-shadow: var(--grw-glass-inner-hi), 0 8px 20px -12px rgba(20, 45, 70, 0.25);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
 }
 
 // --- Page content card ----------------------------------------------------

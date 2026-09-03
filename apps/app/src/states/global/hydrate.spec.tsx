@@ -30,6 +30,7 @@ const baseProps: CommonInitialProps = {
   aiEnabled: false,
   nasStorageEnabled: false,
   messagesMode: 'off',
+  modernUiMode: 'off',
   messagesImageUploadEnabled: true,
   aiVisionEnabled: false,
   pwaEnabled: false,

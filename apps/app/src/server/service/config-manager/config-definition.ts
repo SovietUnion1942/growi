@@ -17,6 +17,7 @@ import type {
 import { ActionGroupSize } from '~/interfaces/activity';
 import { AttachmentMethodType } from '~/interfaces/attachment';
 import type { MessagesMode } from '~/interfaces/messages-mode';
+import type { ModernUiMode } from '~/interfaces/modern-ui-mode';
 import type {
   IPageDeleteConfigValue,
   IPageDeleteConfigValueToProcessValidation,
@@ -61,6 +62,7 @@ export const CONFIG_KEYS = [
   'app:aiEnabled',
   'app:messagesMode',
   'app:messagesImageUploadEnabled',
+  'app:modernUiMode',
   'app:pwaEnabled',
   'app:pushNotificationEnabled',
   'app:userBadgeEnabled',
@@ -491,6 +493,14 @@ export const CONFIG_DEFINITIONS = {
   'app:messagesImageUploadEnabled': defineConfig<boolean>({
     envVarName: 'MESSAGES_IMAGE_UPLOAD',
     defaultValue: true,
+  }),
+  // Modernized ("Aero-Fluent Glass") UI skin switch. Env-overridable via
+  // MODERN_UI_MODE. Defaults OFF: the skin is opt-in per deployment. Values:
+  // see ~/interfaces/modern-ui-mode (off | optin | on). When 'on', _document
+  // stamps data-grw-ui="modern" on the initial HTML.
+  'app:modernUiMode': defineConfig<ModernUiMode>({
+    envVarName: 'MODERN_UI_MODE',
+    defaultValue: 'off',
   }),
   // PWA: whether the web-app manifest is linked and the service worker is
   // registered (makes the site installable + is the substrate push needs).

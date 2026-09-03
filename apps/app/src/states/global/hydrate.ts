@@ -9,6 +9,7 @@ import {
   boardEnabledAtom,
   messagesImageUploadEnabledAtom,
   messagesModeAtom,
+  modernUiModeAtom,
   nasStorageEnabledAtom,
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
@@ -76,6 +77,7 @@ export const useHydrateGlobalInitialAtoms = (
             commonInitialProps.nasStorageEnabled,
           ),
           createAtomTuple(messagesModeAtom, commonInitialProps.messagesMode),
+          createAtomTuple(modernUiModeAtom, commonInitialProps.modernUiMode),
           createAtomTuple(
             messagesImageUploadEnabledAtom,
             commonInitialProps.messagesImageUploadEnabled,

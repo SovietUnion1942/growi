@@ -7,6 +7,10 @@ import {
   type MessagesMode,
   normalizeMessagesMode,
 } from '~/interfaces/messages-mode';
+import {
+  type ModernUiMode,
+  normalizeModernUiMode,
+} from '~/interfaces/modern-ui-mode';
 import { getGrowiVersion } from '~/utils/growi-version';
 import loggerFactory from '~/utils/logger';
 
@@ -31,6 +35,7 @@ export type CommonInitialProps = {
   aiEnabled: boolean;
   nasStorageEnabled: boolean;
   messagesMode: MessagesMode;
+  modernUiMode: ModernUiMode;
   messagesImageUploadEnabled: boolean;
   aiVisionEnabled: boolean;
   pwaEnabled: boolean;
@@ -92,6 +97,11 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // never reach the client as anything but a valid MessagesMode.
       messagesMode: normalizeMessagesMode(
         configManager.getConfig('app:messagesMode'),
+      ),
+      // Modern UI skin level. Normalized so a stale/typo'd config value can
+      // never reach the client as anything but a valid ModernUiMode.
+      modernUiMode: normalizeModernUiMode(
+        configManager.getConfig('app:modernUiMode'),
       ),
       messagesImageUploadEnabled: configManager.getConfig(
         'app:messagesImageUploadEnabled',

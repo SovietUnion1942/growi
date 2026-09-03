@@ -1,0 +1,58 @@
+// Design tokens for the modern skin. Light values sit on the bare attribute;
+// dark values are redefined under the Bootstrap dark-mode attribute so they
+// track the user's color-mode choice automatically.
+
+:root[data-grw-ui='modern'] {
+  --grw-radius-sm: 8px;
+  --grw-radius-md: 12px;
+  --grw-radius-lg: 16px;
+
+  // Accent stays the club blue in light mode.
+  --grw-accent: #007eb0;
+  --grw-accent-rgb: 0, 126, 176;
+
+  // Glass surface recipe: a top-half reflection sheen layered over a
+  // semi-opaque "mica" fill, a hairline light border, an inner highlight line
+  // and a soft drop shadow.
+  --grw-glass-bg: rgba(251, 252, 253, 0.72);
+  --grw-glass-border: rgba(255, 255, 255, 0.6);
+  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --grw-glass-shadow: 0 1px 2px rgba(20, 45, 70, 0.05), 0 10px 30px rgba(20, 45, 70, 0.12);
+  --grw-glass-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.1) 46%,
+    rgba(255, 255, 255, 0) 47%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  --grw-glass-blur: blur(30px) saturate(1.4);
+
+  // Ground painted behind the floating panels.
+  --grw-page-ground: linear-gradient(180deg, #e7eef4, #dbe4ec);
+
+  // Glossy primary button fill (light-on-blue vertical gradient with a step).
+  --grw-btn-primary-bg: linear-gradient(180deg, #22a3d4, #0a7bad 52%, #0870a0 53%, #1893c4);
+  --grw-btn-primary-border: rgba(7, 80, 115, 0.6);
+}
+
+:root[data-grw-ui='modern'][data-bs-theme='dark'] {
+  --grw-accent: #47b1dc;
+  --grw-accent-rgb: 71, 177, 220;
+
+  --grw-glass-bg: rgba(28, 37, 49, 0.66);
+  --grw-glass-border: rgba(255, 255, 255, 0.08);
+  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --grw-glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 34px rgba(0, 0, 0, 0.42);
+  --grw-glass-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0.015) 46%,
+    rgba(255, 255, 255, 0) 47%,
+    rgba(255, 255, 255, 0) 100%
+  );
+
+  --grw-page-ground: linear-gradient(180deg, #161f2a, #0f151d);
+
+  --grw-btn-primary-bg: linear-gradient(180deg, #2fabdb, #0e83b6 52%, #0b76a4 53%, #1c97c6);
+  --grw-btn-primary-border: rgba(0, 0, 0, 0.35);
+}

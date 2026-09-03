@@ -7,6 +7,10 @@ import type { Locale } from '@growi/core/dist/interfaces';
 
 import type { GrowiPluginResourceEntries } from '~/features/growi-plugin/server/services';
 import type { CrowiRequest } from '~/interfaces/crowi-request';
+import {
+  isModernUiEnabledForInstance,
+  normalizeModernUiMode,
+} from '~/interfaces/modern-ui-mode';
 import loggerFactory from '~/utils/logger';
 
 import { getLocaleAtServerSide } from './utils/locale';
@@ -49,6 +53,7 @@ interface GrowiDocumentProps {
   pluginResourceEntries: GrowiPluginResourceEntries;
   locale: Locale;
   pwaEnabled: boolean;
+  isModernUi: boolean;
 }
 declare type GrowiDocumentInitialProps = DocumentInitialProps &
   GrowiDocumentProps;
@@ -80,6 +85,12 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
 
     const pwaEnabled = crowi.configManager.getConfig('app:pwaEnabled');
 
+    // Modern UI skin: when MODERN_UI_MODE=on, stamp the attribute on the
+    // initial HTML so there is no flash of the classic chrome on load.
+    const isModernUi = isModernUiEnabledForInstance(
+      normalizeModernUiMode(crowi.configManager.getConfig('app:modernUiMode')),
+    );
+
     return {
       ...initialProps,
       themeHref,
@@ -89,6 +100,7 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
       pluginResourceEntries,
       locale,
       pwaEnabled,
+      isModernUi,
     };
   }
 
@@ -134,10 +146,11 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
       pluginResourceEntries,
       locale,
       pwaEnabled,
+      isModernUi,
     } = this.props;
 
     return (
-      <Html lang={locale}>
+      <Html lang={locale} data-grw-ui={isModernUi ? 'modern' : undefined}>
         <Head>
           {this.renderCustomScript(customScript)}
           <link rel="stylesheet" key="link-theme" href={themeHref} />

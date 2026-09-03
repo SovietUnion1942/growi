@@ -1,0 +1,13 @@
+// Modern UI skin ("Aero-Fluent Glass"). Everything here is scoped under
+// :root[data-grw-ui="modern"], which `_document` stamps only when
+// MODERN_UI_MODE=on (see ~/interfaces/modern-ui-mode). With the attribute
+// absent, none of these rules match and the classic Bootstrap chrome renders
+// unchanged.
+//
+// Phase 1 covers the page-view surfaces (icon rail, sidebar, contextual
+// sub-navigation, page content card, table of contents) plus shared controls
+// and design tokens. Editor / search / dashboard polish lands in a later phase.
+
+@import 'tokens';
+@import 'surfaces';
+@import 'controls';

@@ -2,6 +2,7 @@ import { atom, useAtomValue } from 'jotai';
 
 import type { SupportedActionType } from '~/interfaces/activity';
 import type { MessagesMode } from '~/interfaces/messages-mode';
+import type { ModernUiMode } from '~/interfaces/modern-ui-mode';
 import type { RendererConfig } from '~/interfaces/services/renderer';
 
 /**
@@ -29,6 +30,15 @@ export const messagesModeAtom = atom<MessagesMode>('off');
  * the server-side default.
  */
 export const messagesImageUploadEnabledAtom = atom<boolean>(true);
+
+/**
+ * Atom for the modern UI skin level (`app:modernUiMode`; same server-config
+ * route as aiEnabledAtom). `off` when unset, matching the server-side default.
+ * In phase 1 the `data-grw-ui` attribute is stamped by `_document` for `on`;
+ * this atom exists for the later `optin` per-user path and conditional
+ * rendering. See ~/interfaces/modern-ui-mode.
+ */
+export const modernUiModeAtom = atom<ModernUiMode>('off');
 
 /**
  * Atom for the AI vision sub-toggle (`ai:vision`). When false the AI chat

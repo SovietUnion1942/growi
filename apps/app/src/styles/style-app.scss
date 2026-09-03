@@ -28,6 +28,9 @@
 @import 'share-link';
 @import 'marker';
 
+// modern UI skin (scoped under :root[data-grw-ui="modern"])
+@import 'modern-ui/index';
+
 /*
  * for Guest User Mode
  */

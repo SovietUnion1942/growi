@@ -1,0 +1,74 @@
+// Glass treatment for the page-view surfaces. Selectors use stable global
+// hooks (plain classNames / data-testid / ids), never CSS-module hashes.
+
+// Ground painted behind the floating panels.
+:root[data-grw-ui='modern'] body {
+  background-image: var(--grw-page-ground);
+  background-attachment: fixed;
+}
+
+// --- Icon rail -------------------------------------------------------------
+:root[data-grw-ui='modern'] .grw-sidebar-nav {
+  background-color: var(--grw-glass-bg);
+  background-image: var(--grw-glass-sheen);
+  backdrop-filter: var(--grw-glass-blur);
+  border-right: 0;
+  box-shadow: var(--grw-glass-inner-hi), 1px 0 0 var(--grw-glass-border);
+}
+
+// Selected primary item: glossy pill with a left accent bar.
+:root[data-grw-ui='modern'] .grw-sidebar-nav .btn.btn-primary {
+  color: var(--bs-secondary-color);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:root[data-grw-ui='modern'] .grw-sidebar-nav .btn.btn-primary:hover {
+  color: var(--grw-accent);
+  background: rgba(var(--grw-accent-rgb), 0.1);
+}
+
+:root[data-grw-ui='modern'] .grw-sidebar-nav .btn.btn-primary.active {
+  color: var(--grw-accent);
+  background: rgba(var(--grw-accent-rgb), 0.14);
+  box-shadow: var(--grw-glass-inner-hi), inset 3px 0 0 var(--grw-accent);
+}
+
+// --- Sidebar panel ------------------------------------------------------
+:root[data-grw-ui='modern'] [data-testid='grw-sidebar'] {
+  border: 0 !important;
+}
+
+:root[data-grw-ui='modern'] .sidebar-contents-container {
+  background-color: var(--grw-glass-bg) !important;
+  background-image: var(--grw-glass-sheen);
+  backdrop-filter: var(--grw-glass-blur);
+  border-color: var(--grw-glass-border) !important;
+  box-shadow: var(--grw-glass-inner-hi);
+}
+
+// --- Contextual sub-navigation ----------------------------------------
+:root[data-grw-ui='modern'] #grw-contextual-sub-nav {
+  backdrop-filter: var(--grw-glass-blur);
+  border-bottom: 1px solid var(--grw-glass-border);
+  box-shadow: var(--grw-glass-inner-hi);
+}
+
+// --- Page content card ----------------------------------------------------
+:root[data-grw-ui='modern'] .grw-container-convertible {
+  padding-block: 1.75rem;
+  padding-inline: clamp(1rem, 3vw, 2.5rem);
+  background-color: var(--grw-glass-bg);
+  background-image: var(--grw-glass-sheen);
+  backdrop-filter: var(--grw-glass-blur);
+  border: 1px solid var(--grw-glass-border);
+  border-radius: var(--grw-radius-lg);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
+}
+
+// --- Table of contents --------------------------------------------------
+:root[data-grw-ui='modern'] .grw-side-contents-sticky-container {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--grw-glass-border);
+}

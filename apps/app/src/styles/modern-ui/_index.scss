@@ -5,13 +5,15 @@
 // chrome renders unchanged.
 //
 // Covered: the page-view surfaces (icon rail, sidebar, contextual sub-nav,
-// page content card, ToC), the search-results list, shared controls and
-// design tokens. Both color modes: light values sit on the bare attribute,
-// dark values are redefined under [data-bs-theme='dark'] (GROWI's next-themes
-// attribute), so the skin tracks the user's color-mode choice automatically.
-// Editor / top-bar polish lands in a later phase.
+// page content card, ToC), the top bar, the editor chrome (navbar, bottom
+// toolbar, segmented mode switch, pane borders), the search-results list,
+// shared controls and design tokens. Both color modes: light values sit on
+// the bare attribute, dark values are redefined under [data-bs-theme='dark']
+// (GROWI's next-themes attribute), so the skin tracks the user's color-mode
+// choice automatically.
 
 @import 'tokens';
 @import 'surfaces';
 @import 'controls';
+@import 'editor';
 @import 'search';

@@ -56,8 +56,12 @@
   border-color: var(--grw-glass-border) !important;
 }
 
-// --- Contextual sub-navigation ----------------------------------------
+// --- Contextual sub-navigation (the top bar) --------------------------
+// View mode sits on the fixed GroundGlassBar; layering the same frosted
+// recipe on the nav itself makes the whole strip read as one glass plane.
 :root[data-grw-ui='modern'] #grw-contextual-sub-nav {
+  background-color: var(--grw-glass-bg);
+  background-image: var(--grw-glass-sheen);
   border-bottom: 1px solid var(--grw-glass-border);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
 }

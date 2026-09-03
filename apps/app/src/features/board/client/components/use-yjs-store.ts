@@ -11,13 +11,17 @@ import * as Y from 'yjs';
 
 /**
  * Binds a tldraw store to a Yjs document synced over a `y-websocket`
- * provider. Document records live in a single `Y.Map<TLRecord>`.
+ * provider. Adapted from tldraw's official `yjs` example, trimmed to a
+ * `Y.Map` (instead of `y-utility`'s `YKeyValue`).
  *
- * Adapted from tldraw's official `yjs` example, trimmed to a `Y.Map`
- * (instead of `y-utility`'s `YKeyValue`, an extra dependency) and to
- * document sync only -- peer cursor/selection presence over the awareness
- * channel is a later addition. `Y.Map` is adequate for the document sizes a
- * club whiteboard produces.
+ * Only **document-scoped** records go through Yjs. `session`/`presence`
+ * records (`instance`, `camera`, `pointer`, `instance_page_state`) are
+ * per-tab editor state -- syncing them makes every client fight over the
+ * viewport and, worse, a `store.clear()`-style reload wipes the `instance`
+ * record the editor needs, blanking the canvas. So: seed from
+ * `store.serialize('document')`, filter incoming records to
+ * `store.scopedTypes.document`, and reconcile without ever clearing session
+ * records.
  */
 export const useYjsStore = (
   roomId: string,
@@ -44,10 +48,13 @@ export const useYjsStore = (
       connect: true,
     });
 
+    const isDocumentRecord = (record: TLRecord): boolean =>
+      store.scopedTypes.document.has(record.typeName);
+
     const unsubs: (() => void)[] = [];
 
     const bindStoreToYDoc = () => {
-      // tldraw store -> Y.Map (local user edits only)
+      // tldraw store -> Y.Map (local, document-scoped edits only)
       unsubs.push(
         store.listen(
           ({ changes }) => {
@@ -82,7 +89,7 @@ export const useYjsStore = (
             toRemove.push(id as TLRecord['id']);
           } else {
             const record = yRecords.get(id);
-            if (record != null) toPut.push(record);
+            if (record != null && isDocumentRecord(record)) toPut.push(record);
           }
         });
 
@@ -95,17 +102,25 @@ export const useYjsStore = (
       yRecords.observe(handleChange);
       unsubs.push(() => yRecords.unobserve(handleChange));
 
-      // Seed: first client fills the doc, later clients load from it
       if (yRecords.size === 0) {
+        // First client: seed the doc with this store's document records only.
         yDoc.transact(() => {
-          for (const record of store.allRecords()) {
-            yRecords.set(record.id, record);
+          for (const record of Object.values(store.serialize('document'))) {
+            yRecords.set((record as TLRecord).id, record as TLRecord);
           }
         });
       } else {
+        // Later client: adopt the shared document without touching session
+        // records (no store.clear() -> the editor stays usable).
+        const remote = [...yRecords.values()].filter(isDocumentRecord);
+        const remoteIds = new Set(remote.map((r) => r.id));
+        const staleLocalDocIds = Object.values(store.serialize('document'))
+          .map((r) => (r as TLRecord).id)
+          .filter((id) => !remoteIds.has(id));
+
         store.mergeRemoteChanges(() => {
-          store.clear();
-          store.put([...yRecords.values()]);
+          if (staleLocalDocIds.length > 0) store.remove(staleLocalDocIds);
+          store.put(remote);
         });
       }
 

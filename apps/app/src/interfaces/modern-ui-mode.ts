@@ -7,16 +7,21 @@
  * byte-for-byte identically to the classic Bootstrap chrome.
  *
  *   off    - classic UI only. The `data-grw-ui` attribute is never emitted.
- *   optin  - classic UI by default; each user may switch their own view to the
- *            modern skin from personal settings. (The per-user plumbing ships in
- *            a later phase; for now `optin` behaves like `off` instance-wide.)
- *   on     - the modern skin is applied instance-wide. `_document` stamps
- *            `data-grw-ui="modern"` on the initial HTML so there is no flash of
- *            the classic UI on load.
+ *   optin  - classic UI by default; a viewer opts their own browser in by
+ *            visiting any page with `?grw-ui=modern` (which sets the
+ *            {@link MODERN_UI_COOKIE} cookie; `?grw-ui=off` clears it).
+ *   on     - the modern skin is applied to every view. `_document` stamps
+ *            `data-grw-ui="modern"` on the initial HTML so there is no flash
+ *            of the classic UI on load.
  */
 export const MODERN_UI_MODES = ['off', 'optin', 'on'] as const;
 
 export type ModernUiMode = (typeof MODERN_UI_MODES)[number];
+
+/** Cookie a viewer sets (via `?grw-ui=modern`) to opt their own browser into
+ *  the modern skin while the instance mode is `optin`. */
+export const MODERN_UI_COOKIE = 'grw-ui';
+export const MODERN_UI_COOKIE_ON = 'modern';
 
 /** Narrowing type guard for values coming from env / the config store. */
 export const isModernUiMode = (value: unknown): value is ModernUiMode =>
@@ -32,9 +37,16 @@ export const normalizeModernUiMode = (value: unknown): ModernUiMode =>
   isModernUiMode(value) ? value : 'off';
 
 /**
- * Whether the modern skin should be applied to every view of the instance
- * (i.e. `_document` should stamp `data-grw-ui="modern"`). `optin` is
- * deliberately excluded here - that mode resolves per-user, not per-instance.
+ * Whether the modern skin should apply to a request, given the instance mode
+ * and the viewer's `grw-ui` cookie. `_document` uses this to decide whether to
+ * stamp `data-grw-ui="modern"` on the initial HTML.
+ *
+ *   on    -> always
+ *   optin -> only when the viewer's cookie opts in
+ *   off   -> never
  */
-export const isModernUiEnabledForInstance = (mode: ModernUiMode): boolean =>
-  mode === 'on';
+export const isModernUiActive = (
+  mode: ModernUiMode,
+  cookieValue: string | undefined,
+): boolean =>
+  mode === 'on' || (mode === 'optin' && cookieValue === MODERN_UI_COOKIE_ON);

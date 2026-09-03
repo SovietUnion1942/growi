@@ -8,7 +8,8 @@ import type { Locale } from '@growi/core/dist/interfaces';
 import type { GrowiPluginResourceEntries } from '~/features/growi-plugin/server/services';
 import type { CrowiRequest } from '~/interfaces/crowi-request';
 import {
-  isModernUiEnabledForInstance,
+  isModernUiActive,
+  MODERN_UI_COOKIE,
   normalizeModernUiMode,
 } from '~/interfaces/modern-ui-mode';
 import loggerFactory from '~/utils/logger';
@@ -85,10 +86,12 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
 
     const pwaEnabled = crowi.configManager.getConfig('app:pwaEnabled');
 
-    // Modern UI skin: when MODERN_UI_MODE=on, stamp the attribute on the
-    // initial HTML so there is no flash of the classic chrome on load.
-    const isModernUi = isModernUiEnabledForInstance(
+    // Modern UI skin: stamp the attribute on the initial HTML (so there is no
+    // flash of the classic chrome) when the instance mode is `on`, or when it
+    // is `optin` and this viewer's `grw-ui` cookie opts in.
+    const isModernUi = isModernUiActive(
       normalizeModernUiMode(crowi.configManager.getConfig('app:modernUiMode')),
+      req.cookies?.[MODERN_UI_COOKIE],
     );
 
     return {

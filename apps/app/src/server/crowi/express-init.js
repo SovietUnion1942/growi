@@ -12,6 +12,7 @@ import methodOverride from 'method-override';
 import passport from 'passport';
 import qs from 'qs';
 
+import { modernUiPreview } from '~/server/middlewares/modern-ui-preview';
 import { resolveFromRoot } from '~/server/util/project-dir-utils';
 
 import {
@@ -116,6 +117,10 @@ export const setup = (crowi, app) => {
   app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(cookieParser());
+
+  // ?grw-ui=modern / ?grw-ui=off -> set/clear the modern-UI opt-in cookie
+  // (only meaningful while MODERN_UI_MODE=optin). Must run after cookieParser.
+  app.use(modernUiPreview);
 
   // configure express-session
   const sessionMiddleware = expressSession(crowi.sessionConfig);

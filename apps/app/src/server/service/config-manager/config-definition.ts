@@ -496,8 +496,9 @@ export const CONFIG_DEFINITIONS = {
   }),
   // Modernized ("Aero-Fluent Glass") UI skin switch. Env-overridable via
   // MODERN_UI_MODE. Defaults OFF: the skin is opt-in per deployment. Values:
-  // see ~/interfaces/modern-ui-mode (off | optin | on). When 'on', _document
-  // stamps data-grw-ui="modern" on the initial HTML.
+  // see ~/interfaces/modern-ui-mode (off | optin | on). 'on' applies it to
+  // everyone; 'optin' applies it per-browser via the ?grw-ui=modern cookie.
+  // _document stamps data-grw-ui="modern" on the initial HTML accordingly.
   'app:modernUiMode': defineConfig<ModernUiMode>({
     envVarName: 'MODERN_UI_MODE',
     defaultValue: 'off',

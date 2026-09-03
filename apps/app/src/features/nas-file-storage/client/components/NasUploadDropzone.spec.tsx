@@ -323,6 +323,20 @@ describe('NasUploadDropzone', () => {
     );
   });
 
+  it('clears the finished queue when the current folder changes', async () => {
+    mocks.uploadFile.mockResolvedValue({ name: 'a.txt', type: 'file' });
+
+    const { rerender } = render(<NasUploadDropzone currentDirPath="/docs" />);
+    dropFiles([makeFile('a.txt')]);
+    expect(
+      await screen.findByText('nas_storage.upload.status_done'),
+    ).toBeInTheDocument();
+
+    rerender(<NasUploadDropzone currentDirPath="/photos" />);
+
+    expect(screen.queryByTestId('nas-upload-queue')).not.toBeInTheDocument();
+  });
+
   it('keeps a sub-threshold file on the single-shot path', async () => {
     mocks.uploadFile.mockResolvedValue({ name: 'a.txt', type: 'file' });
 

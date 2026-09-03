@@ -13,6 +13,10 @@ import {
   nasStorageEnabledAtom,
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
+  sysreqNoticeAtom,
+  uaBelowMinAtom,
+  uaOsAtom,
+  uiTierAtom,
   userBadgeEnabledAtom,
   wikiGapSuggestionsEnabledAtom,
 } from '~/states/server-configurations';
@@ -78,6 +82,10 @@ export const useHydrateGlobalInitialAtoms = (
           ),
           createAtomTuple(messagesModeAtom, commonInitialProps.messagesMode),
           createAtomTuple(modernUiModeAtom, commonInitialProps.modernUiMode),
+          createAtomTuple(uiTierAtom, commonInitialProps.uiTier),
+          createAtomTuple(uaBelowMinAtom, commonInitialProps.uaBelowMin),
+          createAtomTuple(uaOsAtom, commonInitialProps.uaOs),
+          createAtomTuple(sysreqNoticeAtom, commonInitialProps.sysreqNotice),
           createAtomTuple(
             messagesImageUploadEnabledAtom,
             commonInitialProps.messagesImageUploadEnabled,

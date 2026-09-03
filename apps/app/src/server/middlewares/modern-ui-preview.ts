@@ -14,33 +14,40 @@ const COOKIE_OPTS = {
   sameSite: 'lax',
 } as const;
 
+const asString = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.length > 0 ? v : undefined;
+
 /**
- * Per-browser UI preference query params, set on any page:
+ * Per-browser UI preference query params, set on any page (must run after
+ * cookieParser). All write a non-`httpOnly` cookie (so the /me picker can also
+ * toggle them from JS) read back in `_document` / common-props.
  *
- *   ?grw-ui=modern | off       - opt into / out of the modern UI skin
- *                                (only meaningful while MODERN_UI_MODE=optin)
- *   ?grw-theme=<preset name>   - override the instance's preset color theme
- *   ?grw-theme=default         - clear the override
+ *   ?ui=modern | legacy | auto   - pin the UI tier (auto clears the cookie).
+ *                                  `lite` is accepted but a no-op for now
+ *                                  (the lite render path is a later slice).
+ *   ?grw-ui=modern | off         - back-compat alias for ?ui=modern / ?ui=auto
+ *   ?grw-theme=<preset name>     - override the instance's preset color theme
+ *   ?grw-theme=default           - clear that override
  *
- * Both write a non-`httpOnly` cookie (so the /me picker can also toggle them
- * from JS) read back in `_document` / common-props. Unknown `grw-theme` values
- * are validated there (fall back to the instance default). Must run after
- * cookieParser.
+ * An old / SPA-incapable User-Agent is pinned to legacy in `resolveUiTier`
+ * regardless of the cookie, so `?ui=modern` on such a client is inert.
  */
 export const modernUiPreview = (
   req: Request,
   res: Response,
   next: NextFunction,
 ): void => {
-  const ui = req.query[MODERN_UI_COOKIE];
+  const ui = asString(req.query.ui) ?? asString(req.query[MODERN_UI_COOKIE]);
   if (ui === MODERN_UI_COOKIE_ON) {
     res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_ON, COOKIE_OPTS);
-  } else if (ui === 'off') {
+  } else if (ui === 'legacy') {
+    res.cookie(MODERN_UI_COOKIE, 'legacy', COOKIE_OPTS);
+  } else if (ui === 'off' || ui === 'auto') {
     res.clearCookie(MODERN_UI_COOKIE, { path: '/' });
   }
 
-  const theme = req.query[THEME_COOKIE];
-  if (typeof theme === 'string' && theme.length > 0) {
+  const theme = asString(req.query[THEME_COOKIE]);
+  if (theme != null) {
     if (theme === THEME_COOKIE_RESET) {
       res.clearCookie(THEME_COOKIE, { path: '/' });
     } else {

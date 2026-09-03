@@ -314,9 +314,9 @@
   },
   "theme_settings": {
     "settings": "Theme (this browser only)",
-    "use_modern_ui": "Use the new UI",
-    "modern_ui_desc": "Switches the layout to the new \"Aero-Fluent Glass\" chrome. Independent of the color theme.",
-    "color_theme": "Color theme",
+    "desc": "Changes the look for this browser only. Other people are not affected.",
+    "modern_ui": "Modern UI",
+    "modern_ui_unavailable": "The modern UI is not available on your browser (you'll see the legacy view).",
     "reset_to_default": "Reset to default",
     "light_and_dark": "Light & dark",
     "single_mode": "Single mode"

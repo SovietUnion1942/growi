@@ -8,11 +8,11 @@ import type { Locale } from '@growi/core/dist/interfaces';
 import type { GrowiPluginResourceEntries } from '~/features/growi-plugin/server/services';
 import type { CrowiRequest } from '~/interfaces/crowi-request';
 import {
-  isModernUiActive,
   MODERN_UI_COOKIE,
   normalizeModernUiMode,
   THEME_COOKIE,
 } from '~/interfaces/modern-ui-mode';
+import { resolveUiTier } from '~/interfaces/ui-tier';
 import loggerFactory from '~/utils/logger';
 
 import { getLocaleAtServerSide } from './utils/locale';
@@ -93,13 +93,18 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
 
     const pwaEnabled = crowi.configManager.getConfig('app:pwaEnabled');
 
-    // Modern UI skin: stamp the attribute on the initial HTML (so there is no
-    // flash of the classic chrome) when the instance mode is `on`, or when it
-    // is `optin` and this viewer's `grw-ui` cookie opts in.
-    const isModernUi = isModernUiActive(
-      normalizeModernUiMode(crowi.configManager.getConfig('app:modernUiMode')),
-      req.cookies?.[MODERN_UI_COOKIE],
-    );
+    // Resolve the UI tier for this request (instance mode x grw-ui cookie x
+    // User-Agent). Only `glass` stamps the attribute; old / SPA-incapable
+    // clients silently get the classic chrome even with the modern opt-in.
+    // Done here so there is no flash on load.
+    const isModernUi =
+      resolveUiTier({
+        mode: normalizeModernUiMode(
+          crowi.configManager.getConfig('app:modernUiMode'),
+        ),
+        cookie: req.cookies?.[MODERN_UI_COOKIE],
+        ua: req.headers['user-agent'],
+      }) === 'glass';
 
     return {
       ...initialProps,

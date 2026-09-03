@@ -324,9 +324,9 @@
   },
   "theme_settings": {
     "settings": "テーマ（このブラウザだけ）",
-    "use_modern_ui": "新しいUIを使う",
-    "modern_ui_desc": "レイアウトを新しい「Aero-Fluent Glass」に切り替えます。配色テーマとは独立です。",
-    "color_theme": "配色テーマ",
+    "desc": "見た目をこのブラウザだけ切り替えます。他の人には影響しません。",
+    "modern_ui": "モダンUI",
+    "modern_ui_unavailable": "お使いのブラウザではモダンUIは利用できません（レガシー表示になります）。",
     "reset_to_default": "既定に戻す",
     "light_and_dark": "Light / Dark 両対応",
     "single_mode": "モード固定"

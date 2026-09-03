@@ -63,6 +63,7 @@ export const CONFIG_KEYS = [
   'app:messagesMode',
   'app:messagesImageUploadEnabled',
   'app:modernUiMode',
+  'app:sysreqNotice',
   'app:pwaEnabled',
   'app:pushNotificationEnabled',
   'app:userBadgeEnabled',
@@ -502,6 +503,13 @@ export const CONFIG_DEFINITIONS = {
   'app:modernUiMode': defineConfig<ModernUiMode>({
     envVarName: 'MODERN_UI_MODE',
     defaultValue: 'off',
+  }),
+  // System-requirements notice: a dismissible banner for clients whose UA is
+  // below the documented minimum. Default OFF. See ~/interfaces/ui-tier +
+  // ~/interfaces/system-requirements.
+  'app:sysreqNotice': defineConfig<boolean>({
+    envVarName: 'SYSREQ_NOTICE',
+    defaultValue: false,
   }),
   // PWA: whether the web-app manifest is linked and the service worker is
   // registered (makes the site installable + is the substrate push needs).

@@ -4,6 +4,7 @@ import type { SupportedActionType } from '~/interfaces/activity';
 import type { MessagesMode } from '~/interfaces/messages-mode';
 import type { ModernUiMode } from '~/interfaces/modern-ui-mode';
 import type { RendererConfig } from '~/interfaces/services/renderer';
+import type { UiTier } from '~/interfaces/ui-tier';
 
 /**
  * Atom for AI feature enabled status
@@ -39,6 +40,24 @@ export const messagesImageUploadEnabledAtom = atom<boolean>(true);
  * rendering. See ~/interfaces/modern-ui-mode.
  */
 export const modernUiModeAtom = atom<ModernUiMode>('off');
+
+/**
+ * Resolved UI tier for this request (mode x grw-ui cookie x User-Agent).
+ * `_document` does its own resolution for the FOUC-critical attribute; this
+ * atom is for client-side UI (the /me modern card selected-state). See
+ * ~/interfaces/ui-tier.
+ */
+export const uiTierAtom = atom<UiTier>('legacy');
+
+/** This client's UA is below the documented minimum. Drives the banner and
+ *  disables the /me modern card. */
+export const uaBelowMinAtom = atom<boolean>(false);
+
+/** OS key for the system-requirements table highlight. */
+export const uaOsAtom = atom<string>('other');
+
+/** `app:sysreqNotice` - the system-requirements banner is enabled instance-wide. */
+export const sysreqNoticeAtom = atom<boolean>(false);
 
 /**
  * Atom for the AI vision sub-toggle (`ai:vision`). When false the AI chat

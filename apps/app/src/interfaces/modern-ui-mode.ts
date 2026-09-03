@@ -46,17 +46,5 @@ export const isModernUiMode = (value: unknown): value is ModernUiMode =>
 export const normalizeModernUiMode = (value: unknown): ModernUiMode =>
   isModernUiMode(value) ? value : 'off';
 
-/**
- * Whether the modern skin should apply to a request, given the instance mode
- * and the viewer's `grw-ui` cookie. `_document` uses this to decide whether to
- * stamp `data-grw-ui="modern"` on the initial HTML.
- *
- *   on    -> always
- *   optin -> only when the viewer's cookie opts in
- *   off   -> never
- */
-export const isModernUiActive = (
-  mode: ModernUiMode,
-  cookieValue: string | undefined,
-): boolean =>
-  mode === 'on' || (mode === 'optin' && cookieValue === MODERN_UI_COOKIE_ON);
+// The mode x cookie x User-Agent decision lives in ~/interfaces/ui-tier
+// (`resolveUiTier`) so it can also account for old / SPA-incapable clients.

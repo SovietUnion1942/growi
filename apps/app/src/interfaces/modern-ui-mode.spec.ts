@@ -1,5 +1,4 @@
 import {
-  isModernUiActive,
   isModernUiMode,
   MODERN_UI_COOKIE,
   MODERN_UI_COOKIE_ON,
@@ -42,26 +41,6 @@ describe('modern-ui-mode', () => {
       'ON',
     ])('falls back to "off" for %p', (value) => {
       expect(normalizeModernUiMode(value)).toBe('off');
-    });
-  });
-
-  describe('isModernUiActive', () => {
-    it('is always on when the mode is "on"', () => {
-      expect(isModernUiActive('on', undefined)).toBe(true);
-      expect(isModernUiActive('on', 'modern')).toBe(true);
-      expect(isModernUiActive('on', 'anything')).toBe(true);
-    });
-
-    it('is never on when the mode is "off"', () => {
-      expect(isModernUiActive('off', undefined)).toBe(false);
-      expect(isModernUiActive('off', 'modern')).toBe(false);
-    });
-
-    it('follows the cookie when the mode is "optin"', () => {
-      expect(isModernUiActive('optin', 'modern')).toBe(true);
-      expect(isModernUiActive('optin', undefined)).toBe(false);
-      expect(isModernUiActive('optin', 'off')).toBe(false);
-      expect(isModernUiActive('optin', '')).toBe(false);
     });
   });
 

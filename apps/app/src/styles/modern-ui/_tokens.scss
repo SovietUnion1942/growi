@@ -12,23 +12,27 @@
   --grw-accent-rgb: 0, 126, 176;
 
   // Glass surface recipe: a top-half reflection sheen layered over a
-  // semi-opaque "mica" fill, a hairline light border, an inner highlight line
-  // and a soft drop shadow.
-  --grw-glass-bg: rgba(251, 252, 253, 0.72);
-  --grw-glass-border: rgba(255, 255, 255, 0.6);
-  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --grw-glass-shadow: 0 1px 2px rgba(20, 45, 70, 0.05), 0 10px 30px rgba(20, 45, 70, 0.12);
+  // translucent "mica" fill, a hairline light border, an inner highlight line
+  // and a soft drop shadow. The fill is deliberately semi-transparent so the
+  // backdrop blur of the tinted ground reads as frosted depth.
+  --grw-glass-bg: rgba(252, 253, 255, 0.62);
+  --grw-glass-border: rgba(255, 255, 255, 0.7);
+  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --grw-glass-shadow: 0 2px 6px rgba(20, 45, 70, 0.06), 0 16px 42px rgba(20, 45, 70, 0.14);
   --grw-glass-sheen: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 255, 255, 0.1) 46%,
-    rgba(255, 255, 255, 0) 47%,
-    rgba(255, 255, 255, 0.04) 100%
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.14) 44%,
+    rgba(255, 255, 255, 0) 45%,
+    rgba(255, 255, 255, 0.05) 100%
   );
-  --grw-glass-blur: blur(30px) saturate(1.4);
+  --grw-glass-blur: blur(22px) saturate(1.6);
 
-  // Ground painted behind the floating panels.
-  --grw-page-ground: linear-gradient(180deg, #e7eef4, #dbe4ec);
+  // Ground painted behind the floating panels: a cool tint with a faint
+  // top-left light so the near-white panels lift off it.
+  --grw-page-ground:
+    radial-gradient(1100px 520px at 12% -12%, rgba(150, 200, 235, 0.35), transparent 60%),
+    linear-gradient(165deg, #eaf0f7 0%, #dae4ef 58%, #d3deeb 100%);
 
   // Glossy primary button fill (light-on-blue vertical gradient with a step).
   --grw-btn-primary-bg: linear-gradient(180deg, #22a3d4, #0a7bad 52%, #0870a0 53%, #1893c4);
@@ -39,19 +43,21 @@
   --grw-accent: #47b1dc;
   --grw-accent-rgb: 71, 177, 220;
 
-  --grw-glass-bg: rgba(28, 37, 49, 0.66);
-  --grw-glass-border: rgba(255, 255, 255, 0.08);
+  --grw-glass-bg: rgba(28, 37, 49, 0.62);
+  --grw-glass-border: rgba(255, 255, 255, 0.09);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --grw-glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 34px rgba(0, 0, 0, 0.42);
+  --grw-glass-shadow: 0 2px 6px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.44);
   --grw-glass-sheen: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0.015) 46%,
-    rgba(255, 255, 255, 0) 47%,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.018) 44%,
+    rgba(255, 255, 255, 0) 45%,
     rgba(255, 255, 255, 0) 100%
   );
 
-  --grw-page-ground: linear-gradient(180deg, #161f2a, #0f151d);
+  --grw-page-ground:
+    radial-gradient(1100px 520px at 12% -12%, rgba(50, 120, 165, 0.28), transparent 60%),
+    linear-gradient(165deg, #18222e 0%, #121a24 60%, #0e151d 100%);
 
   --grw-btn-primary-bg: linear-gradient(180deg, #2fabdb, #0e83b6 52%, #0b76a4 53%, #1c97c6);
   --grw-btn-primary-border: rgba(0, 0, 0, 0.35);

@@ -7,16 +7,24 @@
   background-attachment: fixed;
 }
 
-// --- Icon rail -------------------------------------------------------------
+// --- Icon rail (floating card) -------------------------------------------
 :root[data-grw-ui='modern'] .grw-sidebar-nav {
+  margin: 10px 8px 10px 10px;
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
   backdrop-filter: var(--grw-glass-blur);
   border-right: 0;
-  box-shadow: var(--grw-glass-inner-hi), 1px 0 0 var(--grw-glass-border);
+  border-radius: var(--grw-radius-lg);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
-// Selected primary item: glossy pill with a left accent bar.
+// The bottom cluster is position:fixed, so it needs the same left offset as
+// the floated rail to stay aligned under it.
+:root[data-grw-ui='modern'] .grw-sidebar-nav-secondary-container {
+  margin-left: 10px;
+}
+
+// Selected primary item: soft accent pill with a left accent bar.
 :root[data-grw-ui='modern'] .grw-sidebar-nav .btn.btn-primary {
   color: var(--bs-secondary-color);
   background: transparent;
@@ -31,28 +39,31 @@
 
 :root[data-grw-ui='modern'] .grw-sidebar-nav .btn.btn-primary.active {
   color: var(--grw-accent);
-  background: rgba(var(--grw-accent-rgb), 0.14);
+  background: rgba(var(--grw-accent-rgb), 0.16);
   box-shadow: var(--grw-glass-inner-hi), inset 3px 0 0 var(--grw-accent);
 }
 
-// --- Sidebar panel ------------------------------------------------------
+// --- Sidebar panel (floating card) -------------------------------------
 :root[data-grw-ui='modern'] [data-testid='grw-sidebar'] {
+  background: transparent !important;
   border: 0 !important;
 }
 
 :root[data-grw-ui='modern'] .sidebar-contents-container {
+  margin: 10px 10px 10px 0;
   background-color: var(--grw-glass-bg) !important;
   background-image: var(--grw-glass-sheen);
   backdrop-filter: var(--grw-glass-blur);
   border-color: var(--grw-glass-border) !important;
-  box-shadow: var(--grw-glass-inner-hi);
+  border-radius: var(--grw-radius-lg);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
 // --- Contextual sub-navigation ----------------------------------------
 :root[data-grw-ui='modern'] #grw-contextual-sub-nav {
   backdrop-filter: var(--grw-glass-blur);
   border-bottom: 1px solid var(--grw-glass-border);
-  box-shadow: var(--grw-glass-inner-hi);
+  box-shadow: var(--grw-glass-inner-hi), 0 8px 20px -12px rgba(20, 45, 70, 0.25);
 }
 
 // --- Page content card ----------------------------------------------------

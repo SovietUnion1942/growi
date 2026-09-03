@@ -1231,7 +1231,8 @@
       "in_progress": "フォルダをアップロード中…",
       "summary": "{{succeeded}} 件アップロード、{{skipped}} 件スキップ、{{failed}} 件失敗。",
       "failures_title": "アップロードに失敗したファイル",
-      "invalid_path": "使用できない名前が含まれていたためスキップしました。"
+      "invalid_path": "使用できない名前が含まれていたためスキップしました。",
+      "progress": "{{processed}} / {{total}} ファイル"
     },
     "confirm": {
       "delete_title": "項目を削除",

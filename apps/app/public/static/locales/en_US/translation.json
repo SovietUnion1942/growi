@@ -1191,7 +1191,8 @@
       "in_progress": "Uploading folder…",
       "summary": "{{succeeded}} uploaded, {{skipped}} skipped, {{failed}} failed.",
       "failures_title": "Files that failed to upload",
-      "invalid_path": "The path contains an unusable name and was skipped."
+      "invalid_path": "The path contains an unusable name and was skipped.",
+      "progress": "{{processed}} / {{total}} files"
     },
     "confirm": {
       "delete_title": "Delete item",

@@ -13,7 +13,11 @@ export interface UseNasEntryActionsResult {
    */
   uploadFile: (
     file: File,
-    opts?: { name?: string; overwrite?: boolean },
+    opts?: {
+      name?: string;
+      overwrite?: boolean;
+      onProgress?: (sentBytes: number, totalBytes: number) => void;
+    },
   ) => Promise<NasEntry>;
   createFolder: (name: string) => Promise<NasEntry>;
   rename: (from: string, to: string, overwrite?: boolean) => Promise<NasEntry>;
@@ -44,7 +48,11 @@ export const useNasEntryActions = (
   const uploadFile = useCallback(
     (
       file: File,
-      opts?: { name?: string; overwrite?: boolean },
+      opts?: {
+        name?: string;
+        overwrite?: boolean;
+        onProgress?: (sentBytes: number, totalBytes: number) => void;
+      },
     ): Promise<NasEntry> => {
       const form = new FormData();
       form.append('file', file);
@@ -59,6 +67,7 @@ export const useNasEntryActions = (
       return nasApiRequest<NasEntry>('post', '/files', {
         data: form,
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: opts?.onProgress,
       });
     },
     [currentDirPath],

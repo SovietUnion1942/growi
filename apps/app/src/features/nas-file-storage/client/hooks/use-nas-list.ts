@@ -105,6 +105,8 @@ export const nasApiRequest = async <T>(
     params?: Record<string, NasQueryValue>;
     data?: unknown;
     headers?: Record<string, string>;
+    /** Upload progress: bytes sent so far and the total, when known. */
+    onUploadProgress?: (sentBytes: number, totalBytes: number) => void;
   } = {},
 ): Promise<T> => {
   try {
@@ -114,6 +116,15 @@ export const nasApiRequest = async <T>(
       params: opts.params,
       data: opts.data,
       headers: opts.headers,
+      onUploadProgress:
+        opts.onUploadProgress != null
+          ? (e) => {
+              const total = e.total ?? 0;
+              if (total > 0) {
+                opts.onUploadProgress?.(e.loaded, total);
+              }
+            }
+          : undefined,
     });
     return res.data;
   } catch (err) {

@@ -708,6 +708,17 @@ class Crowi {
       this.sessionConfig,
     );
 
+    // Initialization BoardYjsService (fork feature, BOARD_MODE).
+    // Must run AFTER YjsService: it wraps the y-websocket persistence that
+    // YjsService installs. Lazy-imported so a disabled feature adds nothing
+    // to the module graph beyond what YjsService already loads.
+    if (this.configManager.getConfig('app:boardEnabled')) {
+      const { initializeBoardYjsService } = await import(
+        '~/features/board/server/board-yjs/board-yjs'
+      );
+      initializeBoardYjsService(httpServer, this.sessionConfig);
+    }
+
     await this.autoInstall();
 
     // listen

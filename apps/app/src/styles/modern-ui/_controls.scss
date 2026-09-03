@@ -1,35 +1,17 @@
-// Shared controls for the modern skin: glossy primary buttons, segmented
-// toggles, chips, focus rings. Rounder + softer than the Bootstrap defaults.
+// Shared controls for the modern skin: rounder radii, a segmented toggle look,
+// a soft focus ring. Kept deliberately light — GROWI reuses `.btn-primary` for
+// icon-only buttons (sidebar toggle, page-create, nav items), so a blanket
+// primary-button restyle turns those into giant glossy blobs. A curated
+// glossy-primary treatment is left to a later phase.
 
 :root[data-grw-ui='modern'] {
   --bs-border-radius: var(--grw-radius-sm);
   --bs-border-radius-sm: 6px;
   --bs-border-radius-lg: var(--grw-radius-md);
+  --bs-border-radius-xl: var(--grw-radius-lg);
 }
 
-// --- Primary buttons ------------------------------------------------------
-// The icon-rail buttons are also .btn-primary but keep their own look via the
-// higher-specificity `.grw-sidebar-nav .btn.btn-primary` rules in _surfaces.
-:root[data-grw-ui='modern'] .btn-primary {
-  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.18);
-  background: var(--grw-btn-primary-bg);
-  border: 1px solid var(--grw-btn-primary-border);
-  border-radius: 999px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 3px 12px rgba(var(--grw-accent-rgb), 0.3);
-}
-
-:root[data-grw-ui='modern'] .btn-primary:hover {
-  filter: brightness(1.04);
-}
-
-:root[data-grw-ui='modern'] .btn-outline-secondary,
-:root[data-grw-ui='modern'] .btn-outline-neutral-secondary,
-:root[data-grw-ui='modern'] .btn-secondary {
-  border-radius: 999px;
-}
-
-// --- Segmented toggle (Bootstrap nav-pills, e.g. view / edit switch) --------
+// --- Segmented toggle (Bootstrap nav-pills, e.g. the view / edit switch) ----
 :root[data-grw-ui='modern'] .nav-pills {
   gap: 0;
   padding: 3px;

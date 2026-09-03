@@ -18,10 +18,11 @@
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
-// The bottom cluster is position:fixed, so it needs the same left offset as
-// the floated rail to stay aligned under it.
+// The rail's `backdrop-filter` makes it the containing block for this
+// position:fixed cluster, so pin it to the rail's left edge — its buttons are
+// already rail-width, so it then lines up with the icons above.
 :root[data-grw-ui='modern'] .grw-sidebar-nav-secondary-container {
-  margin-left: 10px;
+  left: 0;
 }
 
 // Selected primary item: soft accent pill with a left accent bar.

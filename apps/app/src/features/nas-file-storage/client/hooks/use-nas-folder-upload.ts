@@ -53,6 +53,8 @@ export interface NasFolderUploadResult {
 
 export interface UploadFolderOptions {
   onFileResult?: (result: NasFolderUploadFileResult) => void;
+  /** Batch progress: files processed so far and the total, after the walk. */
+  onProgress?: (processedFiles: number, totalFiles: number) => void;
 }
 
 export interface UseNasFolderUploadResult {
@@ -284,6 +286,9 @@ export const useNasFolderUpload = (
       const failed: { relativePath: string; error: string }[] = [];
       let succeeded = 0;
       let skipped = 0;
+      let processed = 0;
+      const totalFiles = invalid.length + files.length;
+      opts?.onProgress?.(processed, totalFiles);
 
       for (const entry of invalid) {
         failed.push(entry);
@@ -292,6 +297,8 @@ export const useNasFolderUpload = (
           status: 'failed',
           error: entry.error,
         });
+        processed += 1;
+        opts?.onProgress?.(processed, totalFiles);
       }
 
       for (const dirRelativePath of dirs) {
@@ -340,12 +347,16 @@ export const useNasFolderUpload = (
           ) {
             skipped += 1;
             report?.({ relativePath, status: 'skipped' });
+            processed += 1;
+            opts?.onProgress?.(processed, totalFiles);
             continue;
           }
           const error = errorMessageKey(err);
           failed.push({ relativePath, error });
           report?.({ relativePath, status: 'failed', error });
         }
+        processed += 1;
+        opts?.onProgress?.(processed, totalFiles);
       }
 
       return { succeeded, skipped, failed };

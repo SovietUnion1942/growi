@@ -67,6 +67,8 @@ type QueueItem = {
   file: File;
   name: string;
   status: ItemStatus;
+  /** Bytes sent so far, updated during `status === 'uploading'`. */
+  sentBytes?: number;
   /** i18n key for an inline error (validation failure or upload failure). */
   errorKey?: string;
   /** Formatted size limit, shown for TOO_LARGE. */
@@ -110,6 +112,10 @@ export const NasUploadDropzone = ({
 
   const [items, setItems] = useState<QueueItem[]>([]);
   const [folderBusy, setFolderBusy] = useState(false);
+  const [folderProgress, setFolderProgress] = useState<{
+    processed: number;
+    total: number;
+  } | null>(null);
   const [folderResult, setFolderResult] =
     useState<NasFolderUploadResult | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -130,19 +136,27 @@ export const NasUploadDropzone = ({
     ): Promise<boolean> => {
       patchItem(item.id, {
         status: 'uploading',
+        sentBytes: 0,
         errorKey: undefined,
         limitLabel: undefined,
       });
+      const onProgress = (sent: number): void => {
+        patchItem(item.id, { sentBytes: sent });
+      };
       try {
         // Large files exceed the front proxy's single-request limit, so they
         // take the chunked path. Both calls resolve to a `NasEntry` and reject
         // with the same `NasRequestError` shape, so the branches below are
         // identical for either route.
         const upload = shouldUseChunkedUpload(item.file.size)
-          ? uploadLargeFile(item.file, opts)
-          : uploadFile(item.file, opts);
+          ? uploadLargeFile(item.file, { ...opts, onProgress })
+          : uploadFile(item.file, { ...opts, onProgress });
         await upload;
-        patchItem(item.id, { status: 'done', suggestedName: undefined });
+        patchItem(item.id, {
+          status: 'done',
+          sentBytes: item.file.size,
+          suggestedName: undefined,
+        });
         return true;
       } catch (err) {
         const shape = (err ?? {}) as UploadErrorShape;
@@ -247,8 +261,12 @@ export const NasUploadDropzone = ({
 
       setFolderBusy(true);
       setFolderResult(null);
+      setFolderProgress(null);
       try {
-        const result = await uploadFolder(selection, policy);
+        const result = await uploadFolder(selection, policy, {
+          onProgress: (processed, total) =>
+            setFolderProgress({ processed, total }),
+        });
         setFolderResult(result);
         if (result.succeeded > 0 || result.skipped > 0) {
           onUploaded?.();
@@ -353,7 +371,12 @@ export const NasUploadDropzone = ({
           className="mt-2 small text-muted"
           data-testid="nas-folder-upload-busy"
         >
-          {t('nas_storage.folder_upload.in_progress')}
+          {folderProgress != null && folderProgress.total > 0
+            ? t('nas_storage.folder_upload.progress', {
+                processed: folderProgress.processed,
+                total: folderProgress.total,
+              })
+            : t('nas_storage.folder_upload.in_progress')}
         </p>
       )}
 
@@ -402,9 +425,28 @@ export const NasUploadDropzone = ({
               <div className="d-flex justify-content-between align-items-center">
                 <span className="text-truncate">{item.name}</span>
                 <span className="small text-muted">
-                  {t(`nas_storage.upload.status_${item.status}`)}
+                  {item.status === 'uploading' && item.file.size > 0
+                    ? `${prettyBytes(item.sentBytes ?? 0)} / ${prettyBytes(item.file.size)}`
+                    : t(`nas_storage.upload.status_${item.status}`)}
                 </span>
               </div>
+
+              {item.status === 'uploading' && item.file.size > 0 && (
+                <div
+                  className="progress mt-1"
+                  style={{ height: '4px' }}
+                  data-testid="nas-upload-progress"
+                >
+                  <div
+                    className="progress-bar"
+                    style={{
+                      width: `${Math.round(
+                        ((item.sentBytes ?? 0) / item.file.size) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              )}
 
               {item.errorKey != null && (
                 <span className="small text-danger" role="alert">

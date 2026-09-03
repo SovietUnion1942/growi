@@ -110,7 +110,7 @@ describe('NasUploadDropzone', () => {
     await waitFor(() => expect(mocks.uploadFile).toHaveBeenCalledTimes(1));
     expect(mocks.uploadFile).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'a.txt' }),
-      undefined,
+      expect.objectContaining({ onProgress: expect.any(Function) }),
     );
     expect(
       await screen.findByText('nas_storage.upload.status_done'),
@@ -196,7 +196,7 @@ describe('NasUploadDropzone', () => {
     await waitFor(() =>
       expect(mocks.uploadFile).toHaveBeenLastCalledWith(
         expect.objectContaining({ name: 'a.txt' }),
-        { overwrite: true },
+        expect.objectContaining({ overwrite: true }),
       ),
     );
     await waitFor(() => expect(onUploaded).toHaveBeenCalled());
@@ -222,7 +222,7 @@ describe('NasUploadDropzone', () => {
     await waitFor(() =>
       expect(mocks.uploadFile).toHaveBeenLastCalledWith(
         expect.objectContaining({ name: 'a.txt' }),
-        { name: 'a (1).txt' },
+        expect.objectContaining({ name: 'a (1).txt' }),
       ),
     );
   });
@@ -287,10 +287,40 @@ describe('NasUploadDropzone', () => {
     await waitFor(() => expect(mocks.uploadLargeFile).toHaveBeenCalledTimes(1));
     expect(mocks.uploadLargeFile).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'big.bin' }),
-      undefined,
+      expect.objectContaining({ onProgress: expect.any(Function) }),
     );
     expect(mocks.uploadFile).not.toHaveBeenCalled();
     await waitFor(() => expect(onUploaded).toHaveBeenCalledTimes(1));
+  });
+
+  it('renders a per-file byte progress bar while uploading', async () => {
+    let resolveUpload: (v: unknown) => void = () => {};
+    mocks.uploadLargeFile.mockImplementationOnce((_file, opts) => {
+      opts?.onProgress?.(
+        Math.floor((CHUNK_UPLOAD_THRESHOLD_BYTES + 1) / 4),
+        CHUNK_UPLOAD_THRESHOLD_BYTES + 1,
+      );
+      return new Promise((res) => {
+        resolveUpload = res;
+      });
+    });
+
+    render(<NasUploadDropzone currentDirPath="/" />);
+    dropFiles([makeLargeFile('big.bin')]);
+
+    const bar = await screen.findByTestId('nas-upload-progress');
+    expect(bar.querySelector('.progress-bar')).toHaveStyle({ width: '25%' });
+    // byte counter replaces the status label while uploading
+    expect(
+      screen.queryByText('nas_storage.upload.status_uploading'),
+    ).not.toBeInTheDocument();
+
+    resolveUpload({ name: 'big.bin', type: 'file' });
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('nas-upload-progress'),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it('keeps a sub-threshold file on the single-shot path', async () => {

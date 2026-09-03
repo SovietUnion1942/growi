@@ -120,13 +120,19 @@ export const ThemeSettings = (): JSX.Element | null => {
     [],
   );
 
+  // The modern skin (`grw-ui`) and the preset color themes (`grw-theme`) are a
+  // single exclusive choice — "one look". The modern tokens hard-code their own
+  // accent, so a preset theme layered under the glass skin only produces a
+  // half-themed mongrel; picking either one clears the other's cookie.
   const selectTheme = useCallback((name: string) => {
     Cookies.set(THEME_COOKIE, name, COOKIE_OPTS);
+    Cookies.remove(MODERN_UI_COOKIE, { path: '/' });
     window.location.reload();
   }, []);
 
   const resetTheme = useCallback(() => {
     Cookies.remove(THEME_COOKIE, { path: '/' });
+    Cookies.remove(MODERN_UI_COOKIE, { path: '/' });
     window.location.reload();
   }, []);
 
@@ -135,6 +141,7 @@ export const ThemeSettings = (): JSX.Element | null => {
       Cookies.remove(MODERN_UI_COOKIE, { path: '/' });
     } else {
       Cookies.set(MODERN_UI_COOKIE, MODERN_UI_COOKIE_ON, COOKIE_OPTS);
+      Cookies.remove(THEME_COOKIE, { path: '/' });
     }
     window.location.reload();
   }, [uiTier]);
@@ -146,6 +153,11 @@ export const ThemeSettings = (): JSX.Element | null => {
   // The modern card only makes sense in per-user opt-in; `on` forces it, `off`
   // is handled above. When the client is too old, show it disabled.
   const showModernSwatch = mode === 'optin';
+
+  // With the modern skin active the preset-theme cookie is cleared, but a
+  // browser that still carries a stale `grw-theme` from before this became
+  // exclusive should show the modern swatch as the single selection.
+  const isModern = uiTier === 'glass';
 
   return (
     <div>
@@ -163,7 +175,7 @@ export const ThemeSettings = (): JSX.Element | null => {
               type="button"
               className="btn btn-sm btn-outline-secondary flex-shrink-0"
               onClick={resetTheme}
-              disabled={themeCookie == null}
+              disabled={themeCookie == null && !isModern}
             >
               {t('theme_settings.reset_to_default')}
             </button>
@@ -174,7 +186,7 @@ export const ThemeSettings = (): JSX.Element | null => {
             <div className="hstack gap-3 align-items-start flex-wrap">
               {showModernSwatch && (
                 <ModernUiSwatch
-                  isSelected={uiTier === 'glass'}
+                  isSelected={isModern}
                   isDisabled={uaBelowMin}
                   onToggle={toggleModern}
                 />
@@ -182,7 +194,7 @@ export const ThemeSettings = (): JSX.Element | null => {
               {bothModeThemes.map((theme) => (
                 <ThemeColorBox
                   key={theme.name}
-                  isSelected={themeCookie === theme.name}
+                  isSelected={!isModern && themeCookie === theme.name}
                   metadata={theme}
                   onSelected={() => selectTheme(theme.name)}
                 />
@@ -201,7 +213,7 @@ export const ThemeSettings = (): JSX.Element | null => {
               {oneModeThemes.map((theme) => (
                 <ThemeColorBox
                   key={theme.name}
-                  isSelected={themeCookie === theme.name}
+                  isSelected={!isModern && themeCookie === theme.name}
                   metadata={theme}
                   onSelected={() => selectTheme(theme.name)}
                 />

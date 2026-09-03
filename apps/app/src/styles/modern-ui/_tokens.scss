@@ -36,6 +36,11 @@
   // Glossy primary button fill (light-on-blue vertical gradient with a step).
   --grw-btn-primary-bg: linear-gradient(180deg, #22a3d4, #0a7bad 52%, #0870a0 53%, #1893c4);
   --grw-btn-primary-border: rgba(7, 80, 115, 0.6);
+
+  // A lighter drop shadow for elements that sit just above the card plane
+  // (sub-nav, active segmented pill). Cool blue in light, plain black in dark.
+  --grw-shadow-raised: 0 8px 20px -12px rgba(20, 45, 70, 0.25);
+  --grw-shadow-pill: 0 1px 4px rgba(20, 45, 70, 0.14);
 }
 
 :root[data-grw-ui='modern'][data-bs-theme='dark'] {
@@ -60,4 +65,7 @@
 
   --grw-btn-primary-bg: linear-gradient(180deg, #2fabdb, #0e83b6 52%, #0b76a4 53%, #1c97c6);
   --grw-btn-primary-border: rgba(0, 0, 0, 0.35);
+
+  --grw-shadow-raised: 0 8px 20px -12px rgba(0, 0, 0, 0.5);
+  --grw-shadow-pill: 0 1px 4px rgba(0, 0, 0, 0.4);
 }

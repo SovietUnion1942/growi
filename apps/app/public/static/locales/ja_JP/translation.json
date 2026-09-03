@@ -322,6 +322,11 @@
     "settings": "カラーモードの設定",
     "description": "ライトモードかダークモード、もしくはシステム合わせた表示をするか選択します。<br>対応したテーマのみ切り替えることができます。"
   },
+  "modern_ui_settings": {
+    "settings": "新しいUI（プレビュー）",
+    "use_modern_ui": "新しいUIを使う",
+    "description": "このブラウザだけ、新しい「Aero-Fluent Glass」UIに切り替えます。切り替えるとページが再読み込みされ、他の人には影響しません。"
+  },
   "editor_settings": {
     "editor_settings": "エディター設定",
     "common_settings": {

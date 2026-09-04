@@ -73,12 +73,21 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
   const isDefaultLogo =
     crowi.configManager.getConfig('customize:isDefaultLogo') ||
     !isCustomizedLogoUploaded;
+  const uiTier = resolveUiTier({
+    mode: normalizeModernUiMode(configManager.getConfig('app:modernUiMode')),
+    cookie: req.cookies?.[MODERN_UI_COOKIE],
+    ua: req.headers['user-agent'],
+  });
+
   // A viewer's `grw-theme` cookie override (see _document) can carry its own
   // forced color scheme (a light-/dark-only preset). Fall back to the
-  // instance theme's when the cookie is absent or invalid.
-  const themeCookieAsset = customizeService.resolvePresetThemeAsset(
-    req.cookies?.[THEME_COOKIE],
-  );
+  // instance theme's when the cookie is absent or invalid. Ignored under the
+  // glass skin — the modern skin and the preset themes are one exclusive
+  // choice, so a stale `grw-theme` cookie must not force a color scheme.
+  const themeCookieAsset =
+    uiTier === 'glass'
+      ? null
+      : customizeService.resolvePresetThemeAsset(req.cookies?.[THEME_COOKIE]);
   const forcedColorScheme =
     themeCookieAsset != null
       ? themeCookieAsset.forcedColorScheme
@@ -126,13 +135,7 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // Resolved UI tier + UA facts for this request. `_document` does its own
       // resolveUiTier for the FOUC-critical attribute; these feed client-side
       // UI (the /me modern card, the system-requirements banner).
-      uiTier: resolveUiTier({
-        mode: normalizeModernUiMode(
-          configManager.getConfig('app:modernUiMode'),
-        ),
-        cookie: req.cookies?.[MODERN_UI_COOKIE],
-        ua: req.headers['user-agent'],
-      }),
+      uiTier,
       uaBelowMin: parseUa(req.headers['user-agent']).belowMin,
       uaOs: parseUa(req.headers['user-agent']).os,
       sysreqNotice: configManager.getConfig('app:sysreqNotice'),

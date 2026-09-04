@@ -3,36 +3,43 @@
 // Layout-neutral by rule: never touch the flex sizing of
 // `.page-editor-editor-container` / `.page-editor-preview-container` — that
 // split is load-bearing (a padded/bordered card there collapsed the
-// CodeMirror pane once, see _surfaces.scss). Everything here is chrome only:
-// translucent fills, hairline borders, the segmented mode switch. CodeMirror's
-// own surface stays under GROWI's editor-theme setting, untouched.
+// CodeMirror pane once, see _surfaces.scss). Only `border-*-color` and
+// chrome styling here; no width/padding on the panes.
+//
+// The panes fill the viewport edge-to-edge, so there is no tinted ground for
+// a translucent fill to read against (unlike the floating view-mode card).
+// The editor therefore leans on defined hairlines + a directional lift
+// shadow + an inner sheen line to place its chrome as layers — the "Aero"
+// tell without the frost.
 
 // --- Edit-mode contextual sub-nav ------------------------------------
-// GrowiContextualSubNavigation.module.scss unsets the nav's background in
-// edit mode so it floats top-right; give that floating cluster a small
-// frosted chip rather than a bare row of buttons.
+// GrowiContextualSubNavigation.module.scss unsets the nav background in edit
+// mode so it floats top-right; give that cluster a defined frosted chip.
 :root[data-grw-ui='modern'] .layout-root.editing #grw-contextual-sub-nav {
   padding-left: 0.5rem;
-  background-color: var(--grw-glass-bg) !important;
-  background-image: var(--grw-glass-sheen);
-  border: 1px solid var(--grw-glass-border);
+  background-color: var(--bs-body-bg) !important;
+  border: 1px solid var(--bs-border-color);
   border-radius: var(--grw-radius-md);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
 }
 
 // --- Segmented View / Edit / WYSIWYG switch --------------------------
-// A Bootstrap `.btn-group` (`#grw-page-editor-mode-manager`) with fixed-size
-// buttons; restyle it into the same segmented pill as `.nav-pills` in
-// _controls.scss. Widths are fixed in px, so dropping the borders is safe.
+// Bootstrap `.btn-group` (`#grw-page-editor-mode-manager`) with fixed-size
+// buttons; the module drives colours through --bs-btn-* custom props, so the
+// active state is set both ways to be safe. Widths are fixed px -> dropping
+// borders is safe.
 :root[data-grw-ui='modern'] #grw-page-editor-mode-manager {
-  gap: 0;
-  padding: 2px;
-  background: rgba(120, 140, 160, 0.14);
+  gap: 2px;
+  padding: 3px;
+  background: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
   border-radius: var(--grw-radius-sm);
 }
 
 :root[data-grw-ui='modern'] #grw-page-editor-mode-manager .btn {
   --bs-btn-border-width: 0;
+  --bs-btn-active-bg: var(--bs-body-bg);
+  --bs-btn-active-border-color: var(--bs-border-color);
   color: var(--bs-secondary-color);
   border: 0;
   border-radius: 6px;
@@ -40,31 +47,26 @@
 
 :root[data-grw-ui='modern'] #grw-page-editor-mode-manager .btn.active {
   color: var(--bs-body-color);
-  background: var(--grw-glass-bg);
+  background: var(--bs-body-bg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-pill);
 }
 
-// --- Editor chrome (edit mode only) ---------------------------------
+// --- Editor chrome bars (edit mode only) ----------------------------
 // EditorNavbar's root is a CSS-module-hashed class with no stable hook; it is
-// always the first child of #page-editor (the mode switcher renders after it).
+// always the first child of #page-editor (the mode switcher renders after).
 :root[data-grw-ui='modern'] #page-editor > :first-child {
-  background-color: var(--grw-glass-bg);
-  background-image: var(--grw-glass-sheen);
-  border-bottom: 1px solid var(--grw-glass-border);
+  background-color: var(--bs-body-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-bar-shadow);
 }
 
 :root[data-grw-ui='modern'] [data-testid='grw-editor-navbar-bottom'] {
-  background-color: var(--grw-glass-bg);
-  background-image: var(--grw-glass-sheen);
-  border-top-color: var(--grw-glass-border) !important;
+  background-color: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color) !important;
+  box-shadow: var(--grw-glass-inner-hi), 0 -4px 12px -6px rgba(0, 0, 0, 0.12);
 }
 
+// --- Pane divider ----------------------------------------------------
 :root[data-grw-ui='modern'] .page-editor-editor-container {
-  border-inline-end-color: var(--grw-glass-border) !important;
-}
-
-// Let the tinted page ground read through the preview pane so edit mode
-// carries the same frosted depth as the view-mode content card.
-:root[data-grw-ui='modern'] .page-editor-preview-container {
-  background-color: transparent;
+  border-inline-end-color: var(--bs-border-color) !important;
 }

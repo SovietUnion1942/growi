@@ -36,6 +36,11 @@ hr{border:0;border-top:1px solid var(--line)}
 .lite-foot{border-top:1px solid var(--line);margin-top:2rem;padding-top:.75rem;font-size:.85rem;color:var(--muted)}
 .lite-results li{margin:.6rem 0}
 .lite-snippet{color:var(--muted);font-size:.9rem}
+.lite-edit textarea{width:100%;min-height:60vh;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:.6rem;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.lite-edit .lite-actions{margin-top:.6rem;display:flex;gap:.75rem;align-items:center}
+.lite-edit button{font:inherit;padding:.35rem .9rem}
+.lite-warn{background:#fff3cd;color:#664d03;border:1px solid #ffe69c;padding:.5rem .75rem;margin-bottom:.75rem}
+@media(prefers-color-scheme:dark){.lite-warn{background:#332701;color:#ffda6a;border-color:#5c4600}}
 `.replace(/\n+/g, '');
 
 type LiteLayoutArgs = {

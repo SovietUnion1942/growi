@@ -444,6 +444,19 @@ export const setup = (crowi, app) => {
     liteUi.renderSearch,
   );
   app.get(
+    '/_lite/edit',
+    liteUi.skipUnlessLiteTier,
+    loginRequiredStrictly,
+    excludeReadOnlyUser,
+    liteUi.renderEdit,
+  );
+  app.post(
+    '/_lite/save',
+    loginRequiredStrictly,
+    excludeReadOnlyUser,
+    liteUi.saveEdit,
+  );
+  app.get(
     '/*',
     liteUi.skipUnlessLiteTier,
     loginRequired,

@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 
 import {
   MODERN_UI_COOKIE,
+  MODERN_UI_COOKIE_LEGACY,
+  MODERN_UI_COOKIE_LITE,
   MODERN_UI_COOKIE_ON,
   THEME_COOKIE,
   THEME_COOKIE_RESET,
@@ -22,9 +24,8 @@ const asString = (v: unknown): string | undefined =>
  * cookieParser). All write a non-`httpOnly` cookie (so the /me picker can also
  * toggle them from JS) read back in `_document` / common-props.
  *
- *   ?ui=modern | legacy | auto   - pin the UI tier (auto clears the cookie).
- *                                  `lite` is accepted but a no-op for now
- *                                  (the lite render path is a later slice).
+ *   ?ui=modern | legacy | lite | auto
+ *                                - pin the UI tier (auto clears the cookie).
  *   ?grw-ui=modern | off         - back-compat alias for ?ui=modern / ?ui=auto
  *   ?grw-theme=<preset name>     - override the instance's preset color theme
  *   ?grw-theme=default           - clear that override
@@ -40,8 +41,10 @@ export const modernUiPreview = (
   const ui = asString(req.query.ui) ?? asString(req.query[MODERN_UI_COOKIE]);
   if (ui === MODERN_UI_COOKIE_ON) {
     res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_ON, COOKIE_OPTS);
-  } else if (ui === 'legacy') {
-    res.cookie(MODERN_UI_COOKIE, 'legacy', COOKIE_OPTS);
+  } else if (ui === MODERN_UI_COOKIE_LEGACY) {
+    res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_LEGACY, COOKIE_OPTS);
+  } else if (ui === MODERN_UI_COOKIE_LITE) {
+    res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_LITE, COOKIE_OPTS);
   } else if (ui === 'off' || ui === 'auto') {
     res.clearCookie(MODERN_UI_COOKIE, { path: '/' });
   }

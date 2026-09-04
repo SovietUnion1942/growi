@@ -181,6 +181,10 @@ export const resolveUiTier = (args: {
   if (!info.spaCapable) {
     return 'lite';
   }
+  // A manual `?ui=lite` opt-in pins lite even on a capable client.
+  if (cookie === 'lite') {
+    return 'lite';
+  }
   if (cookie === 'legacy') {
     return 'legacy';
   }

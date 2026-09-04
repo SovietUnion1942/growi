@@ -6,6 +6,7 @@ import autoReap from 'multer-autoreap';
 import { DRAWIO_ASSET_PROXY_PATH } from '~/features/drawio/consts';
 import { drawioAssetsRouterFactory } from '~/features/drawio/server';
 import { createVaultGatewayRouterWithDeps } from '~/features/growi-vault/server';
+import { createLiteUiHandlers } from '~/features/lite-ui/server';
 import { createPageMarkdownHandlers } from '~/features/page-markdown/server';
 import { middlewareFactory as rateLimiterFactory } from '~/features/rate-limiter';
 import { createApiRouter } from '~/server/util/createApiRouter';
@@ -428,6 +429,26 @@ export const setup = (crowi, app) => {
     accessTokenParser([SCOPE.READ.FEATURES.PAGE], { acceptLegacy: true }),
     loginRequired,
     pageMarkdown.respond,
+  );
+
+  // Lite UI (no-JS static render) — same interception pattern as page-markdown:
+  // the gate exits via next('route') unless the request resolves to the `lite`
+  // tier (old / SPA-incapable UA, or ?ui=lite), so every other client falls
+  // through to the SPA delegate below untouched.
+  const liteUi = createLiteUiHandlers(crowi);
+  app.get(
+    '/_lite/search',
+    liteUi.skipUnlessLiteTier,
+    loginRequired,
+    autoReconnectToSearch,
+    liteUi.renderSearch,
+  );
+  app.get(
+    '/*',
+    liteUi.skipUnlessLiteTier,
+    loginRequired,
+    autoReconnectToSearch,
+    liteUi.renderPage,
   );
 
   app.get('/*/$', loginRequired, next.delegateToNext);

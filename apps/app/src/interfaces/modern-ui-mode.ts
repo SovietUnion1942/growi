@@ -22,6 +22,10 @@ export type ModernUiMode = (typeof MODERN_UI_MODES)[number];
  *  the modern skin while the instance mode is `optin`. */
 export const MODERN_UI_COOKIE = 'grw-ui';
 export const MODERN_UI_COOKIE_ON = 'modern';
+/** Pin this browser to the classic chrome even where the modern skin is on. */
+export const MODERN_UI_COOKIE_LEGACY = 'legacy';
+/** Pin this browser to the no-JS lite render (see features/lite-ui). */
+export const MODERN_UI_COOKIE_LITE = 'lite';
 
 /**
  * Cookie a viewer sets (via `?grw-theme=<name>` or the /me picker) to override

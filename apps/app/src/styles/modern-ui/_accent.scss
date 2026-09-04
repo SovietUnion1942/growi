@@ -34,3 +34,30 @@
   --bs-link-hover-color: #095f86;
   --bs-link-hover-color-rgb: 9, 95, 134;
 }
+
+// Button variants bake their colour in at theme-compile time — `.btn-primary`'s
+// `--bs-btn-bg` is the theme's compiled `$primary`, not the runtime
+// `--bs-primary` — so recolour them explicitly. Colour vars only, no geometry
+// (GROWI reuses `.btn-primary` for icon buttons; the rail's own treatment in
+// _surfaces.scss stays more specific and wins there — this only reaches the
+// page-create pencil's SVG fill, CTA buttons like the /me "update" button, and
+// the color-mode toggle's active state).
+:root[data-grw-ui='modern'] .btn-primary {
+  --bs-btn-bg: #007eb0;
+  --bs-btn-border-color: #007eb0;
+  --bs-btn-hover-bg: #006790;
+  --bs-btn-hover-border-color: #006790;
+  --bs-btn-active-bg: #005171;
+  --bs-btn-active-border-color: #005171;
+  --bs-btn-disabled-bg: #007eb0;
+  --bs-btn-disabled-border-color: #007eb0;
+}
+
+:root[data-grw-ui='modern'] .btn-outline-primary {
+  --bs-btn-color: #007eb0;
+  --bs-btn-border-color: #007eb0;
+  --bs-btn-hover-bg: #007eb0;
+  --bs-btn-hover-border-color: #007eb0;
+  --bs-btn-active-bg: #007eb0;
+  --bs-btn-active-border-color: #007eb0;
+}

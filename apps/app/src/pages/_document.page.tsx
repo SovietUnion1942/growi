@@ -70,13 +70,30 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
     const { crowi } = req;
     const { customizeService } = crowi;
 
+    // Resolve the UI tier for this request (instance mode x grw-ui cookie x
+    // User-Agent). Only `glass` stamps the attribute; old / SPA-incapable
+    // clients silently get the classic chrome even with the modern opt-in.
+    // Done here so there is no flash on load.
+    const isModernUi =
+      resolveUiTier({
+        mode: normalizeModernUiMode(
+          crowi.configManager.getConfig('app:modernUiMode'),
+        ),
+        cookie: req.cookies?.[MODERN_UI_COOKIE],
+        ua: req.headers['user-agent'],
+      }) === 'glass';
+
     // Preset color theme: a viewer's `grw-theme` cookie overrides the instance
     // default for their own browser (validated against the preset-themes
     // manifest; unknown -> instance default). Emitted in the initial <link>
-    // so there is no flash.
+    // so there is no flash. The modern skin and the preset themes are one
+    // exclusive choice (see Me/ThemeSettings): when the glass skin is active
+    // the `grw-theme` cookie is ignored so a stale value can't tint it.
     const themeHref =
-      customizeService.resolvePresetThemeAsset(req.cookies?.[THEME_COOKIE])
-        ?.href ?? customizeService.themeHref;
+      (isModernUi
+        ? null
+        : customizeService.resolvePresetThemeAsset(req.cookies?.[THEME_COOKIE])
+            ?.href) ?? customizeService.themeHref;
     const customScript: string | undefined = customizeService.getCustomScript();
     const customCss: string | undefined = customizeService.getCustomCss();
     const customNoscript: string | undefined =
@@ -92,19 +109,6 @@ class GrowiDocument extends Document<GrowiDocumentInitialProps> {
     const locale = getLocaleAtServerSide(req);
 
     const pwaEnabled = crowi.configManager.getConfig('app:pwaEnabled');
-
-    // Resolve the UI tier for this request (instance mode x grw-ui cookie x
-    // User-Agent). Only `glass` stamps the attribute; old / SPA-incapable
-    // clients silently get the classic chrome even with the modern opt-in.
-    // Done here so there is no flash on load.
-    const isModernUi =
-      resolveUiTier({
-        mode: normalizeModernUiMode(
-          crowi.configManager.getConfig('app:modernUiMode'),
-        ),
-        cookie: req.cookies?.[MODERN_UI_COOKIE],
-        ua: req.headers['user-agent'],
-      }) === 'glass';
 
     return {
       ...initialProps,

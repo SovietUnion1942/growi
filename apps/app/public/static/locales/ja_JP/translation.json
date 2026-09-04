@@ -436,6 +436,48 @@
     "editor_config": "エディター設定",
     "Show active line": "アクティブ行をハイライト",
     "auto_format_table": "表の自動整形",
+    "wysiwyg": {
+      "enter": "ビジュアル編集",
+      "exit": "ソースに戻す",
+      "default_to_wysiwyg": "エディタをビジュアルモードで開く",
+      "source_edit": "ソース編集",
+      "block": {
+        "container": "::: ブロック",
+        "directive": "ディレクティブ",
+        "table": "テーブル",
+        "html": "HTML",
+        "frontmatter": "frontmatter",
+        "raw": "ソース"
+      },
+      "toolbar": {
+        "h1": "見出し1",
+        "h2": "見出し2",
+        "h3": "見出し3",
+        "paragraph": "本文",
+        "bold": "太字",
+        "italic": "斜体",
+        "strike": "打ち消し",
+        "code": "インラインコード",
+        "bullet_list": "箇条書き",
+        "ordered_list": "番号リスト",
+        "task": "タスク化",
+        "blockquote": "引用",
+        "code_block": "コードブロック",
+        "link": "リンク",
+        "link_prompt": "リンク先 URL"
+      },
+      "table": {
+        "add_row": "行",
+        "add_col": "列",
+        "del_row": "行を削除",
+        "del_col": "列を削除",
+        "align_left": "左揃え",
+        "align_center": "中央揃え",
+        "align_right": "右揃え",
+        "align_none": "揃えなし",
+        "edit_as_text": "テキストで編集"
+      }
+    },
     "overwrite_scopes": "{{operation}}と同時に全ての配下ページのスコープを上書き",
     "notice": {
       "conflict": "すでに他の人がこのページを編集していたため保存できませんでした。ページを再読み込み後、自分の編集箇所のみ再度編集してください。"

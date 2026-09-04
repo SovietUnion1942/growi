@@ -394,6 +394,48 @@
     "editor_config": "Editor Config",
     "Show active line": "Show active line",
     "auto_format_table": "Auto format table",
+    "wysiwyg": {
+      "enter": "Visual editing",
+      "exit": "Back to source",
+      "default_to_wysiwyg": "Open the editor in visual mode",
+      "source_edit": "Edit source",
+      "block": {
+        "container": "::: block",
+        "directive": "Directive",
+        "table": "Table",
+        "html": "HTML",
+        "frontmatter": "Frontmatter",
+        "raw": "Source"
+      },
+      "toolbar": {
+        "h1": "Heading 1",
+        "h2": "Heading 2",
+        "h3": "Heading 3",
+        "paragraph": "Body text",
+        "bold": "Bold",
+        "italic": "Italic",
+        "strike": "Strikethrough",
+        "code": "Inline code",
+        "bullet_list": "Bullet list",
+        "ordered_list": "Numbered list",
+        "task": "Toggle task",
+        "blockquote": "Quote",
+        "code_block": "Code block",
+        "link": "Link",
+        "link_prompt": "Link URL"
+      },
+      "table": {
+        "add_row": "row",
+        "add_col": "column",
+        "del_row": "Delete row",
+        "del_col": "Delete column",
+        "align_left": "Align left",
+        "align_center": "Align center",
+        "align_right": "Align right",
+        "align_none": "No alignment",
+        "edit_as_text": "Edit as text"
+      }
+    },
     "overwrite_scopes": "{{operation}} and Overwrite scopes of all descendants",
     "notice": {
       "conflict": "Couldn't save the changes you made because someone else was editing this page. Please re-edit the affected section after reloading the page."

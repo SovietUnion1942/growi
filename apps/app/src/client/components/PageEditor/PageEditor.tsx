@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import dynamic from 'next/dynamic';
 import { Origin } from '@growi/core';
 import type { IPageHasId } from '@growi/core/dist/interfaces';
 import { globalEventTarget, pathUtils } from '@growi/core/dist/utils';
@@ -16,7 +17,6 @@ import { useCodeMirrorEditorIsolated } from '@growi/editor/dist/client/stores/co
 import { useRect } from '@growi/ui/dist/utils';
 import detectIndent from 'detect-indent';
 import { useAtomValue } from 'jotai';
-import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import nodePath from 'path';
 import { debounce, throttle } from 'throttle-debounce';
@@ -78,6 +78,9 @@ import { EditorNavbar } from './EditorNavbar';
 import { EditorNavbarBottom } from './EditorNavbarBottom';
 import Preview from './Preview';
 import { useScrollSync } from './ScrollSyncHelper';
+import { useWysiwygLabels } from './WysiwygEditor/labels';
+import { lineDiffRange } from './WysiwygEditor/lineDiff';
+import type { WysiwygHandle } from './WysiwygEditor/WysiwygEditorMain';
 
 import '../GrowiEditor.vendor-styles.prebuilt';
 
@@ -87,27 +90,6 @@ const WysiwygEditorMain = dynamic(
   () => import('./WysiwygEditor').then((mod) => mod.WysiwygEditorMain),
   { ssr: false },
 );
-
-/** 共通 prefix/suffix を除いた最小差分の 1 レンジを返す */
-const diffRange = (
-  before: string,
-  after: string,
-): { from: number; to: number; insert: string } => {
-  const maxStart = Math.min(before.length, after.length);
-  let start = 0;
-  while (start < maxStart && before[start] === after[start]) start++;
-  let endBefore = before.length;
-  let endAfter = after.length;
-  while (
-    endBefore > start &&
-    endAfter > start &&
-    before[endBefore - 1] === after[endAfter - 1]
-  ) {
-    endBefore--;
-    endAfter--;
-  }
-  return { from: start, to: endBefore, insert: after.slice(start, endAfter) };
-};
 
 export type SaveOptions = {
   wip: boolean;
@@ -168,13 +150,20 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
 
   const { isWysiwygMode, setWysiwygMode } = useWysiwygMode();
   const { isEnabledLinebreaks } = useRendererConfig();
+  const wysiwygLabels = useWysiwygLabels();
   // WYSIWYG から CM への書き戻し中フラグ(プレビュー二重更新を抑止)
   const writingBackRef = useRef(false);
-  // WYSIWYG 側から最新 markdown を取り出す関数(退場同期用)
-  const wysiwygGetMarkdownRef = useRef<(() => string) | null>(null);
+  // 書き戻しに反応した CM 変更 = Yjs マージ済みかもしれないので、あとで WYSIWYG を寄せ直す
+  const pendingResyncRef = useRef(false);
+  // effect 外(コールバック)から現在のモードを参照するための鏡
+  const isWysiwygModeRef = useRef(false);
+  // WYSIWYG の命令的ハンドル(退場同期 / 外部編集の取り込み)
+  const wysiwygHandleRef = useRef<WysiwygHandle | null>(null);
   // isWysiwygMode が false->true になるたびインクリメントし、再マウントさせる
   const [wysiwygEnterNonce, setWysiwygEnterNonce] = useState(0);
   const prevWysiwygModeRef = useRef(false);
+  // defaultToWysiwyg による自動入場を 1 マウントにつき 1 回だけにする
+  const didAutoEnterWysiwygRef = useRef(false);
 
   const shouldExpandContent = useShouldExpandContent(currentPage);
 
@@ -393,10 +382,17 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
 
   const onChangeHandler = useCallback(
     (value: string) => {
-      // WYSIWYG からの書き戻しに反応した CM onChange はプレビュー更新をスキップ
-      // (WYSIWYG 側の onChange で同じ値を既に流している)
-      if (writingBackRef.current) return;
+      // WYSIWYG からの書き戻しに反応した CM onChange。プレビューは既に流れているので更新しない。
+      // ただし WYSIWYG 中なら Yjs で他ユーザーの編集が混ざった可能性があるので後で寄せ直す。
+      if (writingBackRef.current) {
+        if (isWysiwygModeRef.current) pendingResyncRef.current = true;
+        return;
+      }
       setMarkdownPreviewWithDebounce(value);
+      // 書き戻しでない CM 変更 = 外部(他ユーザー)編集。WYSIWYG を寄せる。
+      if (isWysiwygModeRef.current) {
+        wysiwygHandleRef.current?.applyExternalMarkdown(value);
+      }
     },
     [setMarkdownPreviewWithDebounce],
   );
@@ -418,14 +414,25 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
 
       writingBackRef.current = true;
       try {
-        const { from, to, insert } = diffRange(current, markdown);
+        const { from, to, insert } = lineDiffRange(current, markdown);
         view.dispatch({ changes: { from, to, insert } });
       } catch (err) {
-        logger.warn({ err }, 'WYSIWYG write-back diff failed; falling back to initDoc');
+        logger.warn(
+          { err },
+          'WYSIWYG write-back diff failed; falling back to initDoc',
+        );
         codeMirrorEditor?.initDoc(markdown);
       } finally {
         queueMicrotask(() => {
           writingBackRef.current = false;
+          // 書き戻し中に外部編集が来ていたら、マージ済みの CM 内容へ WYSIWYG を寄せ直す
+          if (pendingResyncRef.current && isWysiwygModeRef.current) {
+            pendingResyncRef.current = false;
+            const merged = codeMirrorEditor?.view?.state.doc.toString();
+            if (merged != null) {
+              wysiwygHandleRef.current?.applyExternalMarkdown(merged);
+            }
+          }
         });
       }
     },
@@ -444,13 +451,15 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
   useEffect(() => {
     const prev = prevWysiwygModeRef.current;
     prevWysiwygModeRef.current = isWysiwygMode;
+    isWysiwygModeRef.current = isWysiwygMode;
     if (!prev && isWysiwygMode) {
+      pendingResyncRef.current = false;
       setWysiwygEnterNonce((n) => n + 1);
     }
     if (prev && !isWysiwygMode) {
-      const md = wysiwygGetMarkdownRef.current?.();
+      const md = wysiwygHandleRef.current?.getMarkdown();
       if (md != null) applyMarkdownToCodeMirror(md);
-      wysiwygGetMarkdownRef.current = null;
+      wysiwygHandleRef.current = null;
     }
   }, [isWysiwygMode, applyMarkdownToCodeMirror]);
 
@@ -460,6 +469,16 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
       setWysiwygMode(false);
     }
   }, [editorMode, isWysiwygMode, setWysiwygMode]);
+
+  // per-user 設定「デフォルトでビジュアル」: 編集モード入場時に 1 回だけ WYSIWYG へ
+  useEffect(() => {
+    if (didAutoEnterWysiwygRef.current) return;
+    if (editorMode !== EditorMode.Editor) return;
+    if (editorSettings?.defaultToWysiwyg && isEditable) {
+      didAutoEnterWysiwygRef.current = true;
+      setWysiwygMode(true);
+    }
+  }, [editorMode, editorSettings, isEditable, setWysiwygMode]);
 
   // set handler to save and return to View
   useEffect(() => {
@@ -583,10 +602,14 @@ export const PageEditorSubstance = (props: Props): JSX.Element => {
                 key={wysiwygEnterNonce}
                 initialMarkdown={codeMirrorEditor?.getDocString() ?? ''}
                 breaks={isEnabledLinebreaks}
+                labels={wysiwygLabels}
+                autoFormatMarkdownTable={
+                  editorSettings?.autoFormatMarkdownTable ?? true
+                }
                 onChange={wysiwygOnChange}
                 onSave={saveWithShortcut}
-                onViewReady={(getMarkdown) => {
-                  wysiwygGetMarkdownRef.current = getMarkdown;
+                onViewReady={(handle) => {
+                  wysiwygHandleRef.current = handle;
                 }}
               />
             </div>

@@ -17,6 +17,10 @@
   // backdrop blur of the tinted ground reads as frosted depth.
   --grw-glass-bg: rgba(252, 253, 255, 0.82);
   --grw-glass-border: rgba(255, 255, 255, 0.7);
+  // Floating windows (dropdowns / popovers / modals): only a hair translucent
+  // — content behind should just barely show through, no blur.
+  --grw-popover-bg: rgba(252, 253, 255, 0.94);
+  --grw-popover-border: rgba(210, 220, 232, 0.9);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
   --grw-glass-shadow: 0 2px 6px rgba(20, 45, 70, 0.06), 0 16px 42px rgba(20, 45, 70, 0.14);
   --grw-glass-sheen: linear-gradient(
@@ -53,6 +57,8 @@
 
   --grw-glass-bg: rgba(26, 34, 46, 0.8);
   --grw-glass-border: rgba(255, 255, 255, 0.09);
+  --grw-popover-bg: rgba(32, 41, 54, 0.94);
+  --grw-popover-border: rgba(255, 255, 255, 0.12);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   --grw-glass-shadow: 0 2px 6px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.44);
   --grw-glass-sheen: linear-gradient(

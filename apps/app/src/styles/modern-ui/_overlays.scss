@@ -1,0 +1,33 @@
+// Floating windows — dropdown menus, popovers, modals. A *barely* translucent
+// fill (content behind shows through faintly), a hairline border, and a soft
+// lift so it reads as a layer.
+//
+// NO backdrop-filter: a non-none backdrop-filter makes the element a
+// containing block for its `position: fixed` descendants, which strands the
+// Messages / AI-chat FloatingPanel and portal-less popovers (see _surfaces).
+// The faint see-through effect here is just the translucent background-color.
+
+:root[data-grw-ui='modern'] .dropdown-menu,
+:root[data-grw-ui='modern'] .popover,
+:root[data-grw-ui='modern'] .modal-content,
+:root[data-grw-ui='modern'] .offcanvas {
+  background-color: var(--grw-popover-bg);
+  border: 1px solid var(--grw-popover-border);
+  border-radius: var(--grw-radius-md);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
+}
+
+:root[data-grw-ui='modern'] .dropdown-menu {
+  padding: 6px;
+}
+
+// Popover arrow: recolour so it matches the translucent body.
+:root[data-grw-ui='modern'] .popover .popover-arrow::after {
+  border-top-color: var(--grw-popover-bg);
+  border-bottom-color: var(--grw-popover-bg);
+}
+
+// Menu items: rounder hover/active so they sit inside the rounded menu.
+:root[data-grw-ui='modern'] .dropdown-item {
+  border-radius: 8px;
+}

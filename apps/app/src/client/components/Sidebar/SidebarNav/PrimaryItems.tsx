@@ -5,6 +5,7 @@ import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { NotAvailable } from '~/client/components/NotAvailable';
+import { HomeNavItem } from '~/features/home/client/nav/HomeNavItem';
 import { NasStorageNavItem } from '~/features/nas-file-storage/client/nav/NasStorageNavItem';
 import { isMessagesFeatureEnabled } from '~/interfaces/messages-mode';
 import { SidebarContentsType } from '~/interfaces/ui';
@@ -77,6 +78,7 @@ export const PrimaryItems = memo((props: Props) => {
 
   return (
     <div className={`${styles['grw-primary-items']} mt-1`}>
+      <HomeNavItem />
       <PrimaryItem
         sidebarMode={sidebarMode}
         contents={SidebarContentsType.TREE}

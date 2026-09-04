@@ -37,6 +37,7 @@
     "details": "動作環境を見る",
     "minimum": "最低",
     "recommended": "推奨",
+    "your_os": "あなたの環境",
     "dismiss": "閉じる",
     "os": {
       "windows": {

@@ -55,6 +55,7 @@ const isForeignOrigin = (req: CrowiRequest): boolean => {
 // that fall through to the Next delegate even in the lite tier.
 const RESERVED_PREFIXES = [
   '/_',
+  '/home',
   '/admin',
   '/me',
   '/trash',

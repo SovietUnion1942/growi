@@ -34,6 +34,7 @@
     "details": "System requirements",
     "minimum": "Minimum",
     "recommended": "Recommended",
+    "your_os": "your device",
     "dismiss": "Dismiss",
     "os": {
       "windows": {

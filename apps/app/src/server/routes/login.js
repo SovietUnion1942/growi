@@ -150,7 +150,9 @@ export const setup = (crowi, app) => {
         redirectTo = req.session.redirectTo;
         delete req.session.redirectTo;
       } else {
-        redirectTo = '/';
+        // Fork: land on the dedicated home page (features/home) rather than the
+        // top wiki page when the login had no explicit destination.
+        redirectTo = '/home';
       }
 
       return res.apiv3({ redirectTo });

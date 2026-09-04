@@ -56,6 +56,19 @@
   border-color: var(--grw-glass-border) !important;
 }
 
+// Page-tree rows: a rounder highlight (the base markup only gives .rounded-1).
+:root[data-grw-ui='modern']
+  [data-testid='grw-pagetree-item-container']
+  .list-group-item {
+  border-radius: var(--grw-radius-sm) !important;
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='grw-pagetree-item-container']
+  .list-group-item:hover {
+  background-color: rgba(var(--grw-accent-rgb), 0.08);
+}
+
 // --- Contextual sub-navigation (the top bar) --------------------------
 // View mode sits on the fixed GroundGlassBar; layering the same frosted
 // recipe on the nav itself makes the whole strip read as one glass plane.

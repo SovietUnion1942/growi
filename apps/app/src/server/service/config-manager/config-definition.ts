@@ -255,6 +255,7 @@ export const CONFIG_KEYS = [
   'customize:css',
   'customize:script',
   'customize:noscript',
+  'customize:homeNotice',
   'customize:title',
   'customize:isDefaultLogo',
   'customize:highlightJsStyle',
@@ -1240,6 +1241,10 @@ export const CONFIG_DEFINITIONS = {
     defaultValue: undefined,
   }),
   'customize:noscript': defineConfig<string | undefined>({
+    defaultValue: undefined,
+  }),
+  // Home page notice body (markdown), DB-only setting — no env var fallback.
+  'customize:homeNotice': defineConfig<string | undefined>({
     defaultValue: undefined,
   }),
   'customize:title': defineConfig<string | undefined>({

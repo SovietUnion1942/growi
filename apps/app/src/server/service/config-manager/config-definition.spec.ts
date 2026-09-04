@@ -370,3 +370,29 @@ describe('config-definition multi-provider ai keys', () => {
     });
   });
 });
+
+// R6.1: customize:homeNotice holds the Home page notice body, defined
+// exactly like customize:noscript (DB-only string setting, no env var).
+describe('config-definition home notice key', () => {
+  describe('CONFIG_KEYS array', () => {
+    it('contains customize:homeNotice', () => {
+      expect(CONFIG_KEYS).toContain('customize:homeNotice');
+    });
+  });
+
+  describe('CONFIG_DEFINITIONS', () => {
+    describe('customize:homeNotice', () => {
+      it('has a default value of undefined (unset)', () => {
+        expect(
+          CONFIG_DEFINITIONS['customize:homeNotice'].defaultValue,
+        ).toBeUndefined();
+      });
+
+      it('has no envVarName (DB-only setting, same as customize:noscript)', () => {
+        expect(
+          CONFIG_DEFINITIONS['customize:homeNotice'].envVarName,
+        ).toBeUndefined();
+      });
+    });
+  });
+});

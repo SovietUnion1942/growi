@@ -38,15 +38,32 @@ export const modernUiPreview = (
   res: Response,
   next: NextFunction,
 ): void => {
+  // Mirror the write into `req.cookies` as well, so the tier resolution that
+  // runs later in THIS same request (the lite-ui gate, `_document`) already
+  // sees the intended value instead of only taking effect on the next load.
+  const setUi = (value: string | undefined): void => {
+    if (value == null) {
+      res.clearCookie(MODERN_UI_COOKIE, { path: '/' });
+      if (req.cookies != null) {
+        delete req.cookies[MODERN_UI_COOKIE];
+      }
+    } else {
+      res.cookie(MODERN_UI_COOKIE, value, COOKIE_OPTS);
+      if (req.cookies != null) {
+        req.cookies[MODERN_UI_COOKIE] = value;
+      }
+    }
+  };
+
   const ui = asString(req.query.ui) ?? asString(req.query[MODERN_UI_COOKIE]);
   if (ui === MODERN_UI_COOKIE_ON) {
-    res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_ON, COOKIE_OPTS);
+    setUi(MODERN_UI_COOKIE_ON);
   } else if (ui === MODERN_UI_COOKIE_LEGACY) {
-    res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_LEGACY, COOKIE_OPTS);
+    setUi(MODERN_UI_COOKIE_LEGACY);
   } else if (ui === MODERN_UI_COOKIE_LITE) {
-    res.cookie(MODERN_UI_COOKIE, MODERN_UI_COOKIE_LITE, COOKIE_OPTS);
+    setUi(MODERN_UI_COOKIE_LITE);
   } else if (ui === 'off' || ui === 'auto') {
-    res.clearCookie(MODERN_UI_COOKIE, { path: '/' });
+    setUi(undefined);
   }
 
   const theme = asString(req.query[THEME_COOKIE]);

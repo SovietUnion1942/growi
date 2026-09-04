@@ -1,0 +1,36 @@
+// The modern skin owns the club-blue accent (#007eb0) regardless of which
+// preset / instance theme supplies `--grw-primary`. GROWI's "classic" instance
+// theme, for one, ships a magenta primary in dark mode — without this the glass
+// chrome would sit next to a pink page-tree selection. One ramp works in both
+// color modes (it already spans light tints -> dark shades).
+
+:root[data-grw-ui='modern'] {
+  --grw-primary: #007eb0;
+  --grw-primary-rgb: 0, 126, 176;
+
+  --grw-primary-100: #e0eff5;
+  --grw-primary-100-rgb: 224, 239, 245;
+  --grw-primary-200: #c2e0ec;
+  --grw-primary-200-rgb: 194, 224, 236;
+  --grw-primary-300: #99cce0;
+  --grw-primary-300-rgb: 153, 204, 224;
+  --grw-primary-400: #61aece;
+  --grw-primary-400-rgb: 97, 174, 206;
+  --grw-primary-500: #007eb0;
+  --grw-primary-500-rgb: 0, 126, 176;
+  --grw-primary-600: #006790;
+  --grw-primary-600-rgb: 0, 103, 144;
+  --grw-primary-700: #005171;
+  --grw-primary-700-rgb: 0, 81, 113;
+  --grw-primary-800: #003a51;
+  --grw-primary-800-rgb: 0, 58, 81;
+  --grw-primary-900: #002635;
+  --grw-primary-900-rgb: 0, 38, 53;
+
+  --bs-primary: #007eb0;
+  --bs-primary-rgb: 0, 126, 176;
+  --bs-link-color: #0a7bad;
+  --bs-link-color-rgb: 10, 123, 173;
+  --bs-link-hover-color: #095f86;
+  --bs-link-hover-color-rgb: 9, 95, 134;
+}

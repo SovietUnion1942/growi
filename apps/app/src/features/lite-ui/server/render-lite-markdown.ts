@@ -26,7 +26,9 @@ const buildProcessor = async (): Promise<Processor> => {
     import('remark-rehype'),
     import('rehype-sanitize'),
     import('rehype-stringify'),
-    import('~/services/renderer/remark-plugins/emoji'),
+    // Relative (not `~/`): a bare-string alias in a *dynamic* import is not
+    // resolved by every vitest project config, only the app build's.
+    import('../../../services/renderer/remark-plugins/emoji'),
   ]);
   const rehypeSanitize = rehypeSanitizeMod.default;
   const { defaultSchema } = rehypeSanitizeMod;

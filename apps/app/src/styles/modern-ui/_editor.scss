@@ -19,7 +19,7 @@
   padding-left: 0.5rem;
   background-color: var(--bs-body-bg) !important;
   border: 1px solid var(--bs-border-color);
-  border-radius: var(--grw-radius-md);
+  border-radius: var(--grw-radius-lg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
 }
 
@@ -64,6 +64,30 @@
   background-color: var(--bs-body-bg);
   border-top: 1px solid var(--bs-border-color) !important;
   box-shadow: var(--grw-glass-inner-hi), 0 -4px 12px -6px rgba(0, 0, 0, 0.12);
+}
+
+// The save / publish cluster gets the curated glossy-primary fill (the token
+// exists; a blanket .btn-primary restyle is avoided elsewhere because GROWI
+// reuses .btn-primary for icon buttons). --bs-btn-bg can't hold a gradient, so
+// paint `background` directly.
+:root[data-grw-ui='modern']
+  [data-testid='grw-editor-navbar-bottom']
+  .btn-primary {
+  color: #fff;
+  background: var(--grw-btn-primary-bg);
+  border-color: var(--grw-btn-primary-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 6px rgba(var(--grw-accent-rgb), 0.35);
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='grw-editor-navbar-bottom']
+  .btn-primary:hover {
+  color: #fff;
+  background: var(--grw-btn-primary-bg);
+  filter: brightness(1.06);
+  border-color: var(--grw-btn-primary-border);
 }
 
 // --- Pane divider ----------------------------------------------------

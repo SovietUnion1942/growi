@@ -13,6 +13,7 @@ import type {
   EditorTheme,
   KeyMapMode,
 } from '../../consts/index.js';
+import { useResolvedTheme } from '../../states/ui/resolved-theme.js';
 import type { UseCodeMirrorEditor } from '../services/index.js';
 import {
   getEditorTheme,
@@ -23,6 +24,17 @@ import {
 } from '../services-internal/index.js';
 import type { KeymapResult } from '../services-internal/keymaps/index.js';
 import { useEditorShortcuts } from './use-editor-shortcuts.js';
+
+// The five light-surfaced editor themes (see consts/editor-themes.ts) — kept
+// as an explicit list rather than positional slicing so a future theme
+// addition can't silently mis-classify.
+const LIGHT_EDITOR_THEMES: EditorTheme[] = [
+  'defaultlight',
+  'eclipse',
+  'basic',
+  'ayu',
+  'rosepine',
+];
 
 const useStyleActiveLine = (
   codeMirrorEditor?: UseCodeMirrorEditor,
@@ -70,13 +82,24 @@ const useThemeExtension = (
   const [themeExtension, setThemeExtension] = useState<Extension | undefined>(
     undefined,
   );
+  const resolvedTheme = useResolvedTheme();
 
   useEffect(() => {
+    // The editor surface follows the page's colour mode: a light editor theme
+    // (including the unset default) falls back to `defaultdark` while the
+    // page is dark, so the editor isn't a white slab on a dark page. A
+    // theme the user explicitly picked as dark is left as-is either way.
+    const effectiveTheme =
+      resolvedTheme === 'dark' &&
+      (theme == null || LIGHT_EDITOR_THEMES.includes(theme))
+        ? 'defaultdark'
+        : theme;
+
     const settingTheme = async (name?: EditorTheme) => {
       setThemeExtension(await getEditorTheme(name));
     };
-    settingTheme(theme);
-  }, [theme]);
+    settingTheme(effectiveTheme);
+  }, [theme, resolvedTheme]);
 
   useEffect(() => {
     if (themeExtension == null) {

@@ -124,4 +124,8 @@ describe('resolveUiTier', () => {
       'lite',
     );
   });
+  it('a grw-ui=lite cookie pins lite even on a capable client', () => {
+    expect(resolveUiTier({ mode: 'optin', cookie: 'lite', ua })).toBe('lite');
+    expect(resolveUiTier({ mode: 'on', cookie: 'lite', ua })).toBe('lite');
+  });
 });

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   MODERN_UI_COOKIE,
+  MODERN_UI_COOKIE_LITE,
   MODERN_UI_COOKIE_ON,
   THEME_COOKIE,
 } from '~/interfaces/modern-ui-mode';
@@ -20,12 +21,67 @@ import { ThemeColorBox } from '../Admin/Customize/ThemeColorBox';
 
 const COOKIE_OPTS = { path: '/', expires: 365 } as const;
 
-/** A swatch, sized like ThemeColorBox, that toggles the modern skin. */
-const ModernUiSwatch = ({
+const MODERN_PREVIEW = (
+  <svg viewBox="0 0 64 64" width="64" height="64" className="rounded">
+    <title>modern</title>
+    <defs>
+      <linearGradient id="grw-modern-swatch" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#eaf0f7" />
+        <stop offset="55%" stopColor="#d8e2ee" />
+        <stop offset="100%" stopColor="#cdd9e8" />
+      </linearGradient>
+    </defs>
+    <rect width="64" height="64" fill="url(#grw-modern-swatch)" />
+    <rect
+      x="7"
+      y="7"
+      width="50"
+      height="50"
+      rx="8"
+      fill="#ffffff"
+      fillOpacity="0.82"
+      stroke="#ffffff"
+    />
+    <rect
+      x="7"
+      y="7"
+      width="50"
+      height="16"
+      rx="8"
+      fill="#ffffff"
+      fillOpacity="0.45"
+    />
+    <rect x="13" y="30" width="30" height="3.5" rx="1.75" fill="#007eb0" />
+    <rect x="13" y="39" width="22" height="3" rx="1.5" fill="#8aa1b4" />
+    <rect x="13" y="46" width="26" height="3" rx="1.5" fill="#8aa1b4" />
+  </svg>
+);
+
+// Plain paper, monochrome — no chrome, no color: the lite render.
+const LITE_PREVIEW = (
+  <svg viewBox="0 0 64 64" width="64" height="64" className="rounded">
+    <title>lite</title>
+    <rect width="64" height="64" fill="#ffffff" />
+    <rect x="10" y="12" width="30" height="4" rx="1" fill="#333333" />
+    <rect x="10" y="24" width="44" height="2.5" rx="1" fill="#999999" />
+    <rect x="10" y="31" width="44" height="2.5" rx="1" fill="#999999" />
+    <rect x="10" y="38" width="36" height="2.5" rx="1" fill="#999999" />
+    <rect x="10" y="48" width="20" height="2.5" rx="1" fill="#999999" />
+    <rect x="0" y="0" width="64" height="64" fill="none" stroke="#dddddd" />
+  </svg>
+);
+
+/**
+ * A swatch, sized like ThemeColorBox, that pins this browser to a whole UI
+ * mode (the modern skin or the lite render) rather than a color theme.
+ */
+const UiModeSwatch = ({
+  variant,
   isSelected,
   isDisabled,
   onToggle,
 }: {
+  variant: 'modern' | 'lite';
   isSelected: boolean;
   isDisabled: boolean;
   onToggle: () => void;
@@ -43,49 +99,16 @@ const ModernUiSwatch = ({
       <div
         className={`m-0 rounded rounded-3 border border-4 border-primary ${isSelected ? '' : 'border-opacity-10'}`}
       >
-        <svg viewBox="0 0 64 64" width="64" height="64" className="rounded">
-          <title>modern</title>
-          <defs>
-            <linearGradient id="grw-modern-swatch" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#eaf0f7" />
-              <stop offset="55%" stopColor="#d8e2ee" />
-              <stop offset="100%" stopColor="#cdd9e8" />
-            </linearGradient>
-          </defs>
-          <rect width="64" height="64" fill="url(#grw-modern-swatch)" />
-          <rect
-            x="7"
-            y="7"
-            width="50"
-            height="50"
-            rx="8"
-            fill="#ffffff"
-            fillOpacity="0.82"
-            stroke="#ffffff"
-          />
-          <rect
-            x="7"
-            y="7"
-            width="50"
-            height="16"
-            rx="8"
-            fill="#ffffff"
-            fillOpacity="0.45"
-          />
-          <rect
-            x="13"
-            y="30"
-            width="30"
-            height="3.5"
-            rx="1.75"
-            fill="#007eb0"
-          />
-          <rect x="13" y="39" width="22" height="3" rx="1.5" fill="#8aa1b4" />
-          <rect x="13" y="46" width="26" height="3" rx="1.5" fill="#8aa1b4" />
-        </svg>
+        {variant === 'modern' ? MODERN_PREVIEW : LITE_PREVIEW}
       </div>
       <span className={`mt-2 ${isSelected ? '' : 'opacity-50'}`}>
-        <b>{t('theme_settings.modern_ui')}</b>
+        <b>
+          {t(
+            variant === 'modern'
+              ? 'theme_settings.modern_ui'
+              : 'theme_settings.lite_ui',
+          )}
+        </b>
       </span>
     </button>
   );
@@ -146,6 +169,18 @@ export const ThemeSettings = (): JSX.Element | null => {
     window.location.reload();
   }, [uiTier]);
 
+  // The lite render (no-JS static pages, see features/lite-ui) is the third
+  // mutually-exclusive "look". Selecting it also clears the preset-theme cookie.
+  const toggleLite = useCallback(() => {
+    if (uiTier === 'lite') {
+      Cookies.remove(MODERN_UI_COOKIE, { path: '/' });
+    } else {
+      Cookies.set(MODERN_UI_COOKIE, MODERN_UI_COOKIE_LITE, COOKIE_OPTS);
+      Cookies.remove(THEME_COOKIE, { path: '/' });
+    }
+    window.location.reload();
+  }, [uiTier]);
+
   if (mode === 'off') {
     return null;
   }
@@ -154,10 +189,13 @@ export const ThemeSettings = (): JSX.Element | null => {
   // is handled above. When the client is too old, show it disabled.
   const showModernSwatch = mode === 'optin';
 
-  // With the modern skin active the preset-theme cookie is cleared, but a
+  // With a whole-mode swatch active the preset-theme cookie is cleared, but a
   // browser that still carries a stale `grw-theme` from before this became
-  // exclusive should show the modern swatch as the single selection.
+  // exclusive should show the mode swatch as the single selection.
   const isModern = uiTier === 'glass';
+  const isLite = uiTier === 'lite';
+  const isThemeSelected = (name: string): boolean =>
+    !isModern && !isLite && themeCookie === name;
 
   return (
     <div>
@@ -175,7 +213,7 @@ export const ThemeSettings = (): JSX.Element | null => {
               type="button"
               className="btn btn-sm btn-outline-secondary flex-shrink-0"
               onClick={resetTheme}
-              disabled={themeCookie == null && !isModern}
+              disabled={themeCookie == null && !isModern && !isLite}
             >
               {t('theme_settings.reset_to_default')}
             </button>
@@ -185,21 +223,31 @@ export const ThemeSettings = (): JSX.Element | null => {
             <h3 className="mb-3 fs-6">{t('theme_settings.light_and_dark')}</h3>
             <div className="hstack gap-3 align-items-start flex-wrap">
               {showModernSwatch && (
-                <ModernUiSwatch
+                <UiModeSwatch
+                  variant="modern"
                   isSelected={isModern}
                   isDisabled={uaBelowMin}
                   onToggle={toggleModern}
                 />
               )}
+              <UiModeSwatch
+                variant="lite"
+                isSelected={isLite}
+                isDisabled={false}
+                onToggle={toggleLite}
+              />
               {bothModeThemes.map((theme) => (
                 <ThemeColorBox
                   key={theme.name}
-                  isSelected={!isModern && themeCookie === theme.name}
+                  isSelected={isThemeSelected(theme.name)}
                   metadata={theme}
                   onSelected={() => selectTheme(theme.name)}
                 />
               ))}
             </div>
+            <p className="form-text text-muted small mt-1">
+              {t('theme_settings.lite_ui_desc')}
+            </p>
             {showModernSwatch && uaBelowMin && (
               <p className="form-text text-warning small mt-1">
                 {t('theme_settings.modern_ui_unavailable')}
@@ -213,7 +261,7 @@ export const ThemeSettings = (): JSX.Element | null => {
               {oneModeThemes.map((theme) => (
                 <ThemeColorBox
                   key={theme.name}
-                  isSelected={!isModern && themeCookie === theme.name}
+                  isSelected={isThemeSelected(theme.name)}
                   metadata={theme}
                   onSelected={() => selectTheme(theme.name)}
                 />

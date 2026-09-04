@@ -317,6 +317,8 @@
     "desc": "Changes the look for this browser only. Other people are not affected.",
     "modern_ui": "Modern UI",
     "modern_ui_unavailable": "The modern UI is not available on your browser (you'll see the legacy view).",
+    "lite_ui": "Lite",
+    "lite_ui_desc": "Lite renders minimal, no-JavaScript pages — for low-spec devices and old browsers. Editing and some features fall back to the normal UI.",
     "reset_to_default": "Reset to default",
     "light_and_dark": "Light & dark",
     "single_mode": "Single mode"

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 // biome-ignore-start lint/style/noRestrictedImports: no-problem lazy loaded components
 import { AlertSiteUrlUndefined } from '~/client/components/AlertSiteUrlUndefined';
 import { DeleteBookmarkFolderModalLazyLoaded } from '~/client/components/DeleteBookmarkFolderModal';
+import { FloatingPanelDock } from '~/client/components/FloatingPanel';
 import { GrantedGroupsInheritanceSelectModalLazyLoaded } from '~/client/components/GrantedGroupsInheritanceSelectModal';
 import { PageAccessoriesModalLazyLoaded } from '~/client/components/PageAccessoriesModal';
 import { DeleteAttachmentModalLazyLoaded } from '~/client/components/PageAttachment';
@@ -82,6 +83,7 @@ export const BasicLayout = ({ children, className }: Props): JSX.Element => {
         </div>
 
         <ChatSidebarLazyLoaded />
+        <FloatingPanelDock />
       </div>
 
       <GrowiNavbarBottom />

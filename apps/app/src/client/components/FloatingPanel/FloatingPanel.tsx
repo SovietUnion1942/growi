@@ -13,16 +13,22 @@ import { useFloatingPanel } from './use-floating-panel';
 export type FloatingPanelHeaderControls = {
   isMaximized: boolean;
   toggleMaximize: () => void;
+  isMinimized: boolean;
+  toggleMinimize: () => void;
 };
 
 export type FloatingPanelProps = {
   storageKey: string;
+  // Label for this panel's minimized dock chip (see FloatingPanelDock).
+  title: string;
   defaultPosition: FloatingPanelPosition;
   defaultSize: FloatingPanelSize;
   minSize: FloatingPanelSize;
-  // A function so the header can include its own maximize/restore button
-  // (placement and icon are entirely up to the consumer -- FloatingPanel
-  // only supplies the toggle and its current state).
+  // A function so the header can include its own maximize/restore/minimize
+  // buttons (placement and icon are entirely up to the consumer --
+  // FloatingPanel only supplies the toggles and their current state; most
+  // consumers should render <FloatingPanelControls> here rather than
+  // hand-rolling buttons).
   header: (controls: FloatingPanelHeaderControls) => ReactNode;
   children: ReactNode;
   className?: string;
@@ -42,6 +48,7 @@ export type FloatingPanelProps = {
  */
 export const FloatingPanel = ({
   storageKey,
+  title,
   defaultPosition,
   defaultSize,
   minSize,
@@ -53,14 +60,27 @@ export const FloatingPanel = ({
     displayGeometry,
     isMaximized,
     toggleMaximize,
+    isMinimized,
+    toggleMinimize,
     onDragHandlePointerDown,
     onResizeHandlePointerDown,
-  } = useFloatingPanel({ storageKey, defaultPosition, defaultSize, minSize });
+  } = useFloatingPanel({
+    storageKey,
+    title,
+    defaultPosition,
+    defaultSize,
+    minSize,
+  });
 
   return (
     <div
       className={cn(
         'tw:fixed tw:z-50 tw:flex tw:flex-col tw:overflow-hidden tw:rounded-lg tw:border tw:bg-background tw:shadow-lg',
+        // While minimized, the dock chip (rendered elsewhere by
+        // FloatingPanelDock) is the only visible trace of this panel -- hide
+        // via CSS rather than unmounting, so `children` (unsent drafts,
+        // socket listeners, staged attachments, etc.) stays alive underneath.
+        isMinimized && 'tw:hidden',
         className,
       )}
       style={{
@@ -77,7 +97,7 @@ export const FloatingPanel = ({
         )}
         onPointerDown={onDragHandlePointerDown}
       >
-        {header({ isMaximized, toggleMaximize })}
+        {header({ isMaximized, toggleMaximize, isMinimized, toggleMinimize })}
       </div>
       <div className="tw:min-h-0 tw:flex-1 tw:overflow-hidden">{children}</div>
       {!isMaximized && (

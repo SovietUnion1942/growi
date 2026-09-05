@@ -5,6 +5,7 @@ import { mutate as mutateGlobal } from 'swr';
 
 import {
   FloatingPanel,
+  FloatingPanelControls,
   type FloatingPanelPosition,
   type FloatingPanelSize,
 } from '~/client/components/FloatingPanel';
@@ -102,10 +103,19 @@ export const Messages = (): JSX.Element => {
       {activeConversation != null && (
         <FloatingPanel
           storageKey="grw-messages-thread-geometry"
+          title={getConversationDisplayName(
+            activeConversation,
+            currentUser?._id,
+          )}
           defaultPosition={FLOATING_MESSAGES_DEFAULT_POSITION}
           defaultSize={FLOATING_MESSAGES_DEFAULT_SIZE}
           minSize={FLOATING_MESSAGES_MIN_SIZE}
-          header={({ isMaximized, toggleMaximize }) => (
+          header={({
+            isMaximized,
+            toggleMaximize,
+            isMinimized,
+            toggleMinimize,
+          }) => (
             <div className="d-flex align-items-center px-3 py-2 border-bottom">
               <h3 className="fs-6 fw-bold mb-0 flex-grow-1 text-truncate">
                 {getConversationDisplayName(
@@ -138,25 +148,13 @@ export const Messages = (): JSX.Element => {
                 </span>
               </button>
 
-              <button
-                type="button"
-                className="btn btn-link p-0 me-2"
-                onClick={toggleMaximize}
-                title={isMaximized ? '元のサイズに戻す' : '最大化'}
-              >
-                <span className="material-symbols-outlined">
-                  {isMaximized ? 'fullscreen_exit' : 'fullscreen'}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-link p-0"
-                onClick={() => setActiveConversation(null)}
-                title="閉じる"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
+              <FloatingPanelControls
+                isMinimized={isMinimized}
+                toggleMinimize={toggleMinimize}
+                isMaximized={isMaximized}
+                toggleMaximize={toggleMaximize}
+                onClose={() => setActiveConversation(null)}
+              />
             </div>
           )}
         >

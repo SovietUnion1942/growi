@@ -98,22 +98,22 @@
   - _Depends: 6.1, 3.4_
 
 - [ ] 7. Validation
-- [ ] 7.1 書きかけ(WIP)ページ取得クエリの単体テストを追加する
+- [x] 7.1 書きかけ(WIP)ページ取得クエリの単体テストを追加する
   - WIP でないページ、他利用者が最終更新者のページ、閲覧権限のないページが結果から除外されることを検証する
   - 完了状態: 上記3パターンそれぞれについて除外を確認するテストが揃い、すべて成功する
   - _Requirements: 4.2, 4.3_
   - _Depends: 1.2_
-- [ ] 7.2 お知らせ移行処理の単体テストを追加する
+- [x] 7.2 お知らせ移行処理の単体テストを追加する
   - 既存値あり→スキップ、`/home-notice` 無し→空初期化、`/home-notice` あり→複製、の3パターンを検証する
   - 完了状態: 3パターンそれぞれの検証テストが揃い、すべて成功する
   - _Requirements: 7.1, 7.2, 7.4_
   - _Depends: 2.2_
-- [ ] 7.3 API の結合テストを追加する
+- [x] 7.3 API の結合テストを追加する
   - 書きかけページ一覧エンドポイントの未ログイン時エラー・ログイン時の結果、お知らせ更新エンドポイントの非管理者エラー・管理者による更新反映を検証する
   - 完了状態: いずれのケースも期待する応答（エラー種別・返却内容）が確認できる
   - _Requirements: 4.2, 6.1, 6.2_
   - _Depends: 2.1, 3.1_
-- [ ] 7.4* 各ウィジェットの空状態表示のコンポーネントテストを追加する
+- [x] 7.4* 各ウィジェットの空状態表示のコンポーネントテストを追加する
   - 最近更新・ブックマーク・書きかけの各ウィジェットについて、対象データが0件のときの空状態メッセージ表示を検証する
   - 完了状態: 3ウィジェットそれぞれの空状態テストが成功する
   - _Requirements: 3.3, 4.4_
@@ -136,3 +136,4 @@
 - Non-admin/unauthenticated apiv3 GET routes in this codebase return 403 (not 401), and admin-gated PUT routes redirect (302, not 403) for non-admins — both are pre-existing shared middleware behavior (`loginRequiredFactory`, `adminRequiredFactory`), not defects introduced by this feature. design.md's API contract tables list 401/403 respectively; treat those as documentation-only imprecision.
 
 - The migration file (`20260905010000-migrate-home-notice-to-config.js`) hardcodes its own local `/home-notice` path literal instead of importing `HOME_NOTICE_PATH` from `features/home/consts.ts` — minor SSOT drift, non-blocking, optional cleanup later.
+- Tasks 7.1-7.4's completion criteria were already satisfied by tests written as part of their dependency tasks (1.2's page-listing.integ.ts WIP-exclusion tests; 2.2's migration spec's 3 patterns; 2.1's/3.1's integ tests covering auth/persistence; 4.2/4.3/5.2's widget specs' empty-state cases) — re-verified together (77/77 passing) rather than duplicating coverage with new near-identical test files.

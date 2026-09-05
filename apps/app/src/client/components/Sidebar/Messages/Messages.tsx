@@ -1,51 +1,21 @@
-import { type JSX, useCallback, useState } from 'react';
+import { type JSX, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { mutate as mutateGlobal } from 'swr';
 
 import {
-  FloatingPanel,
-  FloatingPanelControls,
-  type FloatingPanelPosition,
-  type FloatingPanelSize,
-} from '~/client/components/FloatingPanel';
-import {
   canCreateGroupConversation,
   canStartDirectConversation,
 } from '~/interfaces/messages-mode';
-import { useCurrentUser } from '~/states/global';
 import { messagesModeAtom } from '~/states/server-configurations';
-import {
-  CONVERSATIONS_SWR_KEY,
-  getConversationDisplayName,
-  type IConversation,
-  muteConversation,
-} from '~/stores/messages';
+import { CONVERSATIONS_SWR_KEY } from '~/stores/messages';
 
 import { ConversationList } from './ConversationList';
-import { GroupMembersModal } from './GroupMembersModal';
-import { MessageThread } from './MessageThread';
+import { useMessagesThreadActions } from './messages-thread-status';
 import { StartConversationModal } from './StartConversationModal';
-
-// Default geometry for the floating chat-thread window, docked near the
-// top-left where the collapsible left sidebar sits. See FloatingPanel for
-// how this is clamped to the actual viewport on mount and on resize.
-const FLOATING_MESSAGES_DEFAULT_POSITION: FloatingPanelPosition = {
-  x: 100,
-  y: 72,
-};
-const FLOATING_MESSAGES_DEFAULT_SIZE: FloatingPanelSize = {
-  width: 420,
-  height: 640,
-};
-const FLOATING_MESSAGES_MIN_SIZE: FloatingPanelSize = {
-  width: 320,
-  height: 360,
-};
 
 export const Messages = (): JSX.Element => {
   const { t } = useTranslation();
-  const currentUser = useCurrentUser();
   const messagesMode = useAtomValue(messagesModeAtom);
   const canStartDirect = canStartDirectConversation(messagesMode);
   const canCreateGroup = canCreateGroupConversation(messagesMode);
@@ -53,18 +23,8 @@ export const Messages = (): JSX.Element => {
   // is nothing for the "start a conversation" affordance to do.
   const canStartConversation = canStartDirect || canCreateGroup;
 
-  const [activeConversation, setActiveConversation] =
-    useState<IConversation | null>(null);
+  const { open } = useMessagesThreadActions();
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
-  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
-
-  const muteToggleHandler = useCallback(async () => {
-    if (activeConversation == null) return;
-    const newMuted = !activeConversation.isMuted;
-    await muteConversation(activeConversation._id, newMuted);
-    setActiveConversation({ ...activeConversation, isMuted: newMuted });
-    mutateGlobal(CONVERSATIONS_SWR_KEY);
-  }, [activeConversation]);
 
   return (
     <div className="px-3">
@@ -85,7 +45,7 @@ export const Messages = (): JSX.Element => {
         )}
       </div>
 
-      <ConversationList onSelectConversation={setActiveConversation} />
+      <ConversationList onSelectConversation={open} />
 
       {canStartConversation && (
         <StartConversationModal
@@ -94,81 +54,7 @@ export const Messages = (): JSX.Element => {
           onClose={() => setIsStartModalOpen(false)}
           onConversationCreated={(conversation) => {
             setIsStartModalOpen(false);
-            setActiveConversation(conversation);
-            mutateGlobal(CONVERSATIONS_SWR_KEY);
-          }}
-        />
-      )}
-
-      {activeConversation != null && (
-        <FloatingPanel
-          storageKey="grw-messages-thread-geometry"
-          title={getConversationDisplayName(
-            activeConversation,
-            currentUser?._id,
-          )}
-          defaultPosition={FLOATING_MESSAGES_DEFAULT_POSITION}
-          defaultSize={FLOATING_MESSAGES_DEFAULT_SIZE}
-          minSize={FLOATING_MESSAGES_MIN_SIZE}
-          header={({
-            isMaximized,
-            toggleMaximize,
-            isMinimized,
-            toggleMinimize,
-          }) => (
-            <div className="d-flex align-items-center px-3 py-2 border-bottom">
-              <h3 className="fs-6 fw-bold mb-0 flex-grow-1 text-truncate">
-                {getConversationDisplayName(
-                  activeConversation,
-                  currentUser?._id,
-                )}
-              </h3>
-
-              {activeConversation.type === 'group' && (
-                <button
-                  type="button"
-                  className="btn btn-link p-0 me-2"
-                  onClick={() => setIsMembersModalOpen(true)}
-                  title="メンバー管理"
-                >
-                  <span className="material-symbols-outlined">group</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="btn btn-link p-0 me-2"
-                onClick={muteToggleHandler}
-                title={activeConversation.isMuted ? 'ミュート解除' : 'ミュート'}
-              >
-                <span className="material-symbols-outlined">
-                  {activeConversation.isMuted
-                    ? 'notifications_off'
-                    : 'notifications'}
-                </span>
-              </button>
-
-              <FloatingPanelControls
-                isMinimized={isMinimized}
-                toggleMinimize={toggleMinimize}
-                isMaximized={isMaximized}
-                toggleMaximize={toggleMaximize}
-                onClose={() => setActiveConversation(null)}
-              />
-            </div>
-          )}
-        >
-          <MessageThread conversation={activeConversation} />
-        </FloatingPanel>
-      )}
-
-      {activeConversation != null && (
-        <GroupMembersModal
-          isOpen={isMembersModalOpen}
-          onClose={() => setIsMembersModalOpen(false)}
-          conversation={activeConversation}
-          onUpdated={(conversation) => {
-            setActiveConversation(conversation);
+            open(conversation);
             mutateGlobal(CONVERSATIONS_SWR_KEY);
           }}
         />

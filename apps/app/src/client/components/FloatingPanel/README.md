@@ -141,23 +141,49 @@ The mechanical steps were:
 No logic inside your existing content tree needs to change — this is a
 container swap, not a rewrite of what's inside.
 
-## Migrating the Messages/DM panel specifically
+## Worked example: Messages/DM panel extraction
 
-One thing is different for Messages: it currently lives **inside GROWI's
-standard collapsible left Sidebar** (`client/components/Sidebar/Messages/Messages.tsx`)
-as one of that sidebar's content panels — it is not already its own
-fixed-position overlay the way `ChatSidebar.tsx` was. So the migration is
-two steps, not one:
+Messages started with an extra wrinkle ChatSidebar never had: `Messages.tsx`
+lived **inside GROWI's standard collapsible left Sidebar**
+(`client/components/Sidebar/Messages/`) as one of that sidebar's tab-selected
+content panels, and it rendered its own `FloatingPanel` block *inside itself*.
+That meant the floating thread window was only ever mounted while the
+"Messages" tab happened to be the selected sidebar content — switching to any
+other tab (PageTree, RecentChanges, …) unmounted `Messages.tsx`, which
+unmounted the `FloatingPanel` (and any minimized-panel registration) right
+along with it. So this migration was two steps, not one: extract the floating
+window out of the Sidebar-tab lifecycle, *then* apply the same `FloatingPanel`
+wrapping ChatSidebar already used.
 
-1. **Extract it from the Sidebar shell.** Whatever currently mounts
-   `Messages.tsx` inside the standard sidebar needs to instead render it
-   independently (mirroring how `ChatSidebar/dynamic.tsx` lazy-mounts
-   `ChatSidebar` outside the normal page layout, gated on an open/closed
-   status atom). This is the part with no ChatSidebar precedent to copy
-   line-for-line — expect to design the "is the Messages panel open"
-   state and its trigger button yourself.
-2. **Wrap it in `FloatingPanel`**, following the "worked example" steps
-   above, once it's already rendering as its own top-level component.
+The reference implementation is now in
+`client/components/Sidebar/Messages/`:
 
-Happy to pair on step 1's state/trigger plumbing if useful — that part is
-genuinely new, not a copy-paste.
+- **`messages-thread-status.ts`** — the atom + `useMessagesThreadStatus()` /
+  `useMessagesThreadActions()` pair, mirroring `status/chat-sidebar.tsx`
+  exactly (`open`/`close`/`update` in place of ChatSidebar's
+  `openChat`/`close`). This is the piece that lets the floating window's
+  "which conversation is open" state outlive the Sidebar tab that triggers it.
+- **`Messages.tsx`** — now only the Sidebar-tab-docked content
+  (header + `ConversationList` + `StartConversationModal`). It no longer owns
+  `activeConversation` as local state; selecting a conversation just calls
+  `useMessagesThreadActions().open(conversation)`.
+- **`MessagesFloatingThread.tsx`** — everything that used to be the
+  `FloatingPanel` block inside `Messages.tsx` (header, mute/group buttons,
+  `FloatingPanelControls`, `MessageThread`, `GroupMembersModal`), now reading
+  the active conversation from `useMessagesThreadStatus()` instead of local
+  state, and rendering `null` when there is none.
+- **`dynamic.tsx`** — mirrors `ChatSidebar/dynamic.tsx`'s `useLazyLoader`
+  pattern, gated on `useMessagesThreadStatus()` being non-null (no separate
+  `isOpened` boolean needed here, since "open" and "which conversation" are
+  the same piece of state). It also re-checks the guest/feature-enabled gate
+  itself (see `SidebarContents.tsx`) as defense in depth, so a disabled
+  feature or guest session never opens a conversation window even though the
+  Sidebar tab already wouldn't offer the entry point.
+- Mounted as `<MessagesFloatingThreadLazyLoaded />` in `BasicLayout.tsx`,
+  as a sibling of `<ChatSidebarLazyLoaded />` and `<FloatingPanelDock />` —
+  outside `<Sidebar />`'s subtree, so no Sidebar tab switch can unmount it.
+
+Use this as the template for any future "docked panel with a top-level
+floating counterpart" migration: extract a small status-atom module first,
+split the docked component into "tab-local chrome" vs. "floating content",
+then lazy-mount the floating half at the top level gated on that atom.

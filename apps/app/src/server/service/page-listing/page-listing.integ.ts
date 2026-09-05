@@ -632,4 +632,126 @@ describe('page-listing store integration tests', () => {
       });
     });
   });
+
+  describe('pageListingService.findWipPagesByUser', () => {
+    const GRANT_PUBLIC = 1;
+    const GRANT_OWNER = 4;
+
+    let otherUser: HydratedDocument<IUser>;
+    let ownWipVisiblePage: HydratedDocument<IPage>;
+
+    beforeEach(async () => {
+      otherUser = await User.create({
+        name: 'Other User',
+        username: 'otheruser-wip',
+        email: 'other-wip@example.com',
+        lang: 'en_US',
+      });
+
+      // WIP page last-updated by testUser, publicly visible: MUST be returned
+      ownWipVisiblePage = await Page.create({
+        path: '/wip-own-visible',
+        revision: new mongoose.Types.ObjectId(),
+        creator: testUser._id,
+        lastUpdateUser: testUser._id,
+        grant: GRANT_PUBLIC,
+        isEmpty: false,
+        descendantCount: 0,
+        parent: rootPage._id,
+        wip: true,
+      });
+
+      // WIP page last-updated by ANOTHER user: MUST NOT be returned
+      await Page.create({
+        path: '/wip-other-user',
+        revision: new mongoose.Types.ObjectId(),
+        creator: otherUser._id,
+        lastUpdateUser: otherUser._id,
+        grant: GRANT_PUBLIC,
+        isEmpty: false,
+        descendantCount: 0,
+        parent: rootPage._id,
+        wip: true,
+      });
+
+      // Non-WIP page last-updated by testUser: MUST NOT be returned
+      await Page.create({
+        path: '/not-wip-own',
+        revision: new mongoose.Types.ObjectId(),
+        creator: testUser._id,
+        lastUpdateUser: testUser._id,
+        grant: GRANT_PUBLIC,
+        isEmpty: false,
+        descendantCount: 0,
+        parent: rootPage._id,
+      });
+
+      // WIP page last-updated by testUser, but restricted to otherUser only:
+      // MUST NOT be returned to testUser (viewer permission must be reused,
+      // not just lastUpdateUser matching)
+      await Page.create({
+        path: '/wip-own-restricted',
+        revision: new mongoose.Types.ObjectId(),
+        creator: testUser._id,
+        lastUpdateUser: testUser._id,
+        grant: GRANT_OWNER,
+        grantedUsers: [otherUser._id],
+        isEmpty: false,
+        descendantCount: 0,
+        parent: rootPage._id,
+        wip: true,
+      });
+    });
+
+    test('should return only the viewer-visible WIP pages last-updated by the given user', async () => {
+      const results = await pageListingService.findWipPagesByUser(
+        testUser._id.toString(),
+        testUser,
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].path).toBe('/wip-own-visible');
+      expect(results[0]._id.toString()).toBe(ownWipVisiblePage._id.toString());
+      validatePageForTreeItem(results[0]);
+    });
+
+    test('should exclude WIP pages last-updated by another user', async () => {
+      const results = await pageListingService.findWipPagesByUser(
+        testUser._id.toString(),
+        testUser,
+      );
+
+      const paths = results.map((page) => page.path);
+      expect(paths).not.toContain('/wip-other-user');
+    });
+
+    test('should exclude non-WIP pages even when last-updated by the given user', async () => {
+      const results = await pageListingService.findWipPagesByUser(
+        testUser._id.toString(),
+        testUser,
+      );
+
+      const paths = results.map((page) => page.path);
+      expect(paths).not.toContain('/not-wip-own');
+    });
+
+    test('should exclude WIP pages the viewer cannot see due to ACL, even when last-updated by the given user', async () => {
+      const results = await pageListingService.findWipPagesByUser(
+        testUser._id.toString(),
+        testUser,
+      );
+
+      const paths = results.map((page) => page.path);
+      expect(paths).not.toContain('/wip-own-restricted');
+    });
+
+    test('guest (no viewer) sees only publicly visible WIP pages of the given user', async () => {
+      const results = await pageListingService.findWipPagesByUser(
+        testUser._id.toString(),
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].path).toBe('/wip-own-visible');
+    });
+  });
 });

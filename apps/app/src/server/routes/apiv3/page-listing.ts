@@ -65,6 +65,7 @@ const validator = {
  */
 const routerFactory = (crowi: Crowi): Router => {
   const loginRequired = loginRequiredFactory(crowi, true);
+  const loginRequiredStrictly = loginRequiredFactory(crowi);
 
   const router = express.Router();
 
@@ -419,6 +420,56 @@ const routerFactory = (crowi: Crowi): Router => {
         logger.error('Error occurred while fetching page item.', err);
         return res.apiv3Err(
           new ErrorV3('Error occurred while fetching page item.'),
+        );
+      }
+    },
+  );
+
+  /**
+   * @swagger
+   *
+   * /page-listing/my-wip:
+   *   get:
+   *     tags: [PageListing]
+   *     security:
+   *       - bearer: []
+   *       - accessTokenInQuery: []
+   *       - accessTokenHeaderAuth: []
+   *     summary: /page-listing/my-wip
+   *     description: Get the WIP (work-in-progress) pages of the logged-in user
+   *     responses:
+   *       200:
+   *         description: Get the WIP pages of the logged-in user
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 pages:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/PageForTreeItem'
+   *       401:
+   *         description: Not logged in
+   */
+  router.get(
+    '/my-wip',
+    accessTokenParser([SCOPE.READ.FEATURES.PAGE], { acceptLegacy: true }),
+    loginRequiredStrictly,
+    async (req: AuthorizedRequest, res: ApiV3Response) => {
+      // biome-ignore lint/style/noNonNullAssertion: user must be set by loginRequiredStrictly
+      const user = req.user!;
+
+      try {
+        const pages = await pageListingService.findWipPagesByUser(
+          user._id.toString(),
+          user,
+        );
+        return res.apiv3({ pages });
+      } catch (err) {
+        logger.error('Error occurred while finding WIP pages.', err);
+        return res.apiv3Err(
+          new ErrorV3('Error occurred while finding WIP pages.'),
         );
       }
     },

@@ -1239,6 +1239,15 @@
     "nav_label": "Home",
     "welcome": "This is the wiki's home. Notices and the supported environment are collected here.",
     "notice_hint": "To show a notice here, set the Home Notice field on the admin Customize screen (this hint is shown to admins only).",
-    "requirements_heading": "Supported environment"
+    "requirements_heading": "Supported environment",
+    "widgets": {
+      "search_placeholder": "Search",
+      "recent_updates_heading": "Recently Updated",
+      "recent_updates_empty": "No recently updated pages",
+      "bookmarks_heading": "Bookmarks",
+      "bookmarks_empty": "No bookmarked pages",
+      "wip_pages_heading": "Work in Progress",
+      "wip_pages_empty": "No work-in-progress pages"
+    }
   }
 }

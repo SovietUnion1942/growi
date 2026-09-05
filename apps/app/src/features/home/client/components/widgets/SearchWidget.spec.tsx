@@ -9,6 +9,10 @@ vi.mock('~/states/search', () => ({
   useSetSearchKeyword: () => setSearchKeywordMock,
 }));
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 describe('SearchWidget', () => {
   beforeEach(() => {
     setSearchKeywordMock.mockClear();

@@ -1279,6 +1279,15 @@
     "nav_label": "ホーム",
     "welcome": "この wiki のホームです。お知らせと動作環境をまとめています。",
     "notice_hint": "お知らせを表示するには、管理者向けカスタマイズ画面の「ホームのお知らせ」欄に本文を設定してください（この案内は管理者にのみ表示されます）。",
-    "requirements_heading": "動作環境"
+    "requirements_heading": "動作環境",
+    "widgets": {
+      "search_placeholder": "検索",
+      "recent_updates_heading": "最近更新されたページ",
+      "recent_updates_empty": "最近更新されたページはありません",
+      "bookmarks_heading": "ブックマーク",
+      "bookmarks_empty": "ブックマークされたページはありません",
+      "wip_pages_heading": "書きかけのページ",
+      "wip_pages_empty": "書きかけのページはありません"
+    }
   }
 }

@@ -130,14 +130,29 @@ describe('WipPagesWidget', () => {
     ).toBeInTheDocument();
   });
 
-  it('caps the rendered list at MAX_ITEMS (10) even when the hook returns more', () => {
-    const pages = Array.from({ length: 15 }, (_, i) =>
+  it('caps the rendered list at MAX_ITEMS (14) even when the hook returns more', () => {
+    const pages = Array.from({ length: 20 }, (_, i) =>
       makePage(`/page-${i}`, `page${i}`),
     );
     useSWRxMyWipPagesMock.mockReturnValue({ data: pages });
 
     render(<WipPagesWidget />);
 
-    expect(screen.getAllByRole('link')).toHaveLength(10);
+    expect(screen.getAllByRole('link')).toHaveLength(14);
+  });
+
+  it('wraps the populated list in a scrollable container sized to show roughly 7 items', () => {
+    const pages = Array.from({ length: 20 }, (_, i) =>
+      makePage(`/page-${i}`, `page${i}`),
+    );
+    useSWRxMyWipPagesMock.mockReturnValue({ data: pages });
+
+    const { container } = render(<WipPagesWidget />);
+
+    const list = container.querySelector('.list-group');
+    const scrollWrapper = list?.parentElement;
+    expect(scrollWrapper).not.toBeNull();
+    expect(scrollWrapper?.style.overflowY).toBe('auto');
+    expect(scrollWrapper?.style.maxHeight).not.toBe('');
   });
 });

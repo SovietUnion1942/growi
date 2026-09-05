@@ -8,7 +8,13 @@ import { useSWRxUserBookmarks } from '~/stores/bookmark';
 // Fixed number of items to show in the widget, matching
 // RecentUpdatesWidget's MAX_ITEMS -- an unbounded list looks broken on the
 // Home page.
-const MAX_ITEMS = 10;
+const MAX_ITEMS = 14;
+
+// Bootstrap's default .list-group-item is padding: 0.5rem 1rem with ~1.5rem
+// line-height text, so each row is roughly 2.5rem tall. Capping the visible
+// height to ~7 rows (17.5rem) keeps the card compact while still allowing
+// scroll access to the full MAX_ITEMS list.
+const LIST_MAX_HEIGHT = '17.5rem';
 
 // Trashed pages are excluded from this widget's display: the underlying
 // hook is not wrong to return them, but showing a trashed page under
@@ -44,7 +50,7 @@ export const BookmarksWidget: FC = () => {
     .slice(0, MAX_ITEMS);
 
   return (
-    <div className="grw-home-bookmarks-widget card h-100">
+    <div className="grw-home-bookmarks-widget card">
       <div className="card-body">
         <h3 className="fs-6 fw-bold mb-2">
           {t('home.widgets.bookmarks_heading')}
@@ -52,15 +58,17 @@ export const BookmarksWidget: FC = () => {
         {pages.length === 0 ? (
           <p className="text-muted mb-0">{t('home.widgets.bookmarks_empty')}</p>
         ) : (
-          <ul className="list-group list-group-flush">
-            {pages.map((page) => (
-              <li key={page._id} className="list-group-item">
-                <Link href={page.path} prefetch={false}>
-                  {page.path}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div style={{ maxHeight: LIST_MAX_HEIGHT, overflowY: 'auto' }}>
+            <ul className="list-group list-group-flush">
+              {pages.map((page) => (
+                <li key={page._id} className="list-group-item">
+                  <Link href={page.path} prefetch={false}>
+                    {page.path}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>

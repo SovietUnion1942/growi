@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSetAtom } from 'jotai';
 
+import { minimizedFloatingPanelsAtom } from './floating-panel-dock-state';
 import {
   clampPosition,
   clampSize,
@@ -13,8 +15,11 @@ type UseFloatingPanelParams = {
   // localStorage key this panel's geometry is saved under. Per-viewer,
   // per-browser convenience only (see localStorage guidance) -- never
   // synced across devices, so a fresh browser/profile just gets the
-  // defaults again.
+  // defaults again. Also doubles as the minimized-dock registry key, since
+  // it's already guaranteed unique per panel type.
   storageKey: string;
+  // Label shown on the minimized dock chip.
+  title: string;
   defaultPosition: FloatingPanelPosition;
   defaultSize: FloatingPanelSize;
   minSize: FloatingPanelSize;
@@ -27,6 +32,8 @@ type UseFloatingPanelResult = {
   displayGeometry: FloatingPanelGeometry;
   isMaximized: boolean;
   toggleMaximize: () => void;
+  isMinimized: boolean;
+  toggleMinimize: () => void;
   onDragHandlePointerDown: (e: React.PointerEvent) => void;
   onResizeHandlePointerDown: (e: React.PointerEvent) => void;
 };
@@ -80,7 +87,7 @@ const writeSavedGeometry = (
 export const useFloatingPanel = (
   params: UseFloatingPanelParams,
 ): UseFloatingPanelResult => {
-  const { storageKey, defaultPosition, defaultSize, minSize } = params;
+  const { storageKey, title, defaultPosition, defaultSize, minSize } = params;
 
   const [geometry, setGeometry] = useState<FloatingPanelGeometry>(() => {
     if (typeof window === 'undefined') {
@@ -103,6 +110,36 @@ export const useFloatingPanel = (
   const toggleMaximize = useCallback(() => {
     setIsMaximized((current) => !current);
   }, []);
+
+  // Minimizing collapses the panel to a chip in the shared FloatingPanelDock
+  // (see floating-panel-dock-state.ts). Orthogonal to isMaximized/geometry --
+  // restoring from the dock returns exactly to whatever state the panel was
+  // in before minimizing.
+  const [isMinimized, setIsMinimized] = useState(false);
+  const toggleMinimize = useCallback(() => {
+    setIsMinimized((current) => !current);
+  }, []);
+
+  // Register/unregister this panel in the shared dock registry whenever
+  // isMinimized changes, and on unmount -- so a panel unmounted while
+  // minimized (e.g. its owning conversation is closed) never leaves a stale
+  // chip with a dead onRestore behind.
+  const setMinimizedFloatingPanels = useSetAtom(minimizedFloatingPanelsAtom);
+  useEffect(() => {
+    if (!isMinimized) return;
+
+    const restore = () => setIsMinimized(false);
+    setMinimizedFloatingPanels((current) => [
+      ...current.filter((entry) => entry.key !== storageKey),
+      { key: storageKey, title, onRestore: restore },
+    ]);
+
+    return () => {
+      setMinimizedFloatingPanels((current) =>
+        current.filter((entry) => entry.key !== storageKey),
+      );
+    };
+  }, [isMinimized, storageKey, title, setMinimizedFloatingPanels]);
 
   // Re-clamp (without discarding the saved geometry) whenever the browser
   // window itself is resized, so the panel never ends up stranded off the
@@ -227,6 +264,8 @@ export const useFloatingPanel = (
     displayGeometry,
     isMaximized,
     toggleMaximize,
+    isMinimized,
+    toggleMinimize,
     onDragHandlePointerDown,
     onResizeHandlePointerDown,
   };

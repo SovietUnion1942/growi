@@ -1,0 +1,28 @@
+// Shared window-chrome buttons for FloatingPanel consumers (minimize /
+// maximize-restore / close). Kept as a CSS module (scoped classes) rather
+// than global CSS, per the coding-style module boundary conventions.
+
+.btn-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  background-color: transparent;
+  border: 0;
+  border-radius: 50%;
+  transition: background-color 0.15s ease-in-out;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+  }
+}
+
+:root[data-bs-theme='dark'] {
+  .btn-control:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}

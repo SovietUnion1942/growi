@@ -20,19 +20,30 @@ fixed-position overlay can adopt it.
   maximize button anywhere in your own header row; toggling it fills the
   viewport (small inset) without touching the saved drag/resize geometry,
   so restoring returns to exactly where the panel was.
+- **Minimize to a dock chip**: toggling minimize collapses the panel to
+  nothing (`FloatingPanel` renders `null`) and adds a small restore chip to
+  the shared `FloatingPanelDock` tray. Multiple panels can be minimized at
+  once — the dock shows one chip per minimized panel, each labelled with
+  that panel's `title`.
 
 ## API
 
 ```tsx
 <FloatingPanel
   storageKey="grw-my-panel-geometry"   // unique per panel type
+  title="My Panel"                     // label for the minimized dock chip
   defaultPosition={{ x: 100, y: 72 }}  // top-left, px, before any save exists
   defaultSize={{ width: 420, height: 640 }}
   minSize={{ width: 320, height: 360 }}
-  header={({ isMaximized, toggleMaximize }) => (
+  header={({ isMaximized, toggleMaximize, isMinimized, toggleMinimize }) => (
     <MyHeaderRow>
-      <MyMaximizeButton pressed={isMaximized} onClick={toggleMaximize} />
-      <MyCloseButton onClick={onClose} />
+      <FloatingPanelControls
+        isMinimized={isMinimized}
+        toggleMinimize={toggleMinimize}
+        isMaximized={isMaximized}
+        toggleMaximize={toggleMaximize}
+        onClose={onClose}
+      />
     </MyHeaderRow>
   )}
   className="my-extra-classes"          // optional, merged onto the root
@@ -41,14 +52,25 @@ fixed-position overlay can adopt it.
 </FloatingPanel>
 ```
 
-`header` is called with `{ isMaximized, toggleMaximize }` on every render —
-render whatever button/icon you like from that (see ChatSidebar's
-Maximize2/Minimize2 icon swap below). No imperative ref, no controlled
-position. If you need to read/react to the live geometry from outside,
-that's not exposed yet; ask before hacking around it (the underlying
-`useFloatingPanel` hook is not currently exported from the barrel on
-purpose, to keep this a single easy path until a second consumer needs
-more).
+`header` is called with `{ isMaximized, toggleMaximize, isMinimized,
+toggleMinimize }` on every render. Most consumers should render
+`<FloatingPanelControls>` (exported from this module's barrel) for the
+standard minimize/maximize/close buttons rather than hand-rolling their own
+— it keeps every floating window's window-chrome looking and behaving the
+same. The render-prop stays open for a consumer that genuinely needs custom
+placement or extra buttons alongside the shared ones.
+
+No imperative ref, no controlled position. If you need to read/react to the
+live geometry from outside, that's not exposed yet; ask before hacking
+around it (the underlying `useFloatingPanel` hook is not currently exported
+from the barrel on purpose, to keep this a single easy path until a second
+consumer needs more).
+
+`FloatingPanelDock` (also exported from the barrel) renders the tray of
+minimized-panel chips; mount it exactly once, high in the tree and outside
+any feature-specific subtree (see `BasicLayout.tsx`, as a sibling of
+`ChatSidebarLazyLoaded`) — every `FloatingPanel` on the page shares the same
+dock regardless of which feature owns it.
 
 ## Worked example: ChatSidebar
 
@@ -78,13 +100,16 @@ return (
     defaultPosition={FLOATING_CHAT_DEFAULT_POSITION}
     defaultSize={FLOATING_CHAT_DEFAULT_SIZE}
     minSize={FLOATING_CHAT_MIN_SIZE}
-    header={({ isMaximized, toggleMaximize }) => (
+    header={({ isMaximized, toggleMaximize, isMinimized, toggleMinimize }) => (
       <div className="...same header row...">
         ...title...
-        <button onClick={toggleMaximize} aria-label={isMaximized ? 'Restore' : 'Maximize'}>
-          {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-        </button>
-        <button onClick={close} aria-label="Close"><XIcon size={16} /></button>
+        <FloatingPanelControls
+          isMinimized={isMinimized}
+          toggleMinimize={toggleMinimize}
+          isMaximized={isMaximized}
+          toggleMaximize={toggleMaximize}
+          onClose={close}
+        />
       </div>
     )}
   >
@@ -102,9 +127,9 @@ The mechanical steps were:
    `max-w-4xl mx-auto ...`) — `FloatingPanel` now owns fixed positioning
    and sizing.
 2. Pull the existing header markup (title + close button) out as the
-   `header` render-prop, adding a maximize/restore button (icons swap on
-   `isMaximized`, action is just `toggleMaximize` — see `ChatSidebar.tsx`
-   for the working version).
+   `header` render-prop, adding `<FloatingPanelControls>` for the shared
+   minimize/maximize/close buttons — see `ChatSidebar.tsx` for the working
+   version.
 3. Keep one inner wrapper div (`flex h-full flex-col`, `max-w-4xl mx-auto`
    if you had one) around your actual content so it still fills the
    panel's content area and lays out top-to-bottom.

@@ -36,6 +36,7 @@ export default class AdminCustomizeContainer extends Container {
       isEnabledMarp: false,
       currentCustomizeTitle: '',
       currentCustomizeNoscript: '',
+      currentCustomizeHomeNotice: '',
       currentCustomizeCss: '',
       currentCustomizeScript: '',
       showPageSideAuthors: false,
@@ -77,6 +78,7 @@ export default class AdminCustomizeContainer extends Container {
         isEnabledMarp: customizeParams.isEnabledMarp,
         currentCustomizeTitle: customizeParams.customizeTitle,
         currentCustomizeNoscript: customizeParams.customizeNoscript,
+        currentCustomizeHomeNotice: customizeParams.customizeHomeNotice,
         currentCustomizeCss: customizeParams.customizeCss,
         currentCustomizeScript: customizeParams.customizeScript,
         showPageSideAuthors: customizeParams.showPageSideAuthors,
@@ -177,6 +179,13 @@ export default class AdminCustomizeContainer extends Container {
    */
   changeCustomizeNoscript(inputValue) {
     this.setState({ currentCustomizeNoscript: inputValue });
+  }
+
+  /**
+   * Change customize home notice
+   */
+  changeCustomizeHomeNotice(inputValue) {
+    this.setState({ currentCustomizeHomeNotice: inputValue });
   }
 
   /**
@@ -285,6 +294,28 @@ export default class AdminCustomizeContainer extends Container {
       const { customizedParams } = response.data;
       this.setState({
         currentCustomizeNoscript: customizedParams.customizeNoscript,
+      });
+    } catch (err) {
+      logger.error(err);
+      throw new Error('Failed to update data');
+    }
+  }
+
+  /**
+   * Update customize home notice
+   * @memberOf AdminCustomizeContainer
+   */
+  async updateCustomizeHomeNotice() {
+    try {
+      const response = await apiv3Put(
+        '/customize-setting/customize-home-notice',
+        {
+          customizeHomeNotice: this.state.currentCustomizeHomeNotice,
+        },
+      );
+      const { customizedParams } = response.data;
+      this.setState({
+        currentCustomizeHomeNotice: customizedParams.customizeHomeNotice,
       });
     } catch (err) {
       logger.error(err);

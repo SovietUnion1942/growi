@@ -15,6 +15,7 @@ import { PageRenameModalLazyLoaded } from '~/client/components/PageRenameModal';
 import { PageSelectModalLazyLoaded } from '~/client/components/PageSelectModal';
 import { PutBackPageModalLazyLoaded } from '~/client/components/PutbackPageModal';
 import { ShortcutsModalLazyLoaded } from '~/client/components/ShortcutsModal';
+import { MessagesFloatingThreadLazyLoaded } from '~/client/components/Sidebar/Messages';
 import { SystemRequirementsBanner } from '~/client/components/SystemRequirementsBanner';
 import { ChatSidebarLazyLoaded } from '~/features/mastra/client/components/ChatSidebar';
 import { PageBulkExportSelectModalLazyLoaded } from '~/features/page-bulk-export/client/components';
@@ -83,6 +84,7 @@ export const BasicLayout = ({ children, className }: Props): JSX.Element => {
         </div>
 
         <ChatSidebarLazyLoaded />
+        <MessagesFloatingThreadLazyLoaded />
         <FloatingPanelDock />
       </div>
 

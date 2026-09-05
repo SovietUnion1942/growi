@@ -6,8 +6,6 @@ import { SystemRequirementsTable } from '~/features/system-requirements';
 import { useIsAdmin } from '~/states/context';
 import { useRendererConfig } from '~/states/server-configurations';
 
-import { HOME_NOTICE_PATH } from '../../consts';
-
 const PageContentRenderer = dynamic(
   () =>
     import('~/components/PageView/PageContentRenderer').then(
@@ -23,8 +21,9 @@ type Props = {
 
 /**
  * The standalone home page body: a welcome heading, the admin-authored notice
- * block (the `/home-notice` wiki page, rendered with the full GROWI renderer so
- * `:::warn` callouts work), and the per-OS system-requirements table.
+ * block (sourced from the `customize:homeNotice` config, rendered with the
+ * full GROWI renderer so `:::warn` callouts work), and the per-OS
+ * system-requirements table.
  */
 export const HomeContent = ({
   appTitle,
@@ -43,14 +42,18 @@ export const HomeContent = ({
         <section className="my-4">
           <PageContentRenderer
             rendererConfig={rendererConfig}
-            pagePath={HOME_NOTICE_PATH}
+            // The notice is no longer sourced from a wiki page (see
+            // `customize:homeNotice`); pass the home page's own path so the
+            // renderer resolves relative links/images against the page it is
+            // actually displayed on, rather than the retired notice page.
+            pagePath="/"
             markdown={noticeMarkdown}
           />
         </section>
       )}
       {noticeMarkdown == null && isAdmin === true && (
         <div className="alert alert-light border my-4 small">
-          {t('home.notice_hint', { path: HOME_NOTICE_PATH })}
+          {t('home.notice_hint')}
         </div>
       )}
 

@@ -85,6 +85,12 @@ const router = express.Router();
  *        properties:
  *          customizeNoscript:
  *            type: string
+ *      CustomizeHomeNotice:
+ *        description: CustomizeHomeNotice
+ *        type: object
+ *        properties:
+ *          customizeHomeNotice:
+ *            type: string
  *      CustomizeCss:
  *        description: CustomizeCss
  *        type: object
@@ -132,6 +138,8 @@ const router = express.Router();
  *          customizeCss:
  *            type: string
  *          customizeNoscript:
+ *            type: string
+ *          customizeHomeNotice:
  *            type: string
  *      ThemesMetadata:
  *        type: object
@@ -239,6 +247,7 @@ export const setup = (crowi) => {
     customizeScript: [body('customizeScript').isString()],
     customizeCss: [body('customizeCss').isString()],
     customizeNoscript: [body('customizeNoscript').isString()],
+    customizeHomeNotice: [body('customizeHomeNotice').isString()],
     logo: [
       body('isDefaultLogo').isBoolean().optional({ nullable: true }),
       body('customizedLogoSrc').isString().optional({ nullable: true }),
@@ -313,6 +322,9 @@ export const setup = (crowi) => {
         customizeScript: await configManager.getConfig('customize:script'),
         customizeCss: await configManager.getConfig('customize:css'),
         customizeNoscript: await configManager.getConfig('customize:noscript'),
+        customizeHomeNotice: await configManager.getConfig(
+          'customize:homeNotice',
+        ),
       };
 
       return res.apiv3({ customizeParams });
@@ -969,6 +981,67 @@ export const setup = (crowi) => {
         logger.error('Error', err);
         return res.apiv3Err(
           new ErrorV3(msg, 'update-customizeNoscript-failed'),
+        );
+      }
+    },
+  );
+
+  /**
+   * @swagger
+   *
+   *    /customize-setting/customize-home-notice:
+   *      put:
+   *        tags: [CustomizeSetting]
+   *        security:
+   *          - cookieAuth: []
+   *        summary: /customize-setting/customize-home-notice
+   *        description: Update home notice
+   *        requestBody:
+   *          required: true
+   *          content:
+   *            application/json:
+   *              schema:
+   *                $ref: '#/components/schemas/CustomizeHomeNotice'
+   *        responses:
+   *          200:
+   *            description: Succeeded to update customize home notice
+   *            content:
+   *              application/json:
+   *                schema:
+   *                  type: object
+   *                  properties:
+   *                    customizedParams:
+   *                      $ref: '#/components/schemas/CustomizeHomeNotice'
+   */
+  router.put(
+    '/customize-home-notice',
+    accessTokenParser([SCOPE.WRITE.ADMIN.CUSTOMIZE]),
+    loginRequiredStrictly,
+    adminRequired,
+    addActivity,
+    validator.customizeHomeNotice,
+    apiV3FormValidator,
+    async (req, res) => {
+      const requestParams = {
+        'customize:homeNotice': req.body.customizeHomeNotice,
+      };
+      try {
+        await configManager.updateConfigs(requestParams);
+        const customizedParams = {
+          customizeHomeNotice: await configManager.getConfig(
+            'customize:homeNotice',
+          ),
+        };
+        const parameters = {
+          action: SupportedAction.ACTION_ADMIN_HOME_NOTICE_UPDATE,
+        };
+        activityEvent.emit('update', res.locals.activity._id, parameters);
+        return res.apiv3({ customizedParams });
+      } catch (err) {
+        const msg = 'Error occurred in updating customizeHomeNotice';
+        logger.error('Error', err);
+        return res.apiv3Err(
+          new ErrorV3(msg, 'update-customizeHomeNotice-failed'),
         );
       }
     },

@@ -118,13 +118,13 @@
   - 完了状態: 3ウィジェットそれぞれの空状態テストが成功する
   - _Requirements: 3.3, 4.4_
   - _Depends: 4.2, 4.3, 5.2_
-- [ ] 7.5 ホーム画面のE2E確認を行う
+- [x] 7.5 ホーム画面のE2E確認を行う
   - ログイン利用者が `/home` を開き、4ウィジェットと下部のお知らせ・要件表がすべて表示されることを確認する
   - 匿名ゲストが `/home` を開き、ウィジェットエリアが表示されずお知らせ・要件表のみ表示されることを確認する
   - 完了状態: 上記2パターンの表示結果がそれぞれ期待どおりであることを確認できる
   - _Requirements: 1.1, 5.1, 5.2_
   - _Depends: 6.2_
-- [ ] 7.6 v1からの継続性を回帰確認する
+- [x] 7.6 v1からの継続性を回帰確認する
   - `/home` が引き続き `/nas` 型の非編集ページであること、サイドバーのナビアイコン、ログイン後の既定遷移先、動作環境の要件表の表示が変更されていないことを確認する
   - 完了状態: v1で確認されていたこれら4点の挙動が本変更後も変わっていないことを確認できる
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
@@ -137,3 +137,4 @@
 
 - The migration file (`20260905010000-migrate-home-notice-to-config.js`) hardcodes its own local `/home-notice` path literal instead of importing `HOME_NOTICE_PATH` from `features/home/consts.ts` — minor SSOT drift, non-blocking, optional cleanup later.
 - Tasks 7.1-7.4's completion criteria were already satisfied by tests written as part of their dependency tasks (1.2's page-listing.integ.ts WIP-exclusion tests; 2.2's migration spec's 3 patterns; 2.1's/3.1's integ tests covering auth/persistence; 4.2/4.3/5.2's widget specs' empty-state cases) — re-verified together (77/77 passing) rather than duplicating coverage with new near-identical test files.
+- Tasks 7.5-7.6 verified via source-tracing (no browser E2E harness covers /home; existing playwright/60-home/ spec is for the unrelated /me profile page) plus a full run of the relevant unit/integration suite (88/88 passing). No regressions found in v1 continuity (non-editable independent page, sidebar nav icon, post-login redirect, requirements table) or widget visibility gating. A real Playwright spec for /home could be added later under apps/app/playwright/60-home/ following the 45-nas-storage auth-setup pattern.

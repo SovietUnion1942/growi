@@ -17,6 +17,7 @@ import useSWRImmutable from 'swr/immutable';
 import type { SWRInfiniteResponse } from 'swr/infinite';
 import useSWRInfinite, { unstable_serialize } from 'swr/infinite';
 
+import type { IPageForTreeItem } from '~/interfaces/page';
 import type { IPagingResult } from '~/interfaces/paging-result';
 
 import { apiv3Get } from '../client/util/apiv3-client';
@@ -248,6 +249,19 @@ export const useSWRxPageChildren = (
       revalidateOnFocus: false,
       revalidateOnRecconect: false,
     },
+  );
+};
+
+export const useSWRxMyWipPages = (
+  config?: SWRConfiguration,
+): SWRResponse<IPageForTreeItem[], Error> => {
+  return useSWR(
+    '/page-listing/my-wip',
+    (endpoint) =>
+      apiv3Get<{ pages: IPageForTreeItem[] }>(endpoint).then(
+        (response) => response.data.pages,
+      ),
+    config,
   );
 };
 

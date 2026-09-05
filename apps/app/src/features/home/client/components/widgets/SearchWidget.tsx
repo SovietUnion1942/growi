@@ -1,10 +1,8 @@
 import type { FC, FormEvent } from 'react';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useSetSearchKeyword } from '~/states/search';
-
-// Hardcoded label: i18n wiring is deferred to the HomeWidgets integration (task 6.1).
-const SEARCH_LABEL = 'Search';
 
 /**
  * Large, prominent search box for the Home page widget area.
@@ -18,8 +16,11 @@ const SEARCH_LABEL = 'Search';
  * navigate, must not throw, and must not surface an error screen.
  */
 export const SearchWidget: FC = () => {
+  const { t } = useTranslation();
   const [keyword, setKeyword] = useState('');
   const setSearchKeyword = useSetSearchKeyword();
+
+  const searchLabel = t('home.widgets.search_placeholder');
 
   const submitHandler = useCallback(
     (e: FormEvent<HTMLFormElement>) => {
@@ -43,15 +44,15 @@ export const SearchWidget: FC = () => {
           type="search"
           className="form-control"
           style={{ minHeight: '3rem', fontSize: '1.25rem' }}
-          placeholder={SEARCH_LABEL}
-          aria-label={SEARCH_LABEL}
+          placeholder={searchLabel}
+          aria-label={searchLabel}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
         <button
           type="submit"
           className="btn btn-primary"
-          aria-label={SEARCH_LABEL}
+          aria-label={searchLabel}
         >
           <span className="material-symbols-outlined">search</span>
         </button>

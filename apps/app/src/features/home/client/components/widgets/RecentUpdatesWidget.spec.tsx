@@ -9,6 +9,10 @@ vi.mock('~/stores/page-listing', () => ({
     useSWRINFxRecentlyUpdatedMock(...args),
 }));
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 import { RecentUpdatesWidget } from './RecentUpdatesWidget';
 
 const makePage = (path: string, id: string): IPageHasId =>
@@ -41,6 +45,18 @@ describe('RecentUpdatesWidget', () => {
     expect(links[2]).toHaveTextContent('/oldest');
   });
 
+  it('renders a heading identifying the widget', () => {
+    useSWRINFxRecentlyUpdatedMock.mockReturnValue({
+      data: [{ pages: [], totalCount: 0, offset: 0 }],
+    });
+
+    render(<RecentUpdatesWidget />);
+
+    expect(
+      screen.getByText('home.widgets.recent_updates_heading'),
+    ).toBeInTheDocument();
+  });
+
   it('renders an empty-state message when the hook returns zero pages', () => {
     useSWRINFxRecentlyUpdatedMock.mockReturnValue({
       data: [{ pages: [], totalCount: 0, offset: 0 }],
@@ -49,7 +65,9 @@ describe('RecentUpdatesWidget', () => {
     render(<RecentUpdatesWidget />);
 
     expect(screen.queryAllByRole('link')).toHaveLength(0);
-    expect(screen.getByText(/no recently updated pages/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('home.widgets.recent_updates_empty'),
+    ).toBeInTheDocument();
   });
 
   it('renders each item as a link that navigates to the correct page path', () => {
@@ -70,5 +88,49 @@ describe('RecentUpdatesWidget', () => {
     render(<RecentUpdatesWidget />);
 
     expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('excludes trashed pages from the rendered list', () => {
+    const pages = [
+      makePage('/kept', 'page1'),
+      makePage('/trash/deleted-page', 'page2'),
+    ];
+    useSWRINFxRecentlyUpdatedMock.mockReturnValue({
+      data: [{ pages, totalCount: 2, offset: 0 }],
+    });
+
+    render(<RecentUpdatesWidget />);
+
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveTextContent('/kept');
+    expect(screen.queryByText('/trash/deleted-page')).not.toBeInTheDocument();
+  });
+
+  it('shows the empty-state message when filtering out trashed pages leaves nothing', () => {
+    const pages = [makePage('/trash/deleted-page', 'page1')];
+    useSWRINFxRecentlyUpdatedMock.mockReturnValue({
+      data: [{ pages, totalCount: 1, offset: 0 }],
+    });
+
+    render(<RecentUpdatesWidget />);
+
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    expect(
+      screen.getByText('home.widgets.recent_updates_empty'),
+    ).toBeInTheDocument();
+  });
+
+  it('caps the rendered list at MAX_ITEMS (10) even when the hook returns more', () => {
+    const pages = Array.from({ length: 15 }, (_, i) =>
+      makePage(`/page-${i}`, `page${i}`),
+    );
+    useSWRINFxRecentlyUpdatedMock.mockReturnValue({
+      data: [{ pages, totalCount: 15, offset: 0 }],
+    });
+
+    render(<RecentUpdatesWidget />);
+
+    expect(screen.getAllByRole('link')).toHaveLength(10);
   });
 });

@@ -1,3 +1,8 @@
+// stylelint-disable no-descending-specificity -- rule blocks are grouped by
+// feature (sidebar / list rows / page-tree / sub-nav / content card), not by
+// ascending selector specificity; each targets a disjoint element so order
+// between blocks never causes a real override surprise.
+
 // Surface treatment for the page-view chrome. Selectors use stable global
 // hooks (plain classNames / data-testid / ids), never CSS-module hashes.
 //
@@ -72,6 +77,23 @@
 // sits flush against the icon rail, not floating.
 :root[data-grw-ui='modern'] .grw-sidebar-collapsed .sidebar-contents-container.open {
   border-radius: 0 var(--grw-radius-lg) var(--grw-radius-lg) 0 !important;
+}
+
+// `.list-group-flush` rows in general (NAS folder browser, home-page
+// widgets, etc.): Bootstrap's flush variant is a borders-between-items,
+// zero-radius, zero-gap list by design. Give each row its own rounded chip
+// with a small gap instead, so the rounding actually shows.
+:root[data-grw-ui='modern'] .list-group-flush {
+  gap: 2px;
+}
+
+:root[data-grw-ui='modern'] .list-group-flush .list-group-item {
+  border: 0 !important;
+  border-radius: var(--grw-radius-sm) !important;
+}
+
+:root[data-grw-ui='modern'] .list-group-flush .list-group-item:hover {
+  background-color: rgba(var(--grw-accent-rgb), 0.08);
 }
 
 // Page-tree rows: a rounder highlight (the base markup only gives .rounded-1).

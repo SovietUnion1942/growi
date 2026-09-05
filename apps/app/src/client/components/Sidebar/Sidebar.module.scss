@@ -90,12 +90,17 @@
     }
   }
 
-  // frosted glass effect in collapsed mode
+  // Frosted-glass look in collapsed mode: opacity only, no backdrop-filter.
+  // A non-none backdrop-filter makes this container a containing block for
+  // its `position: fixed` descendants -- e.g. the Messages floating thread
+  // panel, which lives inside this sidebar subtree and would otherwise be
+  // trapped/clipped here instead of positioning against the viewport (the
+  // AI chat panel is unaffected only because it mounts outside the sidebar,
+  // directly under BasicLayout).
   .grw-sidebar {
     &:global(.grw-sidebar-collapsed) {
       :global(.sidebar-contents-container) {
-        background-color: rgba(var(--grw-highlight-100-rgb), .8);
-        backdrop-filter: blur(20px);
+        background-color: rgba(var(--grw-highlight-100-rgb), .92);
       }
     }
   }
@@ -111,12 +116,12 @@
     }
   }
 
-  // frosted glass effect in collapsed mode
+  // Frosted-glass look in collapsed mode: opacity only, no backdrop-filter
+  // (see the light-mode block above for why).
   .grw-sidebar {
     &:global(.grw-sidebar-collapsed) {
       :global(.sidebar-contents-container) {
-        background-color: rgba(var(--grw-highlight-800-rgb), .8);
-        backdrop-filter: blur(20px);
+        background-color: rgba(var(--grw-highlight-800-rgb), .92);
       }
     }
   }

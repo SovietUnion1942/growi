@@ -36,6 +36,10 @@ export interface IPageListingService {
     parentId: string,
     user?: IUser,
   ): Promise<number>;
+  findWipPagesByUser(
+    userId: string,
+    viewer?: IUser,
+  ): Promise<IPageForTreeItem[]>;
 }
 
 let pageOperationService: IPageOperationService;
@@ -185,6 +189,44 @@ class PageListingService implements IPageListingService {
     await queryBuilder.addViewerCondition(user);
 
     return queryBuilder.query.exec();
+  }
+
+  /**
+   * Return the viewer-visible WIP (work-in-progress) pages whose last updater is the
+   * given user. Reuses the same PageQueryBuilder viewer-permission filter as the other
+   * listing methods (addViewerCondition) so a page the viewer has since lost access to
+   * (e.g. via group removal) is excluded even though its lastUpdateUser still matches —
+   * permission is never decided by lastUpdateUser matching alone.
+   */
+  async findWipPagesByUser(
+    userId: string,
+    viewer?: IUser,
+  ): Promise<IPageForTreeItem[]> {
+    const Page = mongoose.model<HydratedDocument<PageDocument>, PageModel>(
+      'Page',
+    );
+
+    // Use $eq for user-controlled sources. see: https://codeql.github.com/codeql-query-help/javascript/js-sql-injection/#recommendation
+    const queryBuilder = new PageQueryBuilder(
+      Page.find({ wip: true, lastUpdateUser: { $eq: userId } }),
+    );
+    await queryBuilder.addViewerCondition(viewer);
+
+    const pages: HydratedDocument<Omit<IPageForTreeItem, 'processData'>>[] =
+      await queryBuilder.query
+        .select('_id path parent revision descendantCount grant isEmpty wip')
+        .lean()
+        .exec();
+
+    const injectedPages = await this.injectProcessDataIntoPagesByActionTypes(
+      pages,
+      [PageActionType.Rename],
+    );
+
+    // Type-safe conversion to IPageForTreeItem
+    return injectedPages.map((page) =>
+      Object.assign(page, { _id: page._id.toString() }),
+    );
   }
 
   /**

@@ -12,6 +12,9 @@
 :root[data-grw-ui='modern'] .modal-content,
 :root[data-grw-ui='modern'] .offcanvas {
   background-color: var(--grw-popover-bg);
+  // Same sheen recipe as the other glass surfaces (_surfaces.scss) -- a flat
+  // translucent fill alone reads as plain tinted color, not glass.
+  background-image: var(--grw-glass-sheen);
   border: 1px solid var(--grw-popover-border);
   border-radius: var(--grw-radius-md);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
@@ -29,5 +32,5 @@
 
 // Menu items: rounder hover/active so they sit inside the rounded menu.
 :root[data-grw-ui='modern'] .dropdown-item {
-  border-radius: 8px;
+  border-radius: 10px;
 }

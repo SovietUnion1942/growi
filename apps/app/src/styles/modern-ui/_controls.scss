@@ -6,19 +6,19 @@
 
 :root[data-grw-ui='modern'] {
   --bs-border-radius: var(--grw-radius-sm);
-  --bs-border-radius-sm: 8px;
+  --bs-border-radius-sm: 10px;
   --bs-border-radius-lg: var(--grw-radius-md);
   --bs-border-radius-xl: var(--grw-radius-lg);
   // Buttons a touch rounder than the base radius. Bootstrap's `.btn-group`
   // corner-collapsing rules still win, so grouped buttons stay joined.
   --bs-btn-border-radius: var(--grw-radius-sm);
-  --bs-btn-border-radius-sm: 8px;
+  --bs-btn-border-radius-sm: 10px;
   --bs-btn-border-radius-lg: var(--grw-radius-md);
 }
 
 // --- Icon toolbar buttons (CodeMirror markdown toolbar) ----------------
 :root[data-grw-ui='modern'] .btn-toolbar-button {
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 :root[data-grw-ui='modern'] .btn-toolbar-button:hover {
@@ -47,7 +47,7 @@
 
 :root[data-grw-ui='modern'] .nav-pills .nav-link {
   color: var(--bs-secondary-color);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 :root[data-grw-ui='modern'] .nav-pills .nav-link.active {

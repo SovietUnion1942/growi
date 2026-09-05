@@ -39,7 +39,7 @@
   - 完了状態: 管理画面側からお知らせ設定の現在値取得と更新呼び出しができることを確認できる
   - _Requirements: 6.1, 6.2_
   - _Depends: 3.1_
-- [ ] 3.3 お知らせ設定の編集フォームを管理画面に追加する
+- [x] 3.3 お知らせ設定の編集フォームを管理画面に追加する
   - 既存の同種設定（コードエディタ形式の管理項目）と同じ操作感の編集フォームとし、保存操作を提供する
   - 完了状態: 管理画面からお知らせ本文を編集・保存でき、保存後に画面上の値が更新後の内容になることを確認できる
   - _Requirements: 6.1, 6.2_
@@ -129,3 +129,8 @@
   - 完了状態: v1で確認されていたこれら4点の挙動が本変更後も変わっていないことを確認できる
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
   - _Depends: 6.2_
+
+## Implementation Notes
+- `AdminCodeEditor` only supports `javascript`/`css`/`html` languages (no markdown highlighter) — `CustomizeHomeNoticeSetting.tsx` uses `language="html"` as the closest available option, same substitution `CustomizeNoscriptSetting.tsx` already makes for its own content. Does not block requirements 6.1/6.2; a follow-up could add a `markdown` entry to `AdminCodeEditor`'s language map for better UX.
+- Admin customize settings' i18n keys (e.g. `customize_settings.*`) actually live in `admin.json`, not `translation.json` as design.md loosely stated.
+- Non-admin/unauthenticated apiv3 GET routes in this codebase return 403 (not 401), and admin-gated PUT routes redirect (302, not 403) for non-admins — both are pre-existing shared middleware behavior (`loginRequiredFactory`, `adminRequiredFactory`), not defects introduced by this feature. design.md's API contract tables list 401/403 respectively; treat those as documentation-only imprecision.

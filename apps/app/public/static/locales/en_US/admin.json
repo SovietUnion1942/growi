@@ -637,6 +637,8 @@
     "custom_title_detail_placeholder3": "<code>&#123;&#123;pagepath&#125;&#125;</code> - The page path of the current page.",
     "custom_noscript": "Custom Noscript",
     "custom_noscript_detail": "You can customize Noscript code that applies all pages. Your custom Noscript will be inserted into the <code>&lt;noscript&gt;</code> tag that is located as the first element of body.<br>You need to reload the page to reflect the change.",
+    "home_notice": "Home Notice",
+    "home_notice_detail": "You can edit the notice text shown at the bottom of the Home page. It is rendered as markdown, so emphasis, links and other decorations are supported. Leaving it empty hides the notice section for regular users; only administrators will see a prompt to fill it in.",
     "custom_css": "Custom CSS",
     "write_css": "You can write CSS that is applied to whole system.",
     "ctrl_space": "Ctrl+Space to autocomplete",

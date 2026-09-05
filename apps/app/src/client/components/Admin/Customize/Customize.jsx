@@ -9,6 +9,7 @@ import loggerFactory from '~/utils/logger';
 import { withUnstatedContainers } from '../../UnstatedUtils';
 import CustomizeCssSetting from './CustomizeCssSetting';
 import CustomizeFunctionSetting from './CustomizeFunctionSetting';
+import CustomizeHomeNoticeSetting from './CustomizeHomeNoticeSetting';
 import CustomizeLayoutSetting from './CustomizeLayoutSetting';
 import CustomizeLogoSetting from './CustomizeLogoSetting';
 import CustomizeNoscriptSetting from './CustomizeNoscriptSetting';
@@ -68,6 +69,9 @@ function Customize(props) {
       </div>
       <div className="mb-5">
         <CustomizeNoscriptSetting />
+      </div>
+      <div className="mb-5">
+        <CustomizeHomeNoticeSetting />
       </div>
     </div>
   );

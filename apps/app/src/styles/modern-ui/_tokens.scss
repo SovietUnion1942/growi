@@ -3,9 +3,9 @@
 // track the user's color-mode choice automatically.
 
 :root[data-grw-ui='modern'] {
-  --grw-radius-sm: 10px;
-  --grw-radius-md: 14px;
-  --grw-radius-lg: 18px;
+  --grw-radius-sm: 12px;
+  --grw-radius-md: 18px;
+  --grw-radius-lg: 24px;
 
   // Accent stays the club blue in light mode.
   --grw-accent: #007eb0;
@@ -23,12 +23,16 @@
   --grw-popover-border: rgba(210, 220, 232, 0.9);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
   --grw-glass-shadow: 0 2px 6px rgba(20, 45, 70, 0.06), 0 16px 42px rgba(20, 45, 70, 0.14);
+  // Diagonal light-catching sheen, tapering continuously across the whole
+  // surface (not just the top edge) so a tall panel (sidebar, content card)
+  // still reads as glass well past its first few rows, instead of flattening
+  // into a single flat color after the initial highlight.
   --grw-glass-sheen: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0.14) 44%,
-    rgba(255, 255, 255, 0) 45%,
-    rgba(255, 255, 255, 0.05) 100%
+    165deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.24) 28%,
+    rgba(255, 255, 255, 0.1) 58%,
+    rgba(255, 255, 255, 0.03) 100%
   );
 
   // Ground painted behind the floating panels: a cool tint with a faint
@@ -61,11 +65,13 @@
   --grw-popover-border: rgba(255, 255, 255, 0.12);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   --grw-glass-shadow: 0 2px 6px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.44);
+  // Same continuous taper as light mode, scaled down for dark backgrounds
+  // (a pure-white sheen would bloom too hot at high alpha on a dark ground).
   --grw-glass-sheen: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    rgba(255, 255, 255, 0.018) 44%,
-    rgba(255, 255, 255, 0) 45%,
+    165deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.06) 28%,
+    rgba(255, 255, 255, 0.02) 58%,
     rgba(255, 255, 255, 0) 100%
   );
 

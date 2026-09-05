@@ -646,6 +646,8 @@
     "custom_title_detail_placeholder3": "<code>&#123;&#123;pagepath&#125;&#125;</code> - 現在表示中のページパス",
     "custom_noscript": "カスタム Noscript",
     "custom_noscript_detail": "システム全体に適用される HTML を記述できます。<code>&lt;body&gt;</code> タグ内の最初の <code>&lt;noscript&gt;</code> タグ内に展開されます。<br>変更の反映はページの更新が必要です。",
+    "home_notice": "ホームのお知らせ",
+    "home_notice_detail": "ホーム画面下部に表示されるお知らせ本文を編集できます。Markdown 記法（強調・リンクなどの装飾）で描画されます。空欄のままにすると、一般利用者にはお知らせセクションが表示されず、管理者にのみ設定を促す案内が表示されます。",
     "custom_css": "カスタム CSS",
     "write_css": " システム全体に適用されるCSSを記述できます。",
     "ctrl_space": "Ctrl+Space でコード補完",

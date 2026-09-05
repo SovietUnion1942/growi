@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 
 import { SystemRequirementsTable } from '~/features/system-requirements';
 import { useIsAdmin } from '~/states/context';
+import { useCurrentUser } from '~/states/global';
 import { useRendererConfig } from '~/states/server-configurations';
+
+import { HomeWidgets } from './widgets/HomeWidgets';
 
 const PageContentRenderer = dynamic(
   () =>
@@ -22,8 +25,9 @@ type Props = {
 /**
  * The standalone home page body: a welcome heading, the admin-authored notice
  * block (sourced from the `customize:homeNotice` config, rendered with the
- * full GROWI renderer so `:::warn` callouts work), and the per-OS
- * system-requirements table.
+ * full GROWI renderer so `:::warn` callouts work), the widget area (logged-in
+ * users only — Requirement 5.1, 5.2), and the per-OS system-requirements
+ * table.
  */
 export const HomeContent = ({
   appTitle,
@@ -32,6 +36,7 @@ export const HomeContent = ({
   const { t } = useTranslation();
   const isAdmin = useIsAdmin();
   const rendererConfig = useRendererConfig();
+  const currentUser = useCurrentUser();
 
   return (
     <div className="container-lg wide-gutter-x-lg py-4" data-testid="home-page">
@@ -56,6 +61,13 @@ export const HomeContent = ({
           {t('home.notice_hint')}
         </div>
       )}
+
+      {/*
+        Widget area (Requirement 5.1, 5.2): shown only to logged-in users.
+        Anonymous guests keep the exact v1 layout — notice + requirements
+        table only — so `HomeWidgets` must not even mount for them.
+      */}
+      {currentUser != null && <HomeWidgets />}
 
       <section className="my-4">
         <h2 className="fs-4 border-bottom pb-2 mb-3">

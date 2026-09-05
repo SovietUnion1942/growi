@@ -35,13 +35,13 @@
     rgba(255, 255, 255, 0.03) 100%
   );
 
-  // Ground painted behind the floating panels: a cool tint with a faint
-  // top-left light so the near-white panels lift off it. The linear stops
-  // are spaced further apart in tone (not just position) so the sweep reads
-  // clearly within a single viewport, not just across a full scrolled page.
+  // Ground painted behind the floating panels: a diagonal light-dark-light
+  // sweep (like a light band crossing a satin/glass surface) reads as an
+  // obvious gradient at a glance, rather than the flat monotonic fade this
+  // replaced. The radial keeps a soft top-left highlight for extra depth.
   --grw-page-ground:
     radial-gradient(1100px 520px at 12% -12%, rgba(150, 200, 235, 0.45), transparent 60%),
-    linear-gradient(165deg, #eef4fb 0%, #d8e5f2 45%, #c2d6ea 100%);
+    linear-gradient(120deg, #eef4fb 0%, #c9dced 25%, #a9c4e0 50%, #cfe0f0 75%, #eef4fb 100%);
 
   // Glossy primary button fill (light-on-blue vertical gradient with a step).
   --grw-btn-primary-bg: linear-gradient(180deg, #22a3d4, #0a7bad 52%, #0870a0 53%, #1893c4);
@@ -79,7 +79,7 @@
 
   --grw-page-ground:
     radial-gradient(1100px 520px at 12% -12%, rgba(50, 120, 165, 0.38), transparent 60%),
-    linear-gradient(165deg, #1c2734 0%, #131b25 45%, #0a1017 100%);
+    linear-gradient(120deg, #0a1017 0%, #182534 25%, #263a4f 50%, #16212e 75%, #0a1017 100%);
 
   --grw-btn-primary-bg: linear-gradient(180deg, #2fabdb, #0e83b6 52%, #0b76a4 53%, #1c97c6);
   --grw-btn-primary-border: rgba(0, 0, 0, 0.35);

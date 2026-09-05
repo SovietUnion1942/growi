@@ -52,8 +52,18 @@
 }
 
 :root[data-grw-ui='modern'] .sidebar-contents-container {
-  background-color: transparent !important;
   border-color: var(--grw-glass-border) !important;
+}
+
+// Docked/drawer sidebar only: the content pane sits flush against the
+// sidebar's own glass-tinted fill (set above), so it stays transparent to
+// let that show through. In collapsed mode the content pane pops out as its
+// own absolutely-positioned panel over arbitrary page content (see
+// Sidebar.module.scss's `.grw-sidebar-collapsed` block, which gives it a
+// real background) -- forcing it transparent here made popout panels
+// (notifications, Messages, etc.) nearly invisible over the page beneath.
+:root[data-grw-ui='modern'] .grw-sidebar:not(.grw-sidebar-collapsed) .sidebar-contents-container {
+  background-color: transparent !important;
 }
 
 // Page-tree rows: a rounder highlight (the base markup only gives .rounded-1).

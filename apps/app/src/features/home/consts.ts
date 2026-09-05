@@ -1,6 +1,8 @@
 /**
- * The wiki page whose body is rendered as the notice / warning block on the
- * home page. Admins edit it with the normal editor. A dedicated admin field is
- * a later iteration (see project_modern-ui-redesign).
+ * The legacy wiki page that used to hold the home-page notice body before it
+ * moved to the `customize:homeNotice` config field (admin Customize screen).
+ * The home page no longer reads this page live; this constant is kept only
+ * for the one-time migration that copies an existing page's body into the
+ * new config field.
  */
 export const HOME_NOTICE_PATH = '/home-notice';

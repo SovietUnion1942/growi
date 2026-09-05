@@ -44,7 +44,7 @@
   - 完了状態: 管理画面からお知らせ本文を編集・保存でき、保存後に画面上の値が更新後の内容になることを確認できる
   - _Requirements: 6.1, 6.2_
   - _Depends: 3.2_
-- [ ] 3.4 ホーム画面のお知らせ取得元を管理設定に切り替える
+- [x] 3.4 ホーム画面のお知らせ取得元を管理設定に切り替える
   - `/home-notice` ページ本文を読む既存ロジックを、管理設定値を読むロジックに置き換える
   - 設定値が空の場合、管理者にのみ設定を促す案内を表示し、それ以外の利用者にはお知らせセクション自体を表示しない
   - 完了状態: 設定値を更新するとホーム画面表示が更新後の内容に変わり、`/home-notice` ページ自体を編集してもホーム画面表示に影響しないことを確認できる
@@ -134,3 +134,5 @@
 - `AdminCodeEditor` only supports `javascript`/`css`/`html` languages (no markdown highlighter) — `CustomizeHomeNoticeSetting.tsx` uses `language="html"` as the closest available option, same substitution `CustomizeNoscriptSetting.tsx` already makes for its own content. Does not block requirements 6.1/6.2; a follow-up could add a `markdown` entry to `AdminCodeEditor`'s language map for better UX.
 - Admin customize settings' i18n keys (e.g. `customize_settings.*`) actually live in `admin.json`, not `translation.json` as design.md loosely stated.
 - Non-admin/unauthenticated apiv3 GET routes in this codebase return 403 (not 401), and admin-gated PUT routes redirect (302, not 403) for non-admins — both are pre-existing shared middleware behavior (`loginRequiredFactory`, `adminRequiredFactory`), not defects introduced by this feature. design.md's API contract tables list 401/403 respectively; treat those as documentation-only imprecision.
+
+- The migration file (`20260905010000-migrate-home-notice-to-config.js`) hardcodes its own local `/home-notice` path literal instead of importing `HOME_NOTICE_PATH` from `features/home/consts.ts` — minor SSOT drift, non-blocking, optional cleanup later.

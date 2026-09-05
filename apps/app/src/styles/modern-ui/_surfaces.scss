@@ -66,6 +66,14 @@
   background-color: transparent !important;
 }
 
+// Collapsed-mode popout panel: round its outer corners to match the modern
+// skin's other floating surfaces (Sidebar.module.scss only rounds it 4px,
+// sized for the legacy square look). Left corners stay square -- that edge
+// sits flush against the icon rail, not floating.
+:root[data-grw-ui='modern'] .grw-sidebar-collapsed .sidebar-contents-container.open {
+  border-radius: 0 var(--grw-radius-lg) var(--grw-radius-lg) 0 !important;
+}
+
 // Page-tree rows: a rounder highlight (the base markup only gives .rounded-1).
 :root[data-grw-ui='modern']
   [data-testid='grw-pagetree-item-container']

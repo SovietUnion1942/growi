@@ -164,7 +164,7 @@
   - 完了状態: 上記それぞれの検証が揃い、すべて成功する
   - _Requirements: 2.1, 2.2, 3.5_
   - _Depends: 1.5_
-- [ ] 5.4 (P) サーバーAPIの結合テストを追加する
+- [x] 5.4 (P) サーバーAPIの結合テストを追加する
   - パス配下最近ページ（未ログイン拒否・viewer フィルタ）、複数パス解決（配列でないボディは拒否・自分の権限でフィルタ）、サイト共通設定更新（非管理者拒否・3キー永続化・監査アクティビティ）、個人別設定更新（永続化・他利用者に非影響）を検証する
   - 完了状態: いずれのケースも期待する応答（エラー種別・返却内容・永続化）が確認できる
   - _Requirements: 2.1, 3.3, 3.5, 5.3, 6.2_
@@ -196,3 +196,4 @@
   - 5.3 = `page-listing.integ.ts` の新規 describe 2 つ（9 test、タスク1.5）— 前方一致／非ASCIIエスケープ／viewer権限除外／更新日時降順・limit／入力順保持／欠落除外／重複除去。
   - 5.5(任意) = `ClassroomPostsWidget.spec.tsx`(10)/`PinnedPagesWidget.spec.tsx`(10)/`HomeFeedWidget.spec.tsx`(7)（タスク3.3-3.5）— 内容あり/空、ピン留め未設定の管理者向け案内出し分け、フィード1セクション失敗時の他セクション表示。
 - タスク 5.4 = apiv3 結合テストのうち recent-under-path / resolve-paths（`page-listing.integ.ts` ルート、タスク2.1）と customize-setting/home-widgets（`customize-setting.integ.ts`、タスク2.2）は網羅済み。個人別設定更新の「他利用者に非影響」の実DB結合のみ 5.4 で追加。
+- タスク1.3の `homeWidgetPreferences` サブスキーマは mongoose 6 で `Model.create()` / `new Model().save()` 経由だと `subdoc.modifiedPaths is not a function` で落ちる（動的キーのサブスキーマ既知の癖）。ルートの実経路は `findOneAndUpdate(upsert)` なので影響なし（5.4 integ で実証済み）。将来この型で `.create()` を使う場合は注意。

@@ -94,3 +94,35 @@
 :root[data-grw-ui='modern'] .page-editor-editor-container {
   border-inline-end-color: var(--bs-border-color) !important;
 }
+
+// --- Bottom-bar secondary buttons ----------------------------------
+// "editor settings", the "visual edit" toggle and the "publish" grant
+// selector are all Bootstrap outline buttons -- hard grey/blue boxes next
+// to the glossy primary. Soften them to ghost chips: faint fill, no hard
+// border, rounded. The real CTA (`.btn-primary` update) stays dominant.
+:root[data-grw-ui='modern']
+  [data-testid='grw-editor-navbar-bottom']
+  .btn-outline-secondary,
+:root[data-grw-ui='modern']
+  [data-testid='grw-editor-navbar-bottom']
+  .btn-outline-neutral-secondary {
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-bg: var(--bs-tertiary-bg);
+  --bs-btn-hover-bg: rgba(var(--grw-accent-rgb), 0.1);
+  --bs-btn-active-bg: rgba(var(--grw-accent-rgb), 0.14);
+  --bs-btn-color: var(--bs-secondary-color);
+  --bs-btn-hover-color: var(--grw-accent);
+  --bs-btn-border-radius: var(--grw-radius-sm);
+}
+
+// The visual-edit toggle carries `aria-pressed`; when on, read it as an
+// engaged accent chip rather than an identical grey box.
+:root[data-grw-ui='modern']
+  [data-testid='grw-editor-navbar-bottom']
+  .btn[aria-pressed='true'] {
+  --bs-btn-bg: rgba(var(--grw-accent-rgb), 0.16);
+  --bs-btn-hover-bg: rgba(var(--grw-accent-rgb), 0.22);
+  --bs-btn-color: var(--grw-accent);
+  --bs-btn-hover-color: var(--grw-accent);
+}

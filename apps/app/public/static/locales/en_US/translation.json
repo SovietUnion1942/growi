@@ -1261,6 +1261,7 @@
     },
     "customize": {
       "toggle": "Customize",
+      "description": "Reorder or hide widgets with the buttons, then save.",
       "save": "Save",
       "reset": "Reset to default",
       "done": "Done",

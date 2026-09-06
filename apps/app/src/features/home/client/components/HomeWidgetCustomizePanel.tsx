@@ -12,7 +12,8 @@ import type {
 } from '~/features/home/interfaces/home-widgets';
 import { HOME_WIDGET_DESCRIPTORS } from '~/features/home/widgets-registry';
 
-import type { CustomizeWidgetEntry } from './widgets/HomeWidgets';
+import type { ReorderListEntry } from './HomeWidgetReorderList';
+import { HomeWidgetReorderList } from './HomeWidgetReorderList';
 import { HomeWidgets } from './widgets/HomeWidgets';
 
 type Props = {
@@ -62,12 +63,13 @@ const resolveCustomizeEntries = (
 /**
  * `/home` per-user widget customization (task 4.3, Requirements 6.1, 6.2, 6.4).
  *
- * Wraps `HomeWidgets`. Outside customize mode it renders a single "customize"
- * toggle plus the widget area driven by the persisted preferences. Inside
- * customize mode it keeps the whole working layout map in local state, hands
- * `HomeWidgets` the full 7-widget ordering (so hidden widgets still show a
- * frame) with up/down/visibility handlers, and offers 保存 / 初期状態に戻す /
- * 完了. 保存 persists the whole working map via `PUT /user-ui-settings`;
+ * Outside customize mode it renders a single "customize" toggle plus the widget
+ * area (`HomeWidgets`) driven by the persisted preferences. Inside customize
+ * mode it keeps the whole working layout map in local state and renders
+ * `HomeWidgetReorderList` — a compact, widget-free list of all 7 widgets with
+ * up/down/visibility controls — instead of the live widgets, so reordering is a
+ * single unambiguous column with no data re-fetch or layout thrash. It offers
+ * 保存 / 初期状態に戻す / 完了. 保存 persists the whole working map via `PUT /user-ui-settings`;
  * 初期状態に戻す persists an empty map so the user falls back to the site-wide
  * config (Req 6.4). On save failure the local edits are kept so the user can
  * retry (design: 個人別設定の保存失敗 → トースト通知).
@@ -88,7 +90,7 @@ export const HomeWidgetCustomizePanel: FC<Props> = (props) => {
 
   const siteConfig = props.homeWidgetsSiteConfig;
 
-  const orderedForCustomize: CustomizeWidgetEntry[] = resolveCustomizeEntries(
+  const reorderEntries: ReorderListEntry[] = resolveCustomizeEntries(
     workingPrefs,
     siteConfig,
   ).map(({ key, visible }) => ({ key, visible }));
@@ -189,40 +191,40 @@ export const HomeWidgetCustomizePanel: FC<Props> = (props) => {
 
   return (
     <div className="grw-home-widget-customize">
-      <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-2">
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={handleSave}
-        >
-          {t('home.customize.save')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-danger"
-          onClick={handleReset}
-        >
-          {t('home.customize.reset')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => {
-            setWorkingPrefs(props.homeWidgetPreferences ?? {});
-            setCustomizing(false);
-          }}
-        >
-          {t('home.customize.done')}
-        </button>
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <span className="text-muted small">
+          {t('home.customize.description')}
+        </span>
+        <span className="d-flex flex-wrap align-items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={handleSave}
+          >
+            {t('home.customize.save')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-danger"
+            onClick={handleReset}
+          >
+            {t('home.customize.reset')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => {
+              setWorkingPrefs(props.homeWidgetPreferences ?? {});
+              setCustomizing(false);
+            }}
+          >
+            {t('home.customize.done')}
+          </button>
+        </span>
       </div>
-      <HomeWidgets
-        homeWidgetsSiteConfig={props.homeWidgetsSiteConfig}
-        homePinnedPages={props.homePinnedPages}
-        homeClassroomPathPrefix={props.homeClassroomPathPrefix}
-        userWidgetPreferences={workingPrefs}
-        customizeMode
-        orderedForCustomize={orderedForCustomize}
-        onMoveWidget={handleMoveWidget}
+      <HomeWidgetReorderList
+        entries={reorderEntries}
+        onMove={handleMoveWidget}
         onToggleVisible={handleToggleVisible}
       />
     </div>

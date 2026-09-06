@@ -25,23 +25,31 @@ let lastHomeWidgetsProps: Record<string, unknown> | undefined;
 vi.mock('./widgets/HomeWidgets', () => ({
   HomeWidgets: (props: Record<string, unknown>) => {
     lastHomeWidgetsProps = props;
-    const onMove = props.onMoveWidget as
+    return <div data-testid="home-widgets" />;
+  },
+}));
+
+let lastReorderProps: Record<string, unknown> | undefined;
+vi.mock('./HomeWidgetReorderList', () => ({
+  HomeWidgetReorderList: (props: Record<string, unknown>) => {
+    lastReorderProps = props;
+    const onMove = props.onMove as
       | ((k: string, d: 'up' | 'down') => void)
       | undefined;
     const onToggle = props.onToggleVisible as ((k: string) => void) | undefined;
     return (
-      <div data-testid="home-widgets">
-        <span data-testid="hw-customize-mode">
-          {String(props.customizeMode ?? false)}
+      <div data-testid="reorder-list">
+        <span data-testid="reorder-count">
+          {String((props.entries as unknown[] | undefined)?.length ?? 0)}
         </span>
         <button
           type="button"
-          data-testid="hw-move-bookmarks-down"
+          data-testid="reorder-move-bookmarks-down"
           onClick={() => onMove?.('bookmarks', 'down')}
         />
         <button
           type="button"
-          data-testid="hw-toggle-bookmarks"
+          data-testid="reorder-toggle-bookmarks"
           onClick={() => onToggle?.('bookmarks')}
         />
       </div>
@@ -61,6 +69,7 @@ describe('HomeWidgetCustomizePanel', () => {
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
     lastHomeWidgetsProps = undefined;
+    lastReorderProps = undefined;
   });
 
   it('shows only the customize toggle when not customizing, and passes the persisted prefs through', () => {
@@ -69,8 +78,9 @@ describe('HomeWidgetCustomizePanel', () => {
 
     expect(screen.getByText('home.customize.toggle')).toBeInTheDocument();
     expect(screen.queryByText('home.customize.save')).not.toBeInTheDocument();
+    expect(screen.getByTestId('home-widgets')).toBeInTheDocument();
+    expect(screen.queryByTestId('reorder-list')).not.toBeInTheDocument();
     expect(lastHomeWidgetsProps?.userWidgetPreferences).toBe(persisted);
-    expect(lastHomeWidgetsProps?.customizeMode).toBeFalsy();
   });
 
   it('reveals the control bar and enters customize mode on toggle', () => {
@@ -79,19 +89,21 @@ describe('HomeWidgetCustomizePanel', () => {
 
     expect(screen.getByText('home.customize.save')).toBeInTheDocument();
     expect(screen.getByText('home.customize.reset')).toBeInTheDocument();
-    expect(screen.getByTestId('hw-customize-mode')).toHaveTextContent('true');
+    // The live widgets are replaced by the compact reorder list while editing.
+    expect(screen.getByTestId('reorder-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('home-widgets')).not.toBeInTheDocument();
 
-    const ordered = lastHomeWidgetsProps?.orderedForCustomize as
+    const entries = lastReorderProps?.entries as
       | { key: string; visible: boolean }[]
       | undefined;
-    expect(ordered).toHaveLength(7);
+    expect(entries).toHaveLength(7);
   });
 
   it('moving a widget down then saving persists the whole map with that widget ordered later (Req 6.2)', async () => {
     render(<HomeWidgetCustomizePanel />);
     enterCustomizeMode();
 
-    fireEvent.click(screen.getByTestId('hw-move-bookmarks-down'));
+    fireEvent.click(screen.getByTestId('reorder-move-bookmarks-down'));
     fireEvent.click(screen.getByText('home.customize.save'));
 
     await waitFor(() =>
@@ -114,7 +126,7 @@ describe('HomeWidgetCustomizePanel', () => {
     render(<HomeWidgetCustomizePanel />);
     enterCustomizeMode();
 
-    fireEvent.click(screen.getByTestId('hw-toggle-bookmarks'));
+    fireEvent.click(screen.getByTestId('reorder-toggle-bookmarks'));
     fireEvent.click(screen.getByText('home.customize.save'));
 
     await waitFor(() =>
@@ -150,12 +162,12 @@ describe('HomeWidgetCustomizePanel', () => {
     render(<HomeWidgetCustomizePanel />);
     enterCustomizeMode();
 
-    fireEvent.click(screen.getByTestId('hw-move-bookmarks-down'));
+    fireEvent.click(screen.getByTestId('reorder-move-bookmarks-down'));
     fireEvent.click(screen.getByText('home.customize.save'));
 
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
     expect(screen.getByText('home.customize.save')).toBeInTheDocument();
-    expect(screen.getByTestId('hw-customize-mode')).toHaveTextContent('true');
+    expect(screen.getByTestId('reorder-list')).toBeInTheDocument();
 
     // Working edits retained: a second save still sends the moved order.
     updateUserUISettingsMock.mockResolvedValueOnce({ data: {} });

@@ -174,7 +174,7 @@
   - 完了状態: 各ウィジェットの内容あり・空・出し分けの検証が成功する
   - _Requirements: 2.4, 3.4, 4.5_
   - _Depends: 3.3, 3.4, 3.5_
-- [ ] 5.6 ホーム画面のE2E・回帰確認を行う
+- [x] 5.6 ホーム画面のE2E・回帰確認を行う
   - 管理者がウィジェットの順序変更と非表示を保存 → 個人別未設定の利用者のホームに反映される
   - 利用者がホーム上でウィジェットを並べ替え・非表示にして保存 → リロード後も維持、「初期状態に戻す」でサイト共通設定に従う
   - ゲストがホームを開く → ウィジェットエリアは出ず、お知らせと動作環境の要件表のみ表示される
@@ -197,3 +197,4 @@
   - 5.5(任意) = `ClassroomPostsWidget.spec.tsx`(10)/`PinnedPagesWidget.spec.tsx`(10)/`HomeFeedWidget.spec.tsx`(7)（タスク3.3-3.5）— 内容あり/空、ピン留め未設定の管理者向け案内出し分け、フィード1セクション失敗時の他セクション表示。
 - タスク 5.4 = apiv3 結合テストのうち recent-under-path / resolve-paths（`page-listing.integ.ts` ルート、タスク2.1）と customize-setting/home-widgets（`customize-setting.integ.ts`、タスク2.2）は網羅済み。個人別設定更新の「他利用者に非影響」の実DB結合のみ 5.4 で追加。
 - タスク1.3の `homeWidgetPreferences` サブスキーマは mongoose 6 で `Model.create()` / `new Model().save()` 経由だと `subdoc.modifiedPaths is not a function` で落ちる（動的キーのサブスキーマ既知の癖）。ルートの実経路は `findOneAndUpdate(upsert)` なので影響なし（5.4 integ で実証済み）。将来この型で `.create()` を使う場合は注意。
+- タスク5.6: ライブブラウザE2E（Playwright）は本環境で実行不可（Node 22 / ブラウザ無し）、本番 `next build` も `pre:styles-bulk-export` プレフックのみ Node 24 依存で失敗（home-page-v3 と無関係、Docker ビルドでは通る）。各シナリオを自動テストの分解カバレッジ＋デプロイ後の手動ブラウザ手順にマッピングして `verification-5.6.md` に記録。ワークスペース依存ビルド green / whole-app typecheck ベースラインのみ / home-page-v3 テスト一括 337 passed。

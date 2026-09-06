@@ -40,6 +40,15 @@ export interface IPageListingService {
     userId: string,
     viewer?: IUser,
   ): Promise<IPageForTreeItem[]>;
+  findRecentPagesUnderPath(
+    pathPrefix: string,
+    viewer: IUser | undefined,
+    limit: number,
+  ): Promise<IPageForTreeItem[]>;
+  resolvePagesByPaths(
+    paths: string[],
+    viewer: IUser | undefined,
+  ): Promise<IPageForTreeItem[]>;
 }
 
 let pageOperationService: IPageOperationService;
@@ -227,6 +236,113 @@ class PageListingService implements IPageListingService {
     return injectedPages.map((page) =>
       Object.assign(page, { _id: page._id.toString() }),
     );
+  }
+
+  /**
+   * Return the viewer-visible, non-empty pages whose path is `pathPrefix` itself or a
+   * descendant of it, most-recently-updated first, capped at `limit` at the query level.
+   * Backs the Classroom "recent posts" widget.
+   *
+   * Prefix matching is delegated to PageQueryBuilder.addConditionToListWithDescendants,
+   * which escapes the dynamic path with escapeStringForMongoRegex (NOT RegExp.escape): the
+   * pattern is handed to MongoDB, whose PCRE2 engine rejects the `\uXXXX` escapes
+   * RegExp.escape emits for non-ASCII whitespace — see .claude/rules/mongodb-regex.md. It
+   * also matches "the prefix page itself or a descendant" rather than a bare string
+   * prefix, so `/classroom` never pulls in `/classroom-archive`.
+   *
+   * Permission is decided solely by the shared PageQueryBuilder viewer-grant filter
+   * (addViewerCondition), never by the path match alone (requirement 2.2). Trashed pages
+   * and empty container pages are excluded (requirement invariants).
+   */
+  async findRecentPagesUnderPath(
+    pathPrefix: string,
+    viewer: IUser | undefined,
+    limit: number,
+  ): Promise<IPageForTreeItem[]> {
+    const Page = mongoose.model<HydratedDocument<PageDocument>, PageModel>(
+      'Page',
+    );
+
+    const queryBuilder = new PageQueryBuilder(
+      Page.find({ isEmpty: { $ne: true } }),
+    );
+    queryBuilder.addConditionToListWithDescendants(pathPrefix);
+    await queryBuilder.addViewerCondition(viewer);
+    queryBuilder.addConditionToExcludeTrashed();
+
+    const pages: HydratedDocument<Omit<IPageForTreeItem, 'processData'>>[] =
+      await queryBuilder
+        .addConditionToPagenate(0, limit, { updatedAt: -1 })
+        .query.select(
+          '_id path parent revision descendantCount grant isEmpty wip',
+        )
+        .lean()
+        .exec();
+
+    const injectedPages = await this.injectProcessDataIntoPagesByActionTypes(
+      pages,
+      [PageActionType.Rename],
+    );
+
+    // Type-safe conversion to IPageForTreeItem
+    return injectedPages.map((page) =>
+      Object.assign(page, { _id: page._id.toString() }),
+    );
+  }
+
+  /**
+   * Resolve the given `paths` to their viewer-visible page metadata, returning them in the
+   * exact order they were requested and dropping any path that does not exist or that the
+   * viewer cannot see. Backs the pinned-pages widget, which renders in the admin-defined
+   * order — an order MongoDB's result set does not preserve, hence the explicit re-order.
+   *
+   * As with findRecentPagesUnderPath, visibility is decided by addViewerCondition, not by
+   * path membership (requirement 3.5). Empty and trashed pages are excluded. Repeated input
+   * paths collapse to a single entry (a pinned list has no meaningful duplicates).
+   */
+  async resolvePagesByPaths(
+    paths: string[],
+    viewer: IUser | undefined,
+  ): Promise<IPageForTreeItem[]> {
+    const Page = mongoose.model<HydratedDocument<PageDocument>, PageModel>(
+      'Page',
+    );
+
+    // `paths` arrives from an HTTP-controlled array (task 2.1 endpoint). Keep only
+    // string members before the $in so a non-string element can never reach the
+    // query, matching this file's $eq / CodeQL js/sql-injection guards elsewhere.
+    const safePaths = paths.filter((p): p is string => typeof p === 'string');
+
+    const queryBuilder = new PageQueryBuilder(
+      Page.find({ path: { $in: safePaths }, isEmpty: { $ne: true } }),
+    );
+    await queryBuilder.addViewerCondition(viewer);
+    queryBuilder.addConditionToExcludeTrashed();
+
+    const pages: HydratedDocument<Omit<IPageForTreeItem, 'processData'>>[] =
+      await queryBuilder.query
+        .select('_id path parent revision descendantCount grant isEmpty wip')
+        .lean()
+        .exec();
+
+    const injectedPages = await this.injectProcessDataIntoPagesByActionTypes(
+      pages,
+      [PageActionType.Rename],
+    );
+
+    const stringifiedByPath = new Map(
+      injectedPages.map((page) => [
+        page.path,
+        Object.assign(page, { _id: page._id.toString() }),
+      ]),
+    );
+
+    // Re-project onto the caller's order; dedupe by first occurrence; drop unresolved.
+    const uniquePaths = [...new Set(safePaths)];
+    return uniquePaths.flatMap((path) => {
+      const page = stringifiedByPath.get(path);
+      return page != null ? [page] : [];
+    });
   }
 
   /**

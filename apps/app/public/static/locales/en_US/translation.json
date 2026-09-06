@@ -1166,6 +1166,13 @@
     "refresh": "Refresh",
     "empty_folder": "This folder is empty.",
     "loading_more": "Loading more...",
+    "sort": {
+      "label": "Sort by",
+      "name": "Name",
+      "modified": "Date",
+      "size": "Size",
+      "partial_hint": "Only the entries loaded so far are sorted. Scroll to the bottom to load the whole folder."
+    },
     "breadcrumb_root": "Root",
     "new_folder": "New folder",
     "upload_button": "Upload",

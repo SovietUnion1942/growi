@@ -1206,6 +1206,13 @@
     "refresh": "更新",
     "empty_folder": "このフォルダは空です。",
     "loading_more": "さらに読み込んでいます...",
+    "sort": {
+      "label": "並び替え",
+      "name": "名前",
+      "modified": "更新日時",
+      "size": "サイズ",
+      "partial_hint": "現在読み込み済みの項目だけを並び替えています。フォルダ全体を並び替えるには一番下までスクロールしてください。"
+    },
     "breadcrumb_root": "ルート",
     "new_folder": "新しいフォルダ",
     "upload_button": "アップロード",

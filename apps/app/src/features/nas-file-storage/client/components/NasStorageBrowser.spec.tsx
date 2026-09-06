@@ -602,4 +602,56 @@ describe('NasStorageBrowser', () => {
       expect(screen.queryByTestId('nas-action-error')).toBeNull();
     });
   });
+
+  describe('sort control', () => {
+    const small: NasEntry = {
+      name: 'z-small.txt',
+      type: 'file',
+      sizeBytes: 10,
+      modifiedAt: '2026-01-01T00:00:00Z',
+    };
+    const large: NasEntry = {
+      name: 'a-large.txt',
+      type: 'file',
+      sizeBytes: 9999,
+      modifiedAt: '2026-05-01T00:00:00Z',
+    };
+
+    const rowNames = (): string[] =>
+      screen
+        .getAllByTestId('nas-entry-row')
+        .map(
+          (row) =>
+            row.textContent?.match(/[a-z]-(?:small|large)\.txt/)?.[0] ?? '',
+        );
+
+    it('defaults to name ascending (server order)', () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [small, large] }));
+      render(<NasStorageBrowser />);
+      expect(rowNames()).toEqual(['a-large.txt', 'z-small.txt']);
+    });
+
+    it('re-orders by size descending when the size sort is picked', async () => {
+      mocks.useNasList.mockReturnValue(makeResult({ entries: [small, large] }));
+      render(<NasStorageBrowser />);
+
+      await userEvent.click(screen.getByTestId('nas-sort-size'));
+
+      expect(rowNames()).toEqual(['a-large.txt', 'z-small.txt']);
+      // now flip to ascending
+      await userEvent.click(screen.getByTestId('nas-sort-size'));
+      expect(rowNames()).toEqual(['z-small.txt', 'a-large.txt']);
+    });
+
+    it('shows the partial-sort hint only for a non-name sort with more pages', async () => {
+      mocks.useNasList.mockReturnValue(
+        makeResult({ entries: [small, large], hasMore: true }),
+      );
+      render(<NasStorageBrowser />);
+
+      expect(screen.queryByTestId('nas-sort-partial-hint')).toBeNull();
+      await userEvent.click(screen.getByTestId('nas-sort-modified'));
+      expect(screen.getByTestId('nas-sort-partial-hint')).toBeInTheDocument();
+    });
+  });
 });

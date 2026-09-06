@@ -2,67 +2,129 @@
 
 import { render, screen } from '@testing-library/react';
 
-const SearchWidgetMock = vi.fn(() => <div data-testid="search-widget" />);
-const RecentUpdatesWidgetMock = vi.fn(() => (
+import type { HomeWidgetPreferences } from '~/features/home/interfaces/home-widgets';
+
+// Each widget module is replaced with a testid stub. The mock functions also
+// record the props they were called with, so the prop-wiring done by
+// HomeWidgets can be asserted directly.
+const SearchWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="search-widget" />
+));
+const RecentUpdatesWidgetMock = vi.fn((_props: unknown) => (
   <div data-testid="recent-updates-widget" />
 ));
-const BookmarksWidgetMock = vi.fn(() => <div data-testid="bookmarks-widget" />);
-const WipPagesWidgetMock = vi.fn(() => <div data-testid="wip-pages-widget" />);
+const BookmarksWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="bookmarks-widget" />
+));
+const WipPagesWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="wip-pages-widget" />
+));
+const ClassroomPostsWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="classroom-posts-widget" />
+));
+const PinnedPagesWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="pinned-pages-widget" />
+));
+const HomeFeedWidgetMock = vi.fn((_props: unknown) => (
+  <div data-testid="home-feed-widget" />
+));
 
 vi.mock('./SearchWidget', () => ({
-  SearchWidget: () => SearchWidgetMock(),
+  SearchWidget: (props: unknown) => SearchWidgetMock(props),
 }));
 vi.mock('./RecentUpdatesWidget', () => ({
-  RecentUpdatesWidget: () => RecentUpdatesWidgetMock(),
+  RecentUpdatesWidget: (props: unknown) => RecentUpdatesWidgetMock(props),
 }));
 vi.mock('./BookmarksWidget', () => ({
-  BookmarksWidget: () => BookmarksWidgetMock(),
+  BookmarksWidget: (props: unknown) => BookmarksWidgetMock(props),
 }));
 vi.mock('./WipPagesWidget', () => ({
-  WipPagesWidget: () => WipPagesWidgetMock(),
+  WipPagesWidget: (props: unknown) => WipPagesWidgetMock(props),
+}));
+vi.mock('./ClassroomPostsWidget', () => ({
+  ClassroomPostsWidget: (props: unknown) => ClassroomPostsWidgetMock(props),
+}));
+vi.mock('./PinnedPagesWidget', () => ({
+  PinnedPagesWidget: (props: unknown) => PinnedPagesWidgetMock(props),
+}));
+vi.mock('./HomeFeedWidget', () => ({
+  HomeFeedWidget: (props: unknown) => HomeFeedWidgetMock(props),
 }));
 
 import { HomeWidgets } from './HomeWidgets';
 
+const ALL_TESTIDS = [
+  'search-widget',
+  'recent-updates-widget',
+  'bookmarks-widget',
+  'wip-pages-widget',
+  'classroom-posts-widget',
+  'pinned-pages-widget',
+  'home-feed-widget',
+] as const;
+
+const resetMock = (mock: ReturnType<typeof vi.fn>, testId: string) => {
+  mock.mockReset().mockImplementation(() => <div data-testid={testId} />);
+};
+
+const expectDomOrder = (testIds: readonly string[]) => {
+  const elements = testIds.map((id) => screen.getByTestId(id));
+  for (let i = 0; i < elements.length - 1; i += 1) {
+    const position = elements[i].compareDocumentPosition(elements[i + 1]);
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+};
+
 describe('HomeWidgets', () => {
   beforeEach(() => {
-    SearchWidgetMock.mockReset().mockImplementation(() => (
-      <div data-testid="search-widget" />
-    ));
-    RecentUpdatesWidgetMock.mockReset().mockImplementation(() => (
-      <div data-testid="recent-updates-widget" />
-    ));
-    BookmarksWidgetMock.mockReset().mockImplementation(() => (
-      <div data-testid="bookmarks-widget" />
-    ));
-    WipPagesWidgetMock.mockReset().mockImplementation(() => (
-      <div data-testid="wip-pages-widget" />
-    ));
+    resetMock(SearchWidgetMock, 'search-widget');
+    resetMock(RecentUpdatesWidgetMock, 'recent-updates-widget');
+    resetMock(BookmarksWidgetMock, 'bookmarks-widget');
+    resetMock(WipPagesWidgetMock, 'wip-pages-widget');
+    resetMock(ClassroomPostsWidgetMock, 'classroom-posts-widget');
+    resetMock(PinnedPagesWidgetMock, 'pinned-pages-widget');
+    resetMock(HomeFeedWidgetMock, 'home-feed-widget');
   });
 
-  it('renders all 4 widgets in the fixed order: search, recent updates, bookmarks, wip pages', () => {
+  it('renders all 7 widgets in the default resolved order', () => {
     render(<HomeWidgets />);
 
-    const testIds = [
-      'search-widget',
-      'recent-updates-widget',
-      'bookmarks-widget',
-      'wip-pages-widget',
-    ];
-    for (const id of testIds) {
+    for (const id of ALL_TESTIDS) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
+    expectDomOrder(ALL_TESTIDS);
+  });
 
-    // Assert relative DOM order via compareDocumentPosition rather than
-    // relying on any particular container structure.
-    const elements = testIds.map((id) => screen.getByTestId(id));
-    for (let i = 0; i < elements.length - 1; i += 1) {
-      const position = elements[i].compareDocumentPosition(elements[i + 1]);
-      expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  it('hides a widget the site config marks not visible (Req 5.3)', () => {
+    render(
+      <HomeWidgets homeWidgetsSiteConfig={{ bookmarks: { visible: false } }} />,
+    );
+
+    expect(screen.queryByTestId('bookmarks-widget')).not.toBeInTheDocument();
+    for (const id of ALL_TESTIDS.filter((i) => i !== 'bookmarks-widget')) {
+      expect(screen.getByTestId(id)).toBeInTheDocument();
     }
   });
 
-  it('isolates a widget render failure: the failing widget shows a fallback while the other 3 widgets and the page still render', () => {
+  it('lets a per-user preference re-show a widget the site config hid (Req 6.3)', () => {
+    render(
+      <HomeWidgets
+        homeWidgetsSiteConfig={{ search: { visible: false } }}
+        userWidgetPreferences={{ search: { visible: true } }}
+      />,
+    );
+
+    expect(screen.getByTestId('search-widget')).toBeInTheDocument();
+  });
+
+  it('reorders widgets by resolved order (site config)', () => {
+    render(<HomeWidgets homeWidgetsSiteConfig={{ homeFeed: { order: 5 } }} />);
+
+    // order 5 < search's default 10 -> homeFeed comes first
+    expectDomOrder(['home-feed-widget', 'search-widget']);
+  });
+
+  it('isolates a widget render failure: the failing widget shows a fallback, the other 6 still render, render does not throw (Req 1.2)', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -71,54 +133,58 @@ describe('HomeWidgets', () => {
       throw new Error('boom: recent updates widget failed');
     });
 
-    render(<HomeWidgets />);
+    expect(() => render(<HomeWidgets />)).not.toThrow();
 
-    // The failing widget's own content is not shown...
     expect(
       screen.queryByTestId('recent-updates-widget'),
     ).not.toBeInTheDocument();
-    // ...but the other 3 widgets render completely normally.
-    expect(screen.getByTestId('search-widget')).toBeInTheDocument();
-    expect(screen.getByTestId('bookmarks-widget')).toBeInTheDocument();
-    expect(screen.getByTestId('wip-pages-widget')).toBeInTheDocument();
-
-    // An error fallback is shown, scoped to that widget's slot only.
+    for (const id of ALL_TESTIDS.filter((i) => i !== 'recent-updates-widget')) {
+      expect(screen.getByTestId(id)).toBeInTheDocument();
+    }
     expect(screen.getAllByRole('alert')).toHaveLength(1);
 
     consoleErrorSpy.mockRestore();
   });
 
-  it('isolates a different widget failure (bookmarks) independently of which widget throws', () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+  it('renders without crashing when every widget is hidden (Req 7.4)', () => {
+    const allHidden = Object.fromEntries(
+      ALL_TESTIDS.map((_, i) => [
+        [
+          'search',
+          'recentUpdates',
+          'bookmarks',
+          'wipPages',
+          'classroomPosts',
+          'pinnedPages',
+          'homeFeed',
+        ][i],
+        { visible: false },
+      ]),
+    ) as HomeWidgetPreferences;
 
-    BookmarksWidgetMock.mockImplementation(() => {
-      throw new Error('boom: bookmarks widget failed');
-    });
+    const { container } = render(
+      <HomeWidgets userWidgetPreferences={allHidden} />,
+    );
 
-    render(<HomeWidgets />);
-
-    expect(screen.queryByTestId('bookmarks-widget')).not.toBeInTheDocument();
-    expect(screen.getByTestId('search-widget')).toBeInTheDocument();
-    expect(screen.getByTestId('recent-updates-widget')).toBeInTheDocument();
-    expect(screen.getByTestId('wip-pages-widget')).toBeInTheDocument();
-    expect(screen.getAllByRole('alert')).toHaveLength(1);
-
-    consoleErrorSpy.mockRestore();
+    for (const id of ALL_TESTIDS) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    }
+    expect(container.querySelector('.grw-home-widgets')).toBeInTheDocument();
   });
 
-  it('does not crash the whole page when a widget fails: HomeWidgets itself still renders its container', () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+  it('wires homeClassroomPathPrefix into ClassroomPostsWidget', () => {
+    render(<HomeWidgets homeClassroomPathPrefix="/cr" />);
 
-    WipPagesWidgetMock.mockImplementation(() => {
-      throw new Error('boom: wip pages widget failed');
-    });
+    expect(ClassroomPostsWidgetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pathPrefix: '/cr' }),
+    );
+  });
 
-    expect(() => render(<HomeWidgets />)).not.toThrow();
+  it('wires homePinnedPages into PinnedPagesWidget', () => {
+    render(<HomeWidgets homePinnedPages={[{ path: '/x' }]} />);
 
-    consoleErrorSpy.mockRestore();
+    expect(PinnedPagesWidgetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pinnedPages: [{ path: '/x' }] }),
+    );
   });
 });

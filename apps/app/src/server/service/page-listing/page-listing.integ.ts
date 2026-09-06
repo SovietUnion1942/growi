@@ -754,4 +754,246 @@ describe('page-listing store integration tests', () => {
       expect(results[0].path).toBe('/wip-own-visible');
     });
   });
+
+  describe('pageListingService.findRecentPagesUnderPath', () => {
+    const GRANT_PUBLIC = 1;
+    const GRANT_OWNER = 4;
+
+    let otherUser: HydratedDocument<IUser>;
+
+    const createPageAt = async (
+      path: string,
+      updatedAt: Date,
+      overrides: Record<string, unknown> = {},
+    ): Promise<HydratedDocument<IPage>> =>
+      Page.create({
+        path,
+        revision: new mongoose.Types.ObjectId(),
+        creator: testUser._id,
+        lastUpdateUser: testUser._id,
+        grant: GRANT_PUBLIC,
+        isEmpty: false,
+        descendantCount: 0,
+        parent: rootPage._id,
+        updatedAt,
+        ...overrides,
+      });
+
+    beforeEach(async () => {
+      otherUser = await User.create({
+        name: 'Other User',
+        username: 'otheruser-recent',
+        email: 'other-recent@example.com',
+        lang: 'en_US',
+      });
+
+      // three visible pages under /classroom, deliberately created out of updatedAt order
+      await createPageAt('/classroom/post-b', new Date('2026-01-02T00:00:00Z'));
+      await createPageAt('/classroom/post-a', new Date('2026-01-03T00:00:00Z'));
+      await createPageAt('/classroom/post-c', new Date('2026-01-01T00:00:00Z'));
+
+      // sibling path that merely shares a prefix substring must NOT be matched by a
+      // regex-anchored prefix ('/classroom' vs '/classroom-archive')
+      await createPageAt(
+        '/classroom-archive/old',
+        new Date('2026-01-04T00:00:00Z'),
+      );
+
+      // page under the prefix the viewer cannot see
+      await createPageAt(
+        '/classroom/secret',
+        new Date('2026-01-05T00:00:00Z'),
+        { grant: GRANT_OWNER, grantedUsers: [otherUser._id] },
+      );
+
+      // empty container page under the prefix: excluded
+      await createPageAt(
+        '/classroom/container',
+        new Date('2026-01-06T00:00:00Z'),
+        {
+          isEmpty: true,
+          revision: undefined,
+        },
+      );
+
+      // trashed page under the prefix: excluded
+      await createPageAt(
+        '/trash/classroom/deleted',
+        new Date('2026-01-07T00:00:00Z'),
+        {
+          status: 'deleted',
+        },
+      );
+    });
+
+    test('returns viewer-visible pages under the prefix, newest-first, limited', async () => {
+      const results = await pageListingService.findRecentPagesUnderPath(
+        '/classroom',
+        testUser,
+        2,
+      );
+
+      expect(results.map((p) => p.path)).toEqual([
+        '/classroom/post-a',
+        '/classroom/post-b',
+      ]);
+      results.forEach((p) => {
+        validatePageForTreeItem(p);
+      });
+    });
+
+    test('excludes pages the viewer has no permission for (not decided by path match)', async () => {
+      const results = await pageListingService.findRecentPagesUnderPath(
+        '/classroom',
+        testUser,
+        50,
+      );
+
+      const paths = results.map((p) => p.path);
+      expect(paths).not.toContain('/classroom/secret');
+      // owner sees it
+      const asOwner = await pageListingService.findRecentPagesUnderPath(
+        '/classroom',
+        otherUser,
+        50,
+      );
+      expect(asOwner.map((p) => p.path)).toContain('/classroom/secret');
+    });
+
+    test('excludes empty pages and trashed pages under the prefix', async () => {
+      const results = await pageListingService.findRecentPagesUnderPath(
+        '/classroom',
+        testUser,
+        50,
+      );
+
+      const paths = results.map((p) => p.path);
+      expect(paths).not.toContain('/classroom/container');
+      expect(paths).not.toContain('/trash/classroom/deleted');
+    });
+
+    test('does not match a sibling path that only shares a string prefix', async () => {
+      const results = await pageListingService.findRecentPagesUnderPath(
+        '/classroom',
+        testUser,
+        50,
+      );
+
+      expect(results.map((p) => p.path)).not.toContain(
+        '/classroom-archive/old',
+      );
+    });
+
+    test('does not throw for a prefix containing non-ASCII (Japanese) characters and matches', async () => {
+      await createPageAt(
+        '/日本語/お知らせ-1',
+        new Date('2026-02-01T00:00:00Z'),
+      );
+      await createPageAt(
+        '/日本語/お知らせ-2',
+        new Date('2026-02-02T00:00:00Z'),
+      );
+
+      const results = await pageListingService.findRecentPagesUnderPath(
+        '/日本語',
+        testUser,
+        50,
+      );
+
+      expect(results.map((p) => p.path)).toEqual([
+        '/日本語/お知らせ-2',
+        '/日本語/お知らせ-1',
+      ]);
+    });
+  });
+
+  describe('pageListingService.resolvePagesByPaths', () => {
+    const GRANT_PUBLIC = 1;
+    const GRANT_OWNER = 4;
+
+    let otherUser: HydratedDocument<IUser>;
+
+    beforeEach(async () => {
+      otherUser = await User.create({
+        name: 'Other User',
+        username: 'otheruser-resolve',
+        email: 'other-resolve@example.com',
+        lang: 'en_US',
+      });
+
+      const mk = (path: string, overrides: Record<string, unknown> = {}) =>
+        Page.create({
+          path,
+          revision: new mongoose.Types.ObjectId(),
+          creator: testUser._id,
+          lastUpdateUser: testUser._id,
+          grant: GRANT_PUBLIC,
+          isEmpty: false,
+          descendantCount: 0,
+          parent: rootPage._id,
+          ...overrides,
+        });
+
+      await mk('/pinned/alpha');
+      await mk('/pinned/beta');
+      await mk('/pinned/gamma');
+      await mk('/pinned/secret', {
+        grant: GRANT_OWNER,
+        grantedUsers: [otherUser._id],
+      });
+    });
+
+    test('preserves the input order of the requested paths', async () => {
+      const results = await pageListingService.resolvePagesByPaths(
+        ['/pinned/gamma', '/pinned/alpha', '/pinned/beta'],
+        testUser,
+      );
+
+      expect(results.map((p) => p.path)).toEqual([
+        '/pinned/gamma',
+        '/pinned/alpha',
+        '/pinned/beta',
+      ]);
+      results.forEach((p) => {
+        validatePageForTreeItem(p);
+      });
+    });
+
+    test('drops non-existent paths and no-permission paths; result length <= input length', async () => {
+      const input = [
+        '/pinned/alpha',
+        '/pinned/does-not-exist',
+        '/pinned/secret',
+        '/pinned/beta',
+      ];
+      const results = await pageListingService.resolvePagesByPaths(
+        input,
+        testUser,
+      );
+
+      expect(results.map((p) => p.path)).toEqual([
+        '/pinned/alpha',
+        '/pinned/beta',
+      ]);
+      expect(results.length).toBeLessThanOrEqual(input.length);
+    });
+
+    test('deduplicates repeated input paths to a single entry', async () => {
+      const results = await pageListingService.resolvePagesByPaths(
+        ['/pinned/alpha', '/pinned/alpha'],
+        testUser,
+      );
+
+      expect(results.map((p) => p.path)).toEqual(['/pinned/alpha']);
+    });
+
+    test('returns an empty array when no path resolves', async () => {
+      const results = await pageListingService.resolvePagesByPaths(
+        ['/nope/one', '/nope/two'],
+        testUser,
+      );
+
+      expect(results).toEqual([]);
+    });
+  });
 });

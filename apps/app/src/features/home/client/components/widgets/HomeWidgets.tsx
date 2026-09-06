@@ -1,33 +1,25 @@
-import type { ComponentType, FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import type { FallbackProps } from 'react-error-boundary';
 import { ErrorBoundary } from 'react-error-boundary';
 
-import { BookmarksWidget } from './BookmarksWidget';
-import { RecentUpdatesWidget } from './RecentUpdatesWidget';
-import { SearchWidget } from './SearchWidget';
-import { WipPagesWidget } from './WipPagesWidget';
+import type {
+  HomeWidgetPreferences,
+  HomeWidgetsSiteConfig,
+  PinnedPageEntry,
+  WidgetKey,
+} from '~/features/home/interfaces/home-widgets';
+import { resolveEffectiveWidgetLayout } from '~/features/home/resolve-widget-layout';
+import { HOME_WIDGET_DESCRIPTORS } from '~/features/home/widgets-registry';
 
-type WidgetEntry = {
-  key: string;
-  Component: ComponentType;
+import { ClassroomPostsWidget } from './ClassroomPostsWidget';
+import { PinnedPagesWidget } from './PinnedPagesWidget';
+
+type Props = {
+  homeWidgetsSiteConfig?: HomeWidgetsSiteConfig;
+  homePinnedPages?: PinnedPageEntry[];
+  homeClassroomPathPrefix?: string | null;
+  userWidgetPreferences?: HomeWidgetPreferences;
 };
-
-// The search widget renders full-width on its own row -- it is a prominent
-// input, not a card, and does not belong in the 3-column grid below.
-const SEARCH_WIDGET: WidgetEntry = { key: 'search', Component: SearchWidget };
-
-// Fixed code-level order of the grid widget area (Requirement 1.4: no
-// runtime configurability, no admin on/off toggle). Adding a new widget in
-// the future is a single entry added to this array — no other change to
-// this component is required. (A 5th entry simply joins the 3-column grid
-// as a 4th card; if a future widget needs the full-width search-row layout
-// instead, promote it to its own top-level slot the same way SEARCH_WIDGET
-// is handled above.)
-const GRID_WIDGETS: readonly WidgetEntry[] = [
-  { key: 'recent-updates', Component: RecentUpdatesWidget },
-  { key: 'bookmarks', Component: BookmarksWidget },
-  { key: 'wip-pages', Component: WipPagesWidget },
-];
 
 const WidgetErrorFallback: FC<FallbackProps> = ({ error }) => {
   return (
@@ -44,28 +36,59 @@ const WidgetErrorFallback: FC<FallbackProps> = ({ error }) => {
 /**
  * Container for the Home page widget area.
  *
- * Renders the search widget full-width, followed by the remaining widgets
- * in a responsive 3-column grid (collapsing to a single column on narrow
- * viewports via Bootstrap's grid), in a fixed order (Requirement 1.4). Each
- * widget is wrapped in its own error boundary (Requirement 1.3), so a
- * fetch/render failure in one widget is contained to that widget's slot and
- * does not affect the other widgets or the rest of the page.
+ * The rendered set and order are not hard-coded: `resolveEffectiveWidgetLayout`
+ * derives the effective layout from the widget descriptors, the site-wide admin
+ * config and the per-user preferences (Requirements 1.1, 5.3, 6.3), returning
+ * only the visible widgets already sorted by resolved order. This component
+ * renders that list — full-width widgets on their own row, the rest in a
+ * responsive grid that wraps by viewport width (Requirements 7.2–7.4) — and
+ * wraps each widget in its own `ErrorBoundary` (v2 behaviour, Requirement 1.2)
+ * so one widget's failure never reaches the others or the page. An empty
+ * resolved list renders just the (empty) container without breaking the layout
+ * (Requirement 1.3 / 7.4).
  *
- * Not rendered for anonymous users — the caller (`HomeContent`) decides
- * whether to mount this component based on `currentUser` (Requirement 5.2).
+ * The admin-configured widget inputs are wired here (`配線`): `classroomPosts`
+ * and `pinnedPages` need config props, so they are rendered from pre-bound
+ * elements keyed by widget; every other widget takes no props and is rendered
+ * straight from its descriptor `Component`.
+ *
+ * Not rendered for anonymous users — the caller (`HomeContent`) decides whether
+ * to mount this component based on `currentUser` (Requirement 8.2).
  */
-export const HomeWidgets: FC = () => {
+export const HomeWidgets: FC<Props> = ({
+  homeWidgetsSiteConfig,
+  homePinnedPages,
+  homeClassroomPathPrefix,
+  userWidgetPreferences,
+}) => {
+  const views = resolveEffectiveWidgetLayout(
+    HOME_WIDGET_DESCRIPTORS,
+    homeWidgetsSiteConfig,
+    userWidgetPreferences,
+  );
+
+  // Prop-wiring for the two widgets that take admin-configured inputs. Not a
+  // mode check — just the config plumbing this layer owns; every other widget
+  // renders straight from its descriptor `Component`.
+  const boundNodeByKey: Partial<Record<WidgetKey, ReactNode>> = {
+    classroomPosts: (
+      <ClassroomPostsWidget pathPrefix={homeClassroomPathPrefix} />
+    ),
+    pinnedPages: <PinnedPagesWidget pinnedPages={homePinnedPages} />,
+  };
+
   return (
     <div className="grw-home-widgets">
-      <ErrorBoundary FallbackComponent={WidgetErrorFallback}>
-        <SEARCH_WIDGET.Component />
-      </ErrorBoundary>
-
-      <div className="row mt-3">
-        {GRID_WIDGETS.map(({ key, Component }) => (
-          <div key={key} className="col-md-4 mb-3">
+      <div className="row">
+        {views.map((view) => (
+          <div
+            key={view.key}
+            className={
+              view.fullWidth ? 'col-12 mb-3' : 'col-12 col-sm-6 col-lg-4 mb-3'
+            }
+          >
             <ErrorBoundary FallbackComponent={WidgetErrorFallback}>
-              <Component />
+              {boundNodeByKey[view.key] ?? <view.Component />}
             </ErrorBoundary>
           </div>
         ))}

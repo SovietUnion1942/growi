@@ -66,7 +66,7 @@
   - _Requirements: 5.1, 5.2_
   - _Depends: 2.2_
   - _Boundary: AdminCustomizeContainer_
-- [ ] 2.6 サイト共通ウィジェット設定の編集フォームを管理画面に追加する
+- [x] 2.6 サイト共通ウィジェット設定の編集フォームを管理画面に追加する
   - 7ウィジェットを一覧表示し、各行に上下移動と表示/非表示の操作、展開すると個別オプション（ピン留めページの一覧エディタ、Classroom の取得元パス、リスト系ウィジェットの表示件数）を編集できるフォームを実装し、管理画面のカスタマイズ設定に組み込む
   - 編集内容はフォームのローカル状態で保持し、保存操作で3値をまとめて更新する
   - ピン留めページのパスは非空・スラッシュ始まりを軽く検証する（存在確認は表示時のパス解決が担う）
@@ -189,3 +189,4 @@
 - typecheck ベースライン（modern-ui-deploy の既存エラー、本機能と無関係）: mastra deepseek 系 spec 10ファイル + `src/server/routes/apiv3/personal-setting/attendance-status.spec.ts`（3引数期待。タスク3.2で attendance-status を触るとき注意）。タスク完了判定は「このベースラインを超える新規エラーが無いこと」。
 - parse-club-events は設計の `client/utils/` ではなく `features/home/utils/` に配置（サーバー attendance-reminder.ts からも import するため）。
 - UserUISettings の更新許可リスト（route の validator + updateData）はタスク1.3 ではなく 2.3 の担当に分離済み。1.3 はスキーマ＋interface のみ。
+- タスク2.6: 要件5.2 の「リスト系ウィジェットの表示件数」オプションは未実装（設定型 `HomeWidgetsSiteConfig` に件数フィールドが無く、追加すると 1.1/1.2/2.2/2.4/3.3/3.5 に波及するため延期）。ウィジェット側の `MAX_ITEMS` 定数が現状の件数上限。最終検証で 5.2 の既知の部分未達として扱う。

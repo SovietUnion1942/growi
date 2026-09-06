@@ -10,6 +10,7 @@ import { withUnstatedContainers } from '../../UnstatedUtils';
 import CustomizeCssSetting from './CustomizeCssSetting';
 import CustomizeFunctionSetting from './CustomizeFunctionSetting';
 import CustomizeHomeNoticeSetting from './CustomizeHomeNoticeSetting';
+import CustomizeHomeWidgetsSetting from './CustomizeHomeWidgetsSetting';
 import CustomizeLayoutSetting from './CustomizeLayoutSetting';
 import CustomizeLogoSetting from './CustomizeLogoSetting';
 import CustomizeNoscriptSetting from './CustomizeNoscriptSetting';
@@ -72,6 +73,9 @@ function Customize(props) {
       </div>
       <div className="mb-5">
         <CustomizeHomeNoticeSetting />
+      </div>
+      <div className="mb-5">
+        <CustomizeHomeWidgetsSetting />
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import { BasicLayout } from '~/components/Layout/BasicLayout';
 import { GroundGlassBar } from '~/components/Navbar/GroundGlassBar';
 import { HomeContent } from '~/features/home';
 import { getServerSideHomeNoticeProps } from '~/features/home/server/get-home-notice';
+import type { HomeWidgetsConfigProps } from '~/features/home/server/get-home-widgets-config';
+import { getServerSideHomeWidgetsProps } from '~/features/home/server/get-home-widgets-config';
 
 import type { NextPageWithLayout } from '../_app.page';
 import type { BasicLayoutConfigurationProps } from '../basic-layout-page';
@@ -34,7 +36,8 @@ type Props = CommonInitialProps &
   CommonEachProps &
   BasicLayoutConfigurationProps &
   ServerConfigurationProps &
-  RendererConfigProps & { noticeMarkdown: string | null };
+  RendererConfigProps &
+  HomeWidgetsConfigProps & { noticeMarkdown: string | null };
 
 const HomePage: NextPageWithLayout<Props> = (props: Props) => {
   const { t } = useTranslation();
@@ -88,6 +91,7 @@ export const getServerSideProps: GetServerSideProps = async (
     rendererConfig,
     i18nProps,
     homeNotice,
+    homeWidgets,
   ] = await Promise.all([
     getServerSideCommonInitialProps(context),
     getServerSideCommonEachProps(context),
@@ -96,6 +100,7 @@ export const getServerSideProps: GetServerSideProps = async (
     getServerSideRendererConfigProps(context),
     getServerSideI18nProps(context, ['translation', 'commons']),
     getServerSideHomeNoticeProps(context),
+    getServerSideHomeWidgetsProps(context),
   ]);
 
   return mergeGetServerSidePropsResults(
@@ -108,7 +113,10 @@ export const getServerSideProps: GetServerSideProps = async (
           generalPage,
           mergeGetServerSidePropsResults(
             rendererConfig,
-            mergeGetServerSidePropsResults(i18nProps, homeNotice),
+            mergeGetServerSidePropsResults(
+              i18nProps,
+              mergeGetServerSidePropsResults(homeNotice, homeWidgets),
+            ),
           ),
         ),
       ),

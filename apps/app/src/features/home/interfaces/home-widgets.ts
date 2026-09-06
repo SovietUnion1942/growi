@@ -55,6 +55,16 @@ export type HomeWidgetPreferences = Partial<
 export type HomeWidgetsSiteConfig = HomeWidgetPreferences;
 
 /**
+ * One admin-maintained pinned page: the target wiki path and an optional
+ * display label. When `label` is omitted the page title is shown instead.
+ * The pinned-pages widget renders entries in array order.
+ */
+export interface PinnedPageEntry {
+  path: string;
+  label?: string;
+}
+
+/**
  * One entry of the resolved layout: a visible widget, ready to render, in its
  * resolved position. `visible`/`order` are already applied and dropped.
  */

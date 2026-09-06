@@ -1287,7 +1287,9 @@
       "bookmarks_heading": "ブックマーク",
       "bookmarks_empty": "ブックマークされたページはありません",
       "wip_pages_heading": "書きかけのページ",
-      "wip_pages_empty": "書きかけのページはありません"
+      "wip_pages_empty": "書きかけのページはありません",
+      "classroom_posts_heading": "Classroom の最新投稿",
+      "classroom_posts_empty": "Classroom の投稿はまだありません"
     }
   }
 }

@@ -1247,7 +1247,9 @@
       "bookmarks_heading": "Bookmarks",
       "bookmarks_empty": "No bookmarked pages",
       "wip_pages_heading": "Work in Progress",
-      "wip_pages_empty": "No work-in-progress pages"
+      "wip_pages_empty": "No work-in-progress pages",
+      "classroom_posts_heading": "Latest Classroom Posts",
+      "classroom_posts_empty": "No Classroom posts yet"
     }
   }
 }

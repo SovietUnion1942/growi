@@ -7,6 +7,10 @@ import type {
 import { defineConfig, toNonBlankString } from '@growi/core/dist/interfaces';
 
 import type {
+  HomeWidgetsSiteConfig,
+  PinnedPageEntry,
+} from '~/features/home/interfaces/home-widgets';
+import type {
   AllowedModel,
   ModelProviderOptions,
 } from '~/features/mastra/interfaces/allowed-model';
@@ -274,6 +278,9 @@ export const CONFIG_KEYS = [
   'customize:showPageSideAuthors',
   'customize:isEnabledMarp',
   'customize:isSidebarCollapsedMode',
+  'customize:homeWidgets',
+  'customize:homePinnedPages',
+  'customize:homeClassroomPathPrefix',
 
   // Markdown Settings
   'markdown:xss:tagWhitelist',
@@ -1300,6 +1307,17 @@ export const CONFIG_DEFINITIONS = {
   }),
   'customize:isSidebarCollapsedMode': defineConfig<boolean>({
     defaultValue: false,
+  }),
+  // Site-common /home widget settings (home-page-v3). Admin-screen only: no
+  // env-var fallback, same as customize:homeNotice / customize:noscript.
+  'customize:homeWidgets': defineConfig<HomeWidgetsSiteConfig>({
+    defaultValue: {},
+  }),
+  'customize:homePinnedPages': defineConfig<PinnedPageEntry[]>({
+    defaultValue: [],
+  }),
+  'customize:homeClassroomPathPrefix': defineConfig<string | undefined>({
+    defaultValue: undefined,
   }),
   // Markdown Settings
   'markdown:xss:tagWhitelist': defineConfig<string[]>({

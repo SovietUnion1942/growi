@@ -118,6 +118,48 @@ describe('PUT /user-ui-settings handler', () => {
     );
   });
 
+  it('persists homeWidgetPreferences into the $set, scoped to the requesting user (Req 6.2)', async () => {
+    const prefs = {
+      search: { visible: false },
+      homeFeed: { order: 3 },
+    };
+    const { req, res, user } = buildReqRes({ homeWidgetPreferences: prefs });
+
+    // biome-ignore lint/suspicious/noExplicitAny: invoking the express handler with mocked req/res
+    await getHandler()(req as any, res as any, vi.fn());
+
+    expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
+    const [filter, update] = findOneAndUpdate.mock.calls[0];
+    // per-user, not global: the write targets only this user's document
+    expect(filter).toEqual({ user: user._id });
+    expect(update.$set).toEqual(
+      expect.objectContaining({ homeWidgetPreferences: prefs }),
+    );
+  });
+
+  it('forwards an empty homeWidgetPreferences map (reset to initial state, Req 6.4)', async () => {
+    const { req, res } = buildReqRes({ homeWidgetPreferences: {} });
+
+    // biome-ignore lint/suspicious/noExplicitAny: invoking the express handler with mocked req/res
+    await getHandler()(req as any, res as any, vi.fn());
+
+    const update = findOneAndUpdate.mock.calls[0][1];
+    // `{}` is not `== null`, so it survives the null-strip and wholesale-replaces
+    // the stored map, restoring the "follow site config" default.
+    expect(update.$set).toHaveProperty('homeWidgetPreferences');
+    expect(update.$set.homeWidgetPreferences).toEqual({});
+  });
+
+  it('does NOT write homeWidgetPreferences when it is omitted (no accidental clear)', async () => {
+    const { req, res } = buildReqRes({ currentSidebarContents: 'recent' });
+
+    // biome-ignore lint/suspicious/noExplicitAny: invoking the express handler with mocked req/res
+    await getHandler()(req as any, res as any, vi.fn());
+
+    const update = findOneAndUpdate.mock.calls[0][1];
+    expect(update.$set).not.toHaveProperty('homeWidgetPreferences');
+  });
+
   it('persists aiChatSelectedModelKey for logged-out users into the session', async () => {
     const { req, res } = buildReqRes({ aiChatSelectedModelKey: 'openai/o3' });
     // logged-out: no user; the handler writes into req.session.uiSettings instead
@@ -181,6 +223,48 @@ describe('validatorForPutUserUISettings', () => {
         currentSidebarContents: 'recent',
       });
       expect(hasErrors).toBe(false);
+    });
+  });
+
+  describe('homeWidgetPreferences', () => {
+    it('accepts a partial widget preference map', async () => {
+      const { hasErrors } = await runPutValidators({
+        homeWidgetPreferences: {
+          search: { visible: false },
+          homeFeed: { order: 3 },
+        },
+      });
+      expect(hasErrors).toBe(false);
+    });
+
+    it('accepts an empty map (reset case)', async () => {
+      const { hasErrors } = await runPutValidators({
+        homeWidgetPreferences: {},
+      });
+      expect(hasErrors).toBe(false);
+    });
+
+    it('accepts an omitted homeWidgetPreferences (optional)', async () => {
+      const { hasErrors } = await runPutValidators({
+        currentSidebarContents: 'recent',
+      });
+      expect(hasErrors).toBe(false);
+    });
+
+    it('rejects a non-object homeWidgetPreferences (string)', async () => {
+      const { hasErrors, failedFields } = await runPutValidators({
+        homeWidgetPreferences: 'nope',
+      });
+      expect(hasErrors).toBe(true);
+      expect(failedFields).toContain('settings.homeWidgetPreferences');
+    });
+
+    it('rejects an array homeWidgetPreferences', async () => {
+      const { hasErrors, failedFields } = await runPutValidators({
+        homeWidgetPreferences: [{ visible: false }],
+      });
+      expect(hasErrors).toBe(true);
+      expect(failedFields).toContain('settings.homeWidgetPreferences');
     });
   });
 });

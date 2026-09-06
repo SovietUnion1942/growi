@@ -1173,6 +1173,10 @@
       "size": "Size",
       "partial_hint": "Only the entries loaded so far are sorted. Scroll to the bottom to load the whole folder."
     },
+    "usage": {
+      "label": "Storage",
+      "summary": "{{used}} / {{total}} used ({{percent}}%, {{free}} free)"
+    },
     "breadcrumb_root": "Root",
     "new_folder": "New folder",
     "upload_button": "Upload",
@@ -1220,7 +1224,7 @@
       "invalid_name_dots": "\".\" and \"..\" cannot be used as a file name.",
       "invalid_name_separator": "A file name cannot contain path separators.",
       "invalid_name_length": "The file name is too long.",
-      "size_hint": "Up to 100 MB per file (limited by the reverse proxy / CDN)."
+      "size_hint": "Large files are uploaded in chunks automatically."
     },
     "preview": {
       "action": "Preview",

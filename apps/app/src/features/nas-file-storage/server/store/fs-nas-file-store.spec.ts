@@ -254,6 +254,20 @@ describe('FsNasFileStore', () => {
     });
   });
 
+  describe('statfs', () => {
+    test('reports the backing volume capacity with used = total - free', async () => {
+      const res = await store.statfs();
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      const { totalBytes, freeBytes, usedBytes } = res.value;
+      expect(totalBytes).toBeGreaterThan(0);
+      expect(freeBytes).toBeGreaterThanOrEqual(0);
+      expect(freeBytes).toBeLessThanOrEqual(totalBytes);
+      expect(usedBytes).toBe(Math.max(0, totalBytes - freeBytes));
+    });
+  });
+
   describe('openRead', () => {
     test('streams the file bytes without reading it all into memory', async () => {
       await writeFile(path.join(root, 'payload.bin'), 'the-bytes');

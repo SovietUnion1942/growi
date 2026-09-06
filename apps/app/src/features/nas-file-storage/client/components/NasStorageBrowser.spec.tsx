@@ -47,6 +47,16 @@ vi.mock('next-i18next', () => ({
   }),
 }));
 
+const usageReload = vi.fn().mockResolvedValue(undefined);
+vi.mock('../hooks/use-nas-storage-usage', () => ({
+  useNasStorageUsage: () => ({
+    usage: undefined,
+    isLoading: false,
+    error: undefined,
+    reload: usageReload,
+  }),
+}));
+
 // NasPreviewModal (loaded via next/dynamic) pulls in the shared axios instance
 // at module load; stub it so importing the modal never touches the network.
 vi.mock('~/utils/axios', () => ({

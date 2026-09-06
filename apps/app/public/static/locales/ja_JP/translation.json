@@ -1213,6 +1213,10 @@
       "size": "サイズ",
       "partial_hint": "現在読み込み済みの項目だけを並び替えています。フォルダ全体を並び替えるには一番下までスクロールしてください。"
     },
+    "usage": {
+      "label": "ストレージ",
+      "summary": "{{used}} / {{total}} 使用（{{percent}}%、残り {{free}}）"
+    },
     "breadcrumb_root": "ルート",
     "new_folder": "新しいフォルダ",
     "upload_button": "アップロード",
@@ -1260,7 +1264,7 @@
       "invalid_name_dots": "「.」および「..」はファイル名として使用できません。",
       "invalid_name_separator": "ファイル名にパス区切り文字は使用できません。",
       "invalid_name_length": "ファイル名が長すぎます。",
-      "size_hint": "1ファイルあたり最大100MBまで（リバースプロキシ／CDN の制限による）。"
+      "size_hint": "大きいファイルは自動的に分割してアップロードされます。"
     },
     "preview": {
       "action": "プレビュー",

@@ -10,11 +10,13 @@ import { useNasConfirm } from '../hooks/use-nas-confirm';
 import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
 import { useNasList } from '../hooks/use-nas-list';
 import { useNasPreview } from '../hooks/use-nas-preview';
+import { useNasStorageUsage } from '../hooks/use-nas-storage-usage';
 import type { NasSortDir, NasSortKey } from '../util/nas-entry-sort';
 import { sortNasEntries } from '../util/nas-entry-sort';
 import { NasConfirmDialog } from './NasConfirmDialog';
 import { NasEntryRow } from './NasEntryRow';
 import { NasSortControl } from './NasSortControl';
+import { NasStorageUsageBar } from './NasStorageUsageBar';
 import { NasUploadDropzone } from './NasUploadDropzone';
 
 // The preview modal pulls in reactstrap's Modal and an axios text fetch; it is
@@ -69,6 +71,7 @@ export const NasStorageBrowser = ({
   const [currentPath, setCurrentPath] = useState(initialPath);
   const { entries, loadMore, hasMore, isLoading, error, reload } =
     useNasList(currentPath);
+  const { usage, reload: reloadUsage } = useNasStorageUsage();
 
   const segments = toSegments(currentPath);
 
@@ -152,12 +155,13 @@ export const NasStorageBrowser = ({
           entry.type === 'directory',
         );
         await reload();
+        void reloadUsage();
         setActionError(null);
       } catch (err) {
         setActionError(extractNasErrorMessage(err));
       }
     },
-    [confirm, actions, entryPathOf, reload, t],
+    [confirm, actions, entryPathOf, reload, reloadUsage, t],
   );
 
   // Move without overwrite first; a CONFLICT is the only case that needs the
@@ -462,6 +466,8 @@ export const NasStorageBrowser = ({
         </div>
       </div>
 
+      <NasStorageUsageBar usage={usage} />
+
       {actionError != null && (
         <div
           className="alert alert-danger d-flex align-items-center justify-content-between py-2 mb-2"
@@ -514,6 +520,7 @@ export const NasStorageBrowser = ({
             currentDirPath={currentPath}
             onUploaded={() => {
               void reload();
+              void reloadUsage();
             }}
           />
         </div>

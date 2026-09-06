@@ -33,6 +33,12 @@ export const validatorForPutUserUISettings = [
     .optional()
     .isString()
     .isLength({ max: MAX_MODEL_KEY_LENGTH }),
+  // Per-user partial widget layout map ({ [widgetKey]: { visible?, order? } }).
+  // The client's scheduleToPut does a shallow merge, so a partial change still
+  // sends the WHOLE map; an empty object means "reset to site defaults". We only
+  // shape-check that it is an object here — the Mongoose sub-schema strips unknown
+  // widget keys and the layout resolver is fail-safe against malformed entries.
+  body('settings.homeWidgetPreferences').optional().isObject(),
 ];
 
 export const setup = (): Router => {
@@ -64,6 +70,8 @@ export const setup = (): Router => {
    *                     type: boolean
    *                   aiChatSelectedModelKey:
    *                     type: string
+   *                   homeWidgetPreferences:
+   *                     type: object
    *     responses:
    *       200:
    *         description: The user's UI settings
@@ -99,6 +107,7 @@ export const setup = (): Router => {
         currentProductNavWidth: settings.currentProductNavWidth,
         preferCollapsedModeByUser: settings.preferCollapsedModeByUser,
         aiChatSelectedModelKey: settings.aiChatSelectedModelKey,
+        homeWidgetPreferences: settings.homeWidgetPreferences,
       };
 
       if (user == null) {

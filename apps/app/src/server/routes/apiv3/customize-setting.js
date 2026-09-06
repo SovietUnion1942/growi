@@ -248,6 +248,22 @@ export const setup = (crowi) => {
     customizeCss: [body('customizeCss').isString()],
     customizeNoscript: [body('customizeNoscript').isString()],
     customizeHomeNotice: [body('customizeHomeNotice').isString()],
+    // Site-common /home widget settings (home-page-v3). Light validation only:
+    // the effective-layout resolver is fail-safe on malformed content and the
+    // admin form builds the payload.
+    homeWidgets: [
+      body('homeWidgets').isObject(),
+      body('homeWidgets.*').isObject(),
+      body('homeWidgets.*.visible').optional().isBoolean(),
+      body('homeWidgets.*.order').optional().isNumeric(),
+      body('homePinnedPages').isArray({ max: 100 }),
+      body('homePinnedPages.*.path').isString().notEmpty().matches(/^\//),
+      body('homePinnedPages.*.label').optional().isString(),
+      body('homeClassroomPathPrefix')
+        .optional({ nullable: true })
+        .isString()
+        .matches(/^\//),
+    ],
     logo: [
       body('isDefaultLogo').isBoolean().optional({ nullable: true }),
       body('customizedLogoSrc').isString().optional({ nullable: true }),
@@ -324,6 +340,13 @@ export const setup = (crowi) => {
         customizeNoscript: await configManager.getConfig('customize:noscript'),
         customizeHomeNotice: await configManager.getConfig(
           'customize:homeNotice',
+        ),
+        homeWidgets: await configManager.getConfig('customize:homeWidgets'),
+        homePinnedPages: await configManager.getConfig(
+          'customize:homePinnedPages',
+        ),
+        homeClassroomPathPrefix: await configManager.getConfig(
+          'customize:homeClassroomPathPrefix',
         ),
       };
 
@@ -1043,6 +1066,105 @@ export const setup = (crowi) => {
         return res.apiv3Err(
           new ErrorV3(msg, 'update-customizeHomeNotice-failed'),
         );
+      }
+    },
+  );
+
+  /**
+   * @swagger
+   *
+   *    /customize-setting/home-widgets:
+   *      put:
+   *        tags: [CustomizeSetting]
+   *        security:
+   *          - cookieAuth: []
+   *        summary: /customize-setting/home-widgets
+   *        description: Update the site-common /home widget settings (visibility/order map, pinned pages, Classroom source path) in one request
+   *        requestBody:
+   *          required: true
+   *          content:
+   *            application/json:
+   *              schema:
+   *                type: object
+   *                properties:
+   *                  homeWidgets:
+   *                    type: object
+   *                    description: Per-widget visibility/order override map
+   *                  homePinnedPages:
+   *                    type: array
+   *                    description: Admin-maintained pinned pages, in display order
+   *                    items:
+   *                      type: object
+   *                      properties:
+   *                        path:
+   *                          type: string
+   *                        label:
+   *                          type: string
+   *                  homeClassroomPathPrefix:
+   *                    type: string
+   *                    nullable: true
+   *                    description: Source path prefix for the Classroom widget; null to unset
+   *        responses:
+   *          200:
+   *            description: Succeeded to update home widget settings
+   *            content:
+   *              application/json:
+   *                schema:
+   *                  type: object
+   *                  properties:
+   *                    customizedParams:
+   *                      type: object
+   *                      properties:
+   *                        homeWidgets:
+   *                          type: object
+   *                        homePinnedPages:
+   *                          type: array
+   *                          items:
+   *                            type: object
+   *                        homeClassroomPathPrefix:
+   *                          type: string
+   *                          nullable: true
+   */
+  router.put(
+    '/home-widgets',
+    accessTokenParser([SCOPE.WRITE.ADMIN.CUSTOMIZE]),
+    loginRequiredStrictly,
+    adminRequired,
+    // addActivity before the validators: an admin's validation failure is
+    // audited as ACTION_UNSETTLED (see apps/app/.claude/rules/activity-recording.md).
+    addActivity,
+    validator.homeWidgets,
+    apiV3FormValidator,
+    async (req, res) => {
+      const requestParams = {
+        'customize:homeWidgets': req.body.homeWidgets,
+        'customize:homePinnedPages': req.body.homePinnedPages,
+        'customize:homeClassroomPathPrefix':
+          req.body.homeClassroomPathPrefix ?? undefined,
+      };
+      try {
+        // removeIfUndefined: a null/absent Classroom path prefix means "unset"
+        await configManager.updateConfigs(requestParams, {
+          removeIfUndefined: true,
+        });
+        const customizedParams = {
+          homeWidgets: await configManager.getConfig('customize:homeWidgets'),
+          homePinnedPages: await configManager.getConfig(
+            'customize:homePinnedPages',
+          ),
+          homeClassroomPathPrefix: await configManager.getConfig(
+            'customize:homeClassroomPathPrefix',
+          ),
+        };
+        // emit before res.apiv3() — see apps/app/.claude/rules/activity-recording.md
+        activityEvent.emit('update', res.locals.activity._id, {
+          action: SupportedAction.ACTION_ADMIN_HOME_WIDGETS_UPDATE,
+        });
+        return res.apiv3({ customizedParams });
+      } catch (err) {
+        const msg = 'Error occurred in updating home widgets settings';
+        logger.error('Error', err);
+        return res.apiv3Err(new ErrorV3(msg, 'update-home-widgets-failed'));
       }
     },
   );

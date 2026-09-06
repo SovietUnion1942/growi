@@ -70,3 +70,116 @@ describe('AdminCustomizeContainer - home notice', () => {
     expect(container.state.currentCustomizeHomeNotice).toBe('unsaved notice');
   });
 });
+
+describe('AdminCustomizeContainer - site-common home widgets', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('exposes the 3 site-common home widget settings fetched from GET /customize-setting/', async () => {
+    mockedApiv3Get.mockResolvedValue({
+      data: {
+        customizeParams: {
+          homeWidgets: { search: { visible: false } },
+          homePinnedPages: [{ path: '/x' }],
+          homeClassroomPathPrefix: '/cr',
+        },
+      },
+    });
+
+    const container = new AdminCustomizeContainer();
+    await container.retrieveCustomizeData();
+
+    expect(container.state.currentHomeWidgets).toEqual({
+      search: { visible: false },
+    });
+    expect(container.state.currentHomePinnedPages).toEqual([{ path: '/x' }]);
+    expect(container.state.currentHomeClassroomPathPrefix).toBe('/cr');
+  });
+
+  it('falls back to empty defaults when the 3 keys are absent from the response', async () => {
+    mockedApiv3Get.mockResolvedValue({
+      data: {
+        customizeParams: {},
+      },
+    });
+
+    const container = new AdminCustomizeContainer();
+    await container.retrieveCustomizeData();
+
+    expect(container.state.currentHomeWidgets).toEqual({});
+    expect(container.state.currentHomePinnedPages).toEqual([]);
+    expect(container.state.currentHomeClassroomPathPrefix).toBeNull();
+  });
+
+  it('changeHomeWidgetsSettings updates only the provided state field', async () => {
+    const container = new AdminCustomizeContainer();
+    await container.setState({
+      currentHomeWidgets: { search: { visible: true } },
+      currentHomePinnedPages: [],
+      currentHomeClassroomPathPrefix: null,
+    });
+
+    container.changeHomeWidgetsSettings({ homePinnedPages: [{ path: '/a' }] });
+    await Promise.resolve();
+
+    expect(container.state.currentHomePinnedPages).toEqual([{ path: '/a' }]);
+    expect(container.state.currentHomeWidgets).toEqual({
+      search: { visible: true },
+    });
+    expect(container.state.currentHomeClassroomPathPrefix).toBeNull();
+  });
+
+  it('saves the 3 values together via PUT /customize-setting/home-widgets and reflects the response', async () => {
+    mockedApiv3Put.mockResolvedValue({
+      data: {
+        customizedParams: {
+          homeWidgets: { search: { visible: false } },
+          homePinnedPages: [{ path: '/saved' }],
+          homeClassroomPathPrefix: '/classroom',
+        },
+      },
+    });
+
+    const container = new AdminCustomizeContainer();
+    await container.setState({
+      currentHomeWidgets: { search: { visible: false } },
+      currentHomePinnedPages: [{ path: '/saved' }],
+      currentHomeClassroomPathPrefix: '/classroom',
+    });
+
+    await container.updateHomeWidgets();
+
+    expect(mockedApiv3Put).toHaveBeenCalledWith(
+      '/customize-setting/home-widgets',
+      {
+        homeWidgets: { search: { visible: false } },
+        homePinnedPages: [{ path: '/saved' }],
+        homeClassroomPathPrefix: '/classroom',
+      },
+    );
+    expect(container.state.currentHomeWidgets).toEqual({
+      search: { visible: false },
+    });
+    expect(container.state.currentHomePinnedPages).toEqual([
+      { path: '/saved' },
+    ]);
+    expect(container.state.currentHomeClassroomPathPrefix).toBe('/classroom');
+  });
+
+  it('rethrows and logs on updateHomeWidgets failure without corrupting local state', async () => {
+    mockedApiv3Put.mockRejectedValue(new Error('network error'));
+
+    const container = new AdminCustomizeContainer();
+    await container.setState({
+      currentHomePinnedPages: [{ path: '/unsaved' }],
+    });
+
+    await expect(container.updateHomeWidgets()).rejects.toThrow(
+      'Failed to update data',
+    );
+    expect(container.state.currentHomePinnedPages).toEqual([
+      { path: '/unsaved' },
+    ]);
+  });
+});

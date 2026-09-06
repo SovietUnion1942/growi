@@ -138,3 +138,42 @@
   padding-left: 0.75rem;
   border-left: 2px solid var(--grw-glass-border);
 }
+
+// --- Home page: system-requirements table -----------------------------
+// `SystemRequirementsTable` is a plain Bootstrap `.table.table-bordered`
+// outside `.wiki`, so the body rules do not reach it. Give it the same
+// rounded hairline frame + tinted header as the wiki tables.
+:root[data-grw-ui='modern'] [data-testid='home-page'] table {
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--grw-radius-md);
+}
+
+:root[data-grw-ui='modern'] [data-testid='home-page'] table :is(th, td) {
+  border: 0 !important;
+  border-bottom: 1px solid var(--bs-border-color) !important;
+}
+
+:root[data-grw-ui='modern'] [data-testid='home-page'] table thead th {
+  background-color: var(--bs-tertiary-bg);
+  border-bottom-width: 2px !important;
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='home-page']
+  table
+  tbody
+  tr:last-child
+  > * {
+  border-bottom: 0 !important;
+}
+
+:root[data-grw-ui='modern']
+  [data-testid='home-page']
+  table
+  tr.table-active
+  > * {
+  background-color: rgba(var(--grw-accent-rgb), 0.1);
+}

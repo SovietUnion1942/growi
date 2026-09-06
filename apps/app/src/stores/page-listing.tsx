@@ -20,7 +20,7 @@ import useSWRInfinite, { unstable_serialize } from 'swr/infinite';
 import type { IPageForTreeItem } from '~/interfaces/page';
 import type { IPagingResult } from '~/interfaces/paging-result';
 
-import { apiv3Get } from '../client/util/apiv3-client';
+import { apiv3Get, apiv3Post } from '../client/util/apiv3-client';
 import type {
   ChildrenResult,
   RootPageResult,
@@ -261,6 +261,54 @@ export const useSWRxMyWipPages = (
       apiv3Get<{ pages: IPageForTreeItem[] }>(endpoint).then(
         (response) => response.data.pages,
       ),
+    config,
+  );
+};
+
+/**
+ * Recent pages located under a given path prefix.
+ * GET `/page-listing/recent-under-path?prefix=&limit=` → `response.data.pages`.
+ * The server returns viewer-permission-filtered pages ordered by update time
+ * (newest first), capped at `limit` (default 20 / max 50).
+ * Pass `prefix == null` to keep the hook idle (no request). Callers that want
+ * the server default prefix should pass a concrete string, not null.
+ * Uses a revalidating `useSWR` so pages created under the prefix appear on refocus.
+ */
+export const useSWRxRecentPagesUnderPath = (
+  prefix: string | null | undefined,
+  limit?: number,
+  config?: SWRConfiguration,
+): SWRResponse<IPageForTreeItem[], Error> => {
+  return useSWR(
+    prefix != null ? ['/page-listing/recent-under-path', prefix, limit] : null,
+    ([endpoint, prefix, limit]) =>
+      apiv3Get<{ pages: IPageForTreeItem[] }>(endpoint, { prefix, limit }).then(
+        (response) => response.data.pages,
+      ),
+    config,
+  );
+};
+
+/**
+ * Resolve a set of page paths to page objects.
+ * POST `/page-listing/resolve-paths` with `{ paths }` → `response.data.pages`.
+ * The result preserves the input order; paths that are missing or that the
+ * viewer cannot read are dropped from the result. Max 100 paths.
+ * An empty / null `paths` keeps the hook idle (no request). The SWR key is
+ * derived from the serialized paths so the same ordered set reuses the cache.
+ */
+export const useSWRxResolvePaths = (
+  paths: string[] | null | undefined,
+  config?: SWRConfiguration,
+): SWRResponse<IPageForTreeItem[], Error> => {
+  return useSWR(
+    paths != null && paths.length > 0
+      ? ['/page-listing/resolve-paths', JSON.stringify(paths)]
+      : null,
+    () =>
+      apiv3Post<{ pages: IPageForTreeItem[] }>('/page-listing/resolve-paths', {
+        paths,
+      }).then((response) => response.data.pages),
     config,
   );
 };

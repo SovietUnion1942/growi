@@ -40,6 +40,10 @@ export default class AdminCustomizeContainer extends Container {
       currentCustomizeCss: '',
       currentCustomizeScript: '',
       showPageSideAuthors: false,
+
+      currentHomeWidgets: {},
+      currentHomePinnedPages: [],
+      currentHomeClassroomPathPrefix: null,
     };
     this.switchPageListLimitationS = this.switchPageListLimitationS.bind(this);
     this.switchPageListLimitationM = this.switchPageListLimitationM.bind(this);
@@ -82,6 +86,10 @@ export default class AdminCustomizeContainer extends Container {
         currentCustomizeCss: customizeParams.customizeCss,
         currentCustomizeScript: customizeParams.customizeScript,
         showPageSideAuthors: customizeParams.showPageSideAuthors,
+        currentHomeWidgets: customizeParams.homeWidgets ?? {},
+        currentHomePinnedPages: customizeParams.homePinnedPages ?? [],
+        currentHomeClassroomPathPrefix:
+          customizeParams.homeClassroomPathPrefix ?? null,
       });
     } catch (err) {
       this.setState({ retrieveError: err });
@@ -203,6 +211,24 @@ export default class AdminCustomizeContainer extends Container {
   }
 
   /**
+   * Change site-common home widget settings.
+   * The structured editor holds its editing state locally and calls this once
+   * at save time with any subset of the 3 values.
+   * @param {{ homeWidgets?: object, homePinnedPages?: Array, homeClassroomPathPrefix?: (string|null) }} partial
+   */
+  changeHomeWidgetsSettings(partial = {}) {
+    this.setState((prevState) => ({
+      currentHomeWidgets: partial.homeWidgets ?? prevState.currentHomeWidgets,
+      currentHomePinnedPages:
+        partial.homePinnedPages ?? prevState.currentHomePinnedPages,
+      currentHomeClassroomPathPrefix:
+        partial.homeClassroomPathPrefix !== undefined
+          ? partial.homeClassroomPathPrefix
+          : prevState.currentHomeClassroomPathPrefix,
+    }));
+  }
+
+  /**
    * Switch showPageSideAuthors
    */
   switchShowPageSideAuthors() {
@@ -316,6 +342,30 @@ export default class AdminCustomizeContainer extends Container {
       const { customizedParams } = response.data;
       this.setState({
         currentCustomizeHomeNotice: customizedParams.customizeHomeNotice,
+      });
+    } catch (err) {
+      logger.error(err);
+      throw new Error('Failed to update data');
+    }
+  }
+
+  /**
+   * Update site-common home widget settings (3 values sent together)
+   * @memberOf AdminCustomizeContainer
+   */
+  async updateHomeWidgets() {
+    try {
+      const response = await apiv3Put('/customize-setting/home-widgets', {
+        homeWidgets: this.state.currentHomeWidgets,
+        homePinnedPages: this.state.currentHomePinnedPages,
+        homeClassroomPathPrefix: this.state.currentHomeClassroomPathPrefix,
+      });
+      const { customizedParams } = response.data;
+      this.setState({
+        currentHomeWidgets: customizedParams.homeWidgets ?? {},
+        currentHomePinnedPages: customizedParams.homePinnedPages ?? [],
+        currentHomeClassroomPathPrefix:
+          customizedParams.homeClassroomPathPrefix ?? null,
       });
     } catch (err) {
       logger.error(err);

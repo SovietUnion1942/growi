@@ -1,9 +1,9 @@
 {
   "feature_name": "home-page-v3",
   "created_at": "2026-09-06T04:39:19Z",
-  "updated_at": "2026-09-06T05:15:00Z",
+  "updated_at": "2026-09-06T05:40:00Z",
   "language": "ja",
-  "phase": "design-generated",
+  "phase": "tasks-generated",
   "approvals": {
     "requirements": {
       "generated": true,
@@ -11,10 +11,10 @@
     },
     "design": {
       "generated": true,
-      "approved": false
+      "approved": true
     },
     "tasks": {
-      "generated": false,
+      "generated": true,
       "approved": false
     }
   },

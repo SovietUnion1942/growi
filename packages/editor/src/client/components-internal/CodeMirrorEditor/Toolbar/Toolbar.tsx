@@ -32,7 +32,9 @@ export const Toolbar = memo((props: Props): JSX.Element => {
   return (
     <>
       <div
-        className={`d-flex gap-2 py-1 px-2 px-md-3 border-top ${styles['codemirror-editor-toolbar']} align-items-center`}
+        // `grw-editor-toolbar`: stable hook for host-app skins (the module
+        // class is hashed). Mirrors the `btn-toolbar-button` convention.
+        className={`grw-editor-toolbar d-flex gap-2 py-1 px-2 px-md-3 border-top ${styles['codemirror-editor-toolbar']} align-items-center`}
       >
         <AttachmentsDropup
           editorKey={editorKey}

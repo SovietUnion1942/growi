@@ -126,3 +126,15 @@
   --bs-btn-color: var(--grw-accent);
   --bs-btn-hover-color: var(--grw-accent);
 }
+
+// --- Markdown toolbar strip ----------------------------------------
+// The CodeMirror toolbar (`grw-editor-toolbar`, a stable hook added in
+// @growi/editor) sits on a flat tinted bar. Give it the same chrome
+// treatment as the bottom navbar -- defined ground + hairline + inner
+// sheen line -- so the editor reads as one framed surface top and bottom.
+:root[data-grw-ui='modern'] .grw-editor-toolbar {
+  background-color: var(--bs-body-bg);
+  background-image: var(--grw-glass-sheen);
+  border-top-color: var(--bs-border-color) !important;
+  box-shadow: var(--grw-glass-inner-hi);
+}

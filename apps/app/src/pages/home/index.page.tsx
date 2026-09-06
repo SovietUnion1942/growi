@@ -54,6 +54,10 @@ const HomePage: NextPageWithLayout<Props> = (props: Props) => {
           <HomeContent
             appTitle={props.appTitle}
             noticeMarkdown={props.noticeMarkdown}
+            homeWidgetsSiteConfig={props.homeWidgetsSiteConfig}
+            homePinnedPages={props.homePinnedPages}
+            homeClassroomPathPrefix={props.homeClassroomPathPrefix}
+            homeWidgetPreferences={props.userUISettings?.homeWidgetPreferences}
           />
         </div>
       </div>

@@ -1,0 +1,83 @@
+// Rendered-markdown body treatment for the modern skin. Scoped to `.wiki`
+// so it only touches page / comment / notification body content, never the
+// editor or chrome. Callout / table / code hooks are stable global classes
+// (features/callout, ReactMarkdownComponents/CodeBlock).
+
+// --- Callouts (:::note / :::tip / ... admonitions) ------------------
+// The base style is a bare left rule with no fill. Give each a soft tint of
+// its own accent + rounded corners so it reads as a modern admonition card.
+:root[data-grw-ui='modern'] .wiki .callout {
+  padding: 0.85rem 1rem;
+  border-left-width: 4px;
+  border-radius: var(--grw-radius-md);
+}
+
+:root[data-grw-ui='modern'] .wiki .callout-note {
+  background-color: color-mix(in srgb, var(--callout-accent-note) 7%, var(--bs-body-bg));
+}
+
+:root[data-grw-ui='modern'] .wiki .callout-tip {
+  background-color: color-mix(in srgb, var(--callout-accent-tip) 7%, var(--bs-body-bg));
+}
+
+:root[data-grw-ui='modern'] .wiki .callout-warning {
+  background-color: color-mix(in srgb, var(--callout-accent-warning) 8%, var(--bs-body-bg));
+}
+
+:root[data-grw-ui='modern'] .wiki .callout-caution {
+  background-color: color-mix(in srgb, var(--callout-accent-caution) 7%, var(--bs-body-bg));
+}
+
+:root[data-grw-ui='modern'] .wiki .callout-important {
+  background-color: color-mix(in srgb, var(--callout-accent-important) 7%, var(--bs-body-bg));
+}
+
+// --- Tables --------------------------------------------------------
+// Base style is font-size only. Frame the table as a rounded hairline card
+// with a tinted header row and a faint row-hover.
+:root[data-grw-ui='modern'] .wiki table {
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--grw-radius-md);
+}
+
+:root[data-grw-ui='modern'] .wiki table th,
+:root[data-grw-ui='modern'] .wiki table td {
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+:root[data-grw-ui='modern'] .wiki table thead th {
+  background-color: var(--bs-tertiary-bg);
+  border-bottom-width: 2px;
+}
+
+:root[data-grw-ui='modern'] .wiki table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+:root[data-grw-ui='modern'] .wiki table tbody tr:hover > * {
+  background-color: rgba(var(--grw-accent-rgb), 0.05);
+}
+
+// --- Code blocks --------------------------------------------------
+// LightweightCodeBlock sets border-radius via an inline style object, so the
+// override needs !important. The language chip is repositioned as a pill.
+:root[data-grw-ui='modern'] .wiki pre {
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--grw-radius-md) !important;
+}
+
+:root[data-grw-ui='modern'] .wiki .code-highlighted-title {
+  top: 0.5em;
+  padding: 1px 9px;
+  font-weight: 500;
+  color: var(--bs-body-color);
+  background: var(--grw-popover-bg);
+  border: 1px solid var(--grw-popover-border);
+  border-radius: 999px;
+  opacity: 1;
+}

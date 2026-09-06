@@ -1249,7 +1249,10 @@
       "wip_pages_heading": "Work in Progress",
       "wip_pages_empty": "No work-in-progress pages",
       "classroom_posts_heading": "Latest Classroom Posts",
-      "classroom_posts_empty": "No Classroom posts yet"
+      "classroom_posts_empty": "No Classroom posts yet",
+      "pinned_pages_heading": "Pinned Pages",
+      "pinned_pages_empty": "No pinned pages to show",
+      "pinned_pages_admin_hint": "No pinned pages are configured yet. Set them in the admin Home widget settings."
     }
   }
 }

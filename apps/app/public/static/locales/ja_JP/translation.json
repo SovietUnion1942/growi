@@ -1289,7 +1289,10 @@
       "wip_pages_heading": "書きかけのページ",
       "wip_pages_empty": "書きかけのページはありません",
       "classroom_posts_heading": "Classroom の最新投稿",
-      "classroom_posts_empty": "Classroom の投稿はまだありません"
+      "classroom_posts_empty": "Classroom の投稿はまだありません",
+      "pinned_pages_heading": "ピン留めページ",
+      "pinned_pages_empty": "表示できるピン留めページがありません",
+      "pinned_pages_admin_hint": "ピン留めページが設定されていません。管理画面のホームウィジェット設定から追加してください。"
     }
   }
 }

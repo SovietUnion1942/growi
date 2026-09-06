@@ -1,8 +1,15 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
-import type { HomeWidgetPreferences } from '~/features/home/interfaces/home-widgets';
+import type {
+  HomeWidgetPreferences,
+  WidgetKey,
+} from '~/features/home/interfaces/home-widgets';
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 
 // Each widget module is replaced with a testid stub. The mock functions also
 // record the props they were called with, so the prop-wiring done by
@@ -186,5 +193,93 @@ describe('HomeWidgets', () => {
     expect(PinnedPagesWidgetMock).toHaveBeenCalledWith(
       expect.objectContaining({ pinnedPages: [{ path: '/x' }] }),
     );
+  });
+
+  describe('customize mode', () => {
+    const ORDERED: { key: WidgetKey; visible: boolean }[] = [
+      { key: 'search', visible: true },
+      { key: 'recentUpdates', visible: false },
+      { key: 'bookmarks', visible: true },
+      { key: 'wipPages', visible: true },
+      { key: 'classroomPosts', visible: true },
+      { key: 'pinnedPages', visible: true },
+      { key: 'homeFeed', visible: true },
+    ];
+
+    it('renders all 7 card frames with headings, and a placeholder (not the widget) for a hidden one', () => {
+      render(
+        <HomeWidgets
+          customizeMode
+          orderedForCustomize={ORDERED}
+          onMoveWidget={vi.fn()}
+          onToggleVisible={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText('home_page_v3.widget.search.title'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('home_page_v3.widget.recent_updates.title'),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByTestId('recent-updates-widget'),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('home.customize.hidden')).toBeInTheDocument();
+
+      // visible widgets still render inside their frame
+      expect(screen.getByTestId('search-widget')).toBeInTheDocument();
+      expect(screen.getByTestId('bookmarks-widget')).toBeInTheDocument();
+    });
+
+    it('disables ↑ on the first row and ↓ on the last row', () => {
+      render(
+        <HomeWidgets
+          customizeMode
+          orderedForCustomize={ORDERED}
+          onMoveWidget={vi.fn()}
+          onToggleVisible={vi.fn()}
+        />,
+      );
+
+      const first = screen.getByTestId('customize-frame-search');
+      const last = screen.getByTestId('customize-frame-homeFeed');
+
+      expect(
+        within(first).getByRole('button', { name: 'home.customize.move_up' }),
+      ).toBeDisabled();
+      expect(
+        within(last).getByRole('button', { name: 'home.customize.move_down' }),
+      ).toBeDisabled();
+    });
+
+    it('calls onMoveWidget / onToggleVisible with the widget key', () => {
+      const onMoveWidget = vi.fn();
+      const onToggleVisible = vi.fn();
+      render(
+        <HomeWidgets
+          customizeMode
+          orderedForCustomize={ORDERED}
+          onMoveWidget={onMoveWidget}
+          onToggleVisible={onToggleVisible}
+        />,
+      );
+
+      const bookmarks = screen.getByTestId('customize-frame-bookmarks');
+      fireEvent.click(
+        within(bookmarks).getByRole('button', {
+          name: 'home.customize.move_up',
+        }),
+      );
+      expect(onMoveWidget).toHaveBeenCalledWith('bookmarks', 'up');
+
+      fireEvent.click(
+        within(bookmarks).getByRole('button', {
+          name: 'home.customize.hide_widget',
+        }),
+      );
+      expect(onToggleVisible).toHaveBeenCalledWith('bookmarks');
+    });
   });
 });

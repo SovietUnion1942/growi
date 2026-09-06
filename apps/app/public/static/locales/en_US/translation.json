@@ -1258,6 +1258,29 @@
       "feed_notifications_heading": "Recent notifications",
       "feed_attendance_reminder": "You have an unanswered attendance check. Answer it here.",
       "feed_empty": "Nothing to show right now"
+    },
+    "customize": {
+      "toggle": "Customize",
+      "save": "Save",
+      "reset": "Reset to default",
+      "done": "Done",
+      "saved": "Home layout saved",
+      "hidden": "Hidden",
+      "move_up": "Move up",
+      "move_down": "Move down",
+      "show_widget": "Show this widget",
+      "hide_widget": "Hide this widget"
+    }
+  },
+  "home_page_v3": {
+    "widget": {
+      "search": { "title": "Search" },
+      "recent_updates": { "title": "Recently Updated" },
+      "bookmarks": { "title": "Bookmarks" },
+      "wip_pages": { "title": "Work in Progress" },
+      "classroom_posts": { "title": "Latest Classroom Posts" },
+      "pinned_pages": { "title": "Pinned Pages" },
+      "home_feed": { "title": "Announcements & Schedule" }
     }
   }
 }

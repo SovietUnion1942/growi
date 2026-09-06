@@ -13,7 +13,7 @@ import { useCurrentUser } from '~/states/global';
 import { useRendererConfig } from '~/states/server-configurations';
 
 import { HomeHero } from './HomeHero';
-import { HomeWidgets } from './widgets/HomeWidgets';
+import { HomeWidgetCustomizePanel } from './HomeWidgetCustomizePanel';
 
 const PageContentRenderer = dynamic(
   () =>
@@ -86,14 +86,16 @@ export const HomeContent = ({
       {/*
         Widget area (Requirement 5.1, 5.2): shown only to logged-in users.
         Anonymous guests keep the exact v1 layout — notice + requirements
-        table only — so `HomeWidgets` must not even mount for them.
+        table only — so the widget area must not even mount for them.
+        `HomeWidgetCustomizePanel` wraps `HomeWidgets` and adds the opt-in
+        per-user customize mode (Requirement 6.1, 6.2, 6.4).
       */}
       {currentUser != null && (
-        <HomeWidgets
+        <HomeWidgetCustomizePanel
           homeWidgetsSiteConfig={homeWidgetsSiteConfig}
           homePinnedPages={homePinnedPages}
           homeClassroomPathPrefix={homeClassroomPathPrefix}
-          userWidgetPreferences={homeWidgetPreferences}
+          homeWidgetPreferences={homeWidgetPreferences}
         />
       )}
 

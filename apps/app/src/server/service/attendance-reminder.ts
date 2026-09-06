@@ -1,6 +1,11 @@
 import { escapeStringForMongoRegex } from '@growi/core/dist/utils';
 import mongoose from 'mongoose';
 
+import {
+  CLUB_EVENTS_PAGE_PATH,
+  type ClubEvent,
+  parseClubEvents,
+} from '~/features/home/utils/parse-club-events';
 import { UserStatus } from '~/server/models/user/conts';
 import loggerFactory from '~/utils/logger';
 
@@ -8,7 +13,6 @@ import { sendPushNotificationToUser } from './push-notification';
 
 const logger = loggerFactory('growi:service:attendance-reminder');
 
-const EVENTS_PAGE_PATH = '/イベント/決定済みイベント保管場所';
 const RESPONSES_PATH_PREFIX = '/schedule/responses';
 
 const getReminderWindowDays = (): number => {
@@ -16,32 +20,7 @@ const getReminderWindowDays = (): number => {
   return Number.isFinite(raw) && raw > 0 ? raw : 7;
 };
 
-type ScheduleEvent = { date: string; title: string };
-
-// 出欠プラグイン(growi-plugin-calendarv2)のイベント行パースと同じ形式に合わせる
-const parseEvents = (body: string): ScheduleEvent[] => {
-  const now = new Date();
-  let year = now.getFullYear();
-  let lastMonth = 0;
-  const events: ScheduleEvent[] = [];
-
-  for (const line of body.split('\n')) {
-    const match = line.match(/^\s*(\d{1,2})月(\d{1,2})日[\s　]+(.+?)\s*$/);
-    if (match == null) continue;
-
-    const month = Number.parseInt(match[1], 10);
-    const day = match[2].padStart(2, '0');
-    const title = match[3];
-    if (month < lastMonth) year += 1;
-    lastMonth = month;
-    events.push({
-      date: `${year}-${String(month).padStart(2, '0')}-${day}`,
-      title,
-    });
-  }
-
-  return events;
-};
+type ScheduleEvent = ClubEvent;
 
 const parseAvailability = (body: string): Record<string, string> | null => {
   const match = body.match(/<!--\s*availability\s*([\s\S]*?)-->/);
@@ -82,10 +61,10 @@ const getPageBodiesByPrefix = async (
 };
 
 const fetchUpcomingEvents = async (): Promise<ScheduleEvent[]> => {
-  const body = await getPageBody(EVENTS_PAGE_PATH);
+  const body = await getPageBody(CLUB_EVENTS_PAGE_PATH);
   if (body == null) return [];
 
-  const events = parseEvents(body);
+  const events = parseClubEvents(body);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

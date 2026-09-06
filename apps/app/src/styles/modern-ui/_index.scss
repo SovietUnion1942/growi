@@ -6,8 +6,9 @@
 //
 // Covered: the page-view surfaces (icon rail, sidebar, contextual sub-nav,
 // page content card, ToC), the top bar, the editor chrome (navbar, bottom
-// toolbar, segmented mode switch, pane borders), the search-results list,
-// shared controls and design tokens. Both color modes: light values sit on
+// toolbar, segmented mode switch, pane borders), the rendered-markdown body
+// (callouts, tables, code blocks), the search-results list, shared controls
+// and design tokens. Both color modes: light values sit on
 // the bare attribute, dark values are redefined under [data-bs-theme='dark']
 // (GROWI's next-themes attribute), so the skin tracks the user's color-mode
 // choice automatically.
@@ -18,4 +19,5 @@
 @import 'controls';
 @import 'overlays';
 @import 'editor';
+@import 'body';
 @import 'search';

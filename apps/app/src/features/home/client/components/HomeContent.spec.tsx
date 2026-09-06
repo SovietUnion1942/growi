@@ -33,8 +33,8 @@ vi.mock('./HomeHero', () => ({
 }));
 
 let homeWidgetsProps: Record<string, unknown> | undefined;
-vi.mock('./widgets/HomeWidgets', () => ({
-  HomeWidgets: (props: Record<string, unknown>) => {
+vi.mock('./HomeWidgetCustomizePanel', () => ({
+  HomeWidgetCustomizePanel: (props: Record<string, unknown>) => {
     homeWidgetsProps = props;
     return <div data-testid="home-widgets" />;
   },
@@ -94,7 +94,7 @@ describe('HomeContent', () => {
       homeWidgetsSiteConfig: siteConfig,
       homePinnedPages: pinnedPages,
       homeClassroomPathPrefix: '/classroom',
-      userWidgetPreferences: widgetPrefs,
+      homeWidgetPreferences: widgetPrefs,
     });
   });
 

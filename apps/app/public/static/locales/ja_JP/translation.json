@@ -1298,6 +1298,29 @@
       "feed_notifications_heading": "直近の通知",
       "feed_attendance_reminder": "未回答の出欠確認があります。回答画面へ",
       "feed_empty": "いま表示できるお知らせはありません"
+    },
+    "customize": {
+      "toggle": "カスタマイズ",
+      "save": "保存",
+      "reset": "初期状態に戻す",
+      "done": "完了",
+      "saved": "ホームのレイアウトを保存しました",
+      "hidden": "非表示",
+      "move_up": "上へ",
+      "move_down": "下へ",
+      "show_widget": "このウィジェットを表示",
+      "hide_widget": "このウィジェットを非表示"
+    }
+  },
+  "home_page_v3": {
+    "widget": {
+      "search": { "title": "検索" },
+      "recent_updates": { "title": "最近更新されたページ" },
+      "bookmarks": { "title": "ブックマーク" },
+      "wip_pages": { "title": "書きかけのページ" },
+      "classroom_posts": { "title": "Classroom の最新投稿" },
+      "pinned_pages": { "title": "ピン留めページ" },
+      "home_feed": { "title": "お知らせ・予定" }
     }
   }
 }

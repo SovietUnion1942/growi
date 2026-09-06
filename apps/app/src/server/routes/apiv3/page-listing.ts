@@ -8,10 +8,11 @@ import {
 } from '@growi/core/dist/utils/page-path-utils';
 import type { Request, Router } from 'express';
 import express from 'express';
-import { oneOf, query } from 'express-validator';
+import { body, oneOf, query } from 'express-validator';
 import type { HydratedDocument } from 'mongoose';
 import mongoose from 'mongoose';
 
+import { DEFAULT_HOME_CLASSROOM_PATH_PREFIX } from '~/features/home/consts';
 import type { IPageForTreeItem } from '~/interfaces/page';
 import { accessTokenParser } from '~/server/middlewares/access-token-parser';
 import loginRequiredFactory from '~/server/middlewares/login-required';
@@ -38,6 +39,10 @@ interface AuthorizedRequest extends Request {
 /*
  * Validators
  */
+const RECENT_UNDER_PATH_LIMIT_DEFAULT = 20;
+const RECENT_UNDER_PATH_LIMIT_MAX = 50;
+const RESOLVE_PATHS_MAX = 100;
+
 const validator = {
   pagePathRequired: [query('path').isString().withMessage('path is required')],
   pageIdOrPathRequired: oneOf(
@@ -57,6 +62,30 @@ const validator = {
   infoParams: [
     query('attachBookmarkCount').isBoolean().optional(),
     query('attachShortBody').isBoolean().optional(),
+  ],
+  recentUnderPath: [
+    query('prefix')
+      .optional()
+      .isString()
+      .withMessage('prefix must be a string')
+      .bail()
+      .matches(/^\//)
+      .withMessage('prefix must start with "/"'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: RECENT_UNDER_PATH_LIMIT_MAX })
+      .withMessage(
+        `limit must be an integer between 1 and ${RECENT_UNDER_PATH_LIMIT_MAX}`,
+      )
+      .toInt(),
+  ],
+  resolvePaths: [
+    body('paths')
+      .isArray({ max: RESOLVE_PATHS_MAX })
+      .withMessage(
+        `paths must be an array of at most ${RESOLVE_PATHS_MAX} items`,
+      ),
+    body('paths.*').isString().withMessage('each path must be a string'),
   ],
 };
 
@@ -470,6 +499,143 @@ const routerFactory = (crowi: Crowi): Router => {
         logger.error('Error occurred while finding WIP pages.', err);
         return res.apiv3Err(
           new ErrorV3('Error occurred while finding WIP pages.'),
+        );
+      }
+    },
+  );
+
+  /**
+   * @swagger
+   *
+   * /page-listing/recent-under-path:
+   *   get:
+   *     tags: [PageListing]
+   *     security:
+   *       - bearer: []
+   *       - accessTokenInQuery: []
+   *       - accessTokenHeaderAuth: []
+   *     summary: /page-listing/recent-under-path
+   *     description: Get the most-recently-updated pages under a path prefix, filtered by the viewer's permissions
+   *     parameters:
+   *       - name: prefix
+   *         in: query
+   *         description: Path prefix to search under (must start with "/"). Defaults to the Classroom source path when omitted.
+   *         schema:
+   *           type: string
+   *       - name: limit
+   *         in: query
+   *         description: Maximum number of pages to return (1-50, default 20)
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Recent pages under the prefix
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 pages:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/PageForTreeItem'
+   *       400:
+   *         description: Invalid prefix or limit
+   *       403:
+   *         description: Not logged in
+   */
+  router.get(
+    '/recent-under-path',
+    accessTokenParser([SCOPE.READ.FEATURES.PAGE], { acceptLegacy: true }),
+    loginRequiredStrictly,
+    validator.recentUnderPath,
+    apiV3FormValidator,
+    async (req: AuthorizedRequest, res: ApiV3Response) => {
+      const prefix =
+        (req.query.prefix as string | undefined) ??
+        DEFAULT_HOME_CLASSROOM_PATH_PREFIX;
+      const limit =
+        (req.query.limit as number | undefined) ??
+        RECENT_UNDER_PATH_LIMIT_DEFAULT;
+
+      try {
+        const pages = await pageListingService.findRecentPagesUnderPath(
+          prefix,
+          req.user,
+          limit,
+        );
+        return res.apiv3({ pages });
+      } catch (err) {
+        logger.error(
+          'Error occurred while finding recent pages under path.',
+          err,
+        );
+        return res.apiv3Err(
+          new ErrorV3('Error occurred while finding recent pages under path.'),
+        );
+      }
+    },
+  );
+
+  /**
+   * @swagger
+   *
+   * /page-listing/resolve-paths:
+   *   post:
+   *     tags: [PageListing]
+   *     security:
+   *       - bearer: []
+   *       - accessTokenInQuery: []
+   *       - accessTokenHeaderAuth: []
+   *     summary: /page-listing/resolve-paths
+   *     description: Resolve a list of page paths to their viewer-visible metadata, preserving input order and dropping missing or forbidden paths. Read-only; records no audit activity.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               paths:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *     responses:
+   *       200:
+   *         description: Resolved pages in input order
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 pages:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/PageForTreeItem'
+   *       400:
+   *         description: paths is not an array or exceeds the allowed length
+   *       403:
+   *         description: Not logged in
+   */
+  router.post(
+    '/resolve-paths',
+    accessTokenParser([SCOPE.READ.FEATURES.PAGE], { acceptLegacy: true }),
+    loginRequiredStrictly,
+    validator.resolvePaths,
+    apiV3FormValidator,
+    async (req: AuthorizedRequest, res: ApiV3Response) => {
+      const { paths } = req.body as { paths: string[] };
+
+      try {
+        const pages = await pageListingService.resolvePagesByPaths(
+          paths,
+          req.user,
+        );
+        return res.apiv3({ pages });
+      } catch (err) {
+        logger.error('Error occurred while resolving pages by paths.', err);
+        return res.apiv3Err(
+          new ErrorV3('Error occurred while resolving pages by paths.'),
         );
       }
     },

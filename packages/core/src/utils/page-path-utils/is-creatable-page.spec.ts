@@ -120,4 +120,21 @@ describe('isCreatablePage', () => {
       expect(isCreatablePage(path)).toBe(false);
     });
   });
+
+  describe('reserved /home standalone route (home-page-v3, req 9.1)', () => {
+    it.each([
+      '/home', // the reserved standalone route itself
+      '/home/sub', // any wiki page under /home
+    ])('should return false for "%s"', (path) => {
+      expect(isCreatablePage(path)).toBe(false);
+    });
+
+    it.each([
+      '/home-notice', // v2 deprecated notice page - must stay creatable
+      '/home2', // lookalike prefix - not the reserved path
+      '/Homework', // case-sensitive: only lowercase /home is reserved
+    ])('should return true for "%s" (regression guard)', (path) => {
+      expect(isCreatablePage(path)).toBe(true);
+    });
+  });
 });

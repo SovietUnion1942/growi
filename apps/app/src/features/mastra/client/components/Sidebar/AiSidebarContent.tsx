@@ -16,7 +16,9 @@ export const AiSidebarContent = (): JSX.Element => {
     <div className={moduleClass}>
       <button
         type="button"
-        className="btn btn-outline-secondary px-3 d-flex align-items-center mb-4"
+        // `grw-btn-glass-pill`: modern-skin opt-in glass treatment for a
+        // panel's primary "new / add" action (no-op outside modern UI).
+        className="btn btn-outline-secondary grw-btn-glass-pill px-3 d-flex align-items-center mb-4"
         // No args: start a fresh, assistant-independent chat.
         onClick={() => openChat()}
       >

@@ -16,6 +16,34 @@
   --bs-btn-border-radius-lg: var(--grw-radius-md);
 }
 
+// --- Glass pill button --------------------------------------------------
+// Opt-in (`grw-btn-glass-pill`) treatment for a panel's primary "new / add"
+// action, e.g. the AI sidebar's "new chat". No-op outside the modern skin.
+// Translucent glass fill + sheen + hairline + soft lift, fully rounded,
+// accent-tinted icon.
+:root[data-grw-ui='modern'] .grw-btn-glass-pill {
+  --bs-btn-bg: var(--grw-glass-bg);
+  --bs-btn-hover-bg: var(--grw-glass-bg);
+  --bs-btn-active-bg: var(--grw-glass-bg);
+  --bs-btn-border-color: var(--grw-glass-border);
+  --bs-btn-hover-border-color: rgba(var(--grw-accent-rgb), 0.5);
+  --bs-btn-active-border-color: rgba(var(--grw-accent-rgb), 0.5);
+  --bs-btn-color: var(--bs-body-color);
+  --bs-btn-hover-color: var(--bs-body-color);
+  --bs-btn-active-color: var(--bs-body-color);
+  --bs-btn-border-radius: 999px;
+  background-image: var(--grw-glass-sheen);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-pill);
+}
+
+:root[data-grw-ui='modern'] .grw-btn-glass-pill:hover {
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
+}
+
+:root[data-grw-ui='modern'] .grw-btn-glass-pill .material-symbols-outlined {
+  color: var(--grw-accent);
+}
+
 // --- Icon toolbar buttons (CodeMirror markdown toolbar) ----------------
 :root[data-grw-ui='modern'] .btn-toolbar-button {
   border-radius: 10px;

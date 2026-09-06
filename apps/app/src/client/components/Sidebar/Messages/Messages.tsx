@@ -36,7 +36,10 @@ export const Messages = (): JSX.Element => {
         {canStartConversation && (
           <button
             type="button"
-            className="btn btn-primary btn-sm rounded-circle"
+            // grw-btn-glass-pill: modern-skin glass treatment for a panel's
+            // primary "new / add" action (stays a circle here via
+            // .rounded-circle; no-op outside modern UI).
+            className="btn btn-primary btn-sm rounded-circle grw-btn-glass-pill"
             onClick={() => setIsStartModalOpen(true)}
             title="新しい会話を始める"
           >

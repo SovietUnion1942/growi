@@ -47,7 +47,9 @@ export const BookmarkContents = (): JSX.Element => {
       <div className="mb-2">
         <button
           type="button"
-          className="btn btn-outline-secondary rounded-pill d-flex justify-content-start align-middle"
+          // grw-btn-glass-pill: modern-skin glass treatment for a panel's
+          // primary "new / add" action (no-op outside modern UI).
+          className="btn btn-outline-secondary grw-btn-glass-pill rounded-pill d-flex justify-content-start align-middle"
           onClick={onClickNewBookmarkFolder}
         >
           <div className="d-flex align-items-center">

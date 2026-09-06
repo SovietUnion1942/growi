@@ -19,7 +19,7 @@
   - _Requirements: 6.2_
   - _Depends: 1.1_
   - _Boundary: UserUISettings_
-- [ ] 1.4 (P) 部イベントページ本文のパースをクライアントセーフな共有ユーティリティに切り出す
+- [x] 1.4 (P) 部イベントページ本文のパースをクライアントセーフな共有ユーティリティに切り出す
   - 既存の出欠リマインダー機能内にあるイベント行パース処理とイベントページのパスを、mongoose 非依存の共有ユーティリティとして抽出し、既存機能側もそれを参照するよう変更して単一ソース化する
   - ページ本文末尾にナビゲーションフッターが付いた文字列でも日付行のみを抽出する
   - 完了状態: 抽出したユーティリティが日付行の配列を返し、既存の出欠リマインダー機能のテストが引き続き通ることを確認できる
@@ -182,3 +182,10 @@
   - 完了状態: 上記シナリオがそれぞれ期待どおりに動作することを確認できる
   - _Requirements: 5.3, 6.1, 6.2, 6.4, 8.1, 8.2, 9.2, 9.3, 9.4_
   - _Depends: 4.1, 4.2, 4.3, 4.4_
+
+## Implementation Notes
+
+- 環境: このワークツリーは Node 22（リポジトリ想定は Node 24）。`bin/build-bulk-export-css.ts` が実行できないため `bulk-export.generated.ts` を空文字スタブでローカル生成済み（.gitignore 対象・非コミット）。crowi ブートを伴う integ テストはこれで通る。
+- typecheck ベースライン（modern-ui-deploy の既存エラー、本機能と無関係）: mastra deepseek 系 spec 10ファイル + `src/server/routes/apiv3/personal-setting/attendance-status.spec.ts`（3引数期待。タスク3.2で attendance-status を触るとき注意）。タスク完了判定は「このベースラインを超える新規エラーが無いこと」。
+- parse-club-events は設計の `client/utils/` ではなく `features/home/utils/` に配置（サーバー attendance-reminder.ts からも import するため）。
+- UserUISettings の更新許可リスト（route の validator + updateData）はタスク1.3 ではなく 2.3 の担当に分離済み。1.3 はスキーマ＋interface のみ。

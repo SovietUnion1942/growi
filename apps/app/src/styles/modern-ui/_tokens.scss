@@ -11,27 +11,32 @@
   --grw-accent: #007eb0;
   --grw-accent-rgb: 0, 126, 176;
 
-  // Glass surface recipe: a top-half reflection sheen layered over a
-  // translucent "mica" fill, a hairline light border, an inner highlight line
-  // and a soft drop shadow. The fill is deliberately semi-transparent so the
-  // backdrop blur of the tinted ground reads as frosted depth.
-  --grw-glass-bg: rgba(252, 253, 255, 0.82);
+  // Glass surface recipe ("Aero" in light): a strong top reflection sheen over
+  // a mostly-opaque translucent fill, a hairline light border, an inner
+  // highlight line and a soft drop shadow. `--grw-glass-blur` is a real
+  // `backdrop-filter` again (safe since the Messages / AI FloatingPanels and
+  // the FloatingPanelDock now mount at BasicLayout top level, not inside the
+  // sidebar subtree) — text-bearing chrome reads far better over blurred
+  // depth than over a see-through fill.
+  --grw-glass-bg: rgba(250, 252, 255, 0.85);
   --grw-glass-border: rgba(255, 255, 255, 0.7);
-  // Floating windows (dropdowns / popovers / modals): only a hair translucent
-  // — content behind should just barely show through, no blur.
-  --grw-popover-bg: rgba(252, 253, 255, 0.94);
+  --grw-glass-blur: blur(20px) saturate(165%);
+  // Floating windows (dropdowns / popovers / offcanvas): a hair more
+  // see-through, a lighter blur.
+  --grw-popover-bg: rgba(250, 252, 255, 0.9);
   --grw-popover-border: rgba(210, 220, 232, 0.9);
+  --grw-popover-blur: blur(14px) saturate(150%);
   --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
   --grw-glass-shadow: 0 2px 6px rgba(20, 45, 70, 0.06), 0 16px 42px rgba(20, 45, 70, 0.14);
   // Diagonal light-catching sheen, tapering continuously across the whole
   // surface (not just the top edge) so a tall panel (sidebar, content card)
-  // still reads as glass well past its first few rows, instead of flattening
-  // into a single flat color after the initial highlight.
+  // still reads as glass well past its first few rows. Light mode leans into
+  // the "Aero" glossy top highlight.
   --grw-glass-sheen: linear-gradient(
     165deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.24) 28%,
-    rgba(255, 255, 255, 0.1) 58%,
+    rgba(255, 255, 255, 0.66) 0%,
+    rgba(255, 255, 255, 0.3) 22%,
+    rgba(255, 255, 255, 0.12) 50%,
     rgba(255, 255, 255, 0.03) 100%
   );
 
@@ -61,20 +66,24 @@
   --grw-accent: #47b1dc;
   --grw-accent-rgb: 71, 177, 220;
 
-  --grw-glass-bg: rgba(26, 34, 46, 0.8);
-  --grw-glass-border: rgba(255, 255, 255, 0.09);
-  --grw-popover-bg: rgba(32, 41, 54, 0.94);
+  // "Liquid Glass" in dark: a neutral dark fill, a heavier blur that fully
+  // dissolves the text behind it, and — instead of a bright gloss — a faint
+  // directional rim-light with a hint of cool prism tint baked into the sheen
+  // (one background layer, no pseudo-elements).
+  --grw-glass-bg: rgba(24, 30, 40, 0.82);
+  --grw-glass-border: rgba(255, 255, 255, 0.1);
+  --grw-glass-blur: blur(28px) saturate(135%);
+  --grw-popover-bg: rgba(30, 38, 50, 0.9);
   --grw-popover-border: rgba(255, 255, 255, 0.12);
-  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --grw-glass-shadow: 0 2px 6px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.44);
-  // Same continuous taper as light mode, scaled down for dark backgrounds
-  // (a pure-white sheen would bloom too hot at high alpha on a dark ground).
+  --grw-popover-blur: blur(18px) saturate(130%);
+  --grw-glass-inner-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --grw-glass-shadow: 0 2px 6px rgba(0, 0, 0, 0.34), 0 20px 50px rgba(0, 0, 0, 0.5);
   --grw-glass-sheen: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.06) 28%,
-    rgba(255, 255, 255, 0.02) 58%,
-    rgba(255, 255, 255, 0) 100%
+    135deg,
+    rgba(150, 175, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 24%,
+    rgba(255, 255, 255, 0.01) 55%,
+    rgba(255, 255, 255, 0.07) 100%
   );
 
   --grw-page-ground:

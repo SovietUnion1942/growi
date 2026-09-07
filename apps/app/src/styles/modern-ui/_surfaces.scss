@@ -6,11 +6,17 @@
 // Surface treatment for the page-view chrome. Selectors use stable global
 // hooks (plain classNames / data-testid / ids), never CSS-module hashes.
 //
-// NOTE: no `backdrop-filter` here. A non-none backdrop-filter makes the
-// element a containing block for its `position: fixed` descendants, which
-// strands things that expect to be viewport-positioned (the Messages /
-// AI-chat FloatingPanel, portal-less popovers). The frosted look comes from
-// the translucent fill + sheen instead.
+// `backdrop-filter` (via `--grw-glass-blur`) is applied to the text-bearing
+// chrome surfaces below — the frosted blur makes small text far more legible
+// than a see-through fill does. It is SAFE here because a non-none
+// backdrop-filter only traps `position: fixed` DESCENDANTS, and the only
+// fixed things that used to live inside these subtrees — the Messages / AI
+// FloatingPanels and the FloatingPanelDock — now mount at BasicLayout top
+// level (see BasicLayout.tsx). Dropdowns / tooltips inside the sidebar are
+// `position: absolute` (Popper's default strategy) and are unaffected.
+// If a Bootstrap/reactstrap menu is ever switched to a fixed Popper strategy,
+// only `.dropdown-menu` / `.popover` in _overlays.scss would need the blur
+// dropped — the sidebar surfaces here would not.
 //
 // The sidebar (rail + contents) is treated as a flush frosted column, not a
 // floating card: its header strip (logo + collapse toggle) has no clean CSS
@@ -27,6 +33,8 @@
 :root[data-grw-ui='modern'] .grw-sidebar-nav {
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
   border-right: 1px solid var(--grw-glass-border);
 }
 
@@ -53,6 +61,8 @@
 :root[data-grw-ui='modern'] [data-testid='grw-sidebar'] {
   background-color: var(--grw-glass-bg) !important;
   background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
   border-right: 1px solid var(--grw-glass-border) !important;
 }
 
@@ -71,12 +81,19 @@
   background-color: transparent !important;
 }
 
-// Collapsed-mode popout panel: round its outer corners to match the modern
-// skin's other floating surfaces (Sidebar.module.scss only rounds it 4px,
-// sized for the legacy square look). Left corners stay square -- that edge
-// sits flush against the icon rail, not floating.
+// Collapsed-mode popout panel: it floats over arbitrary page content, so it
+// gets the full glass recipe (fill + sheen + blur) rather than the opaque
+// highlight-tint Sidebar.module.scss gives it for the legacy skin. Round its
+// outer corners to match the other floating surfaces (Sidebar.module.scss
+// only rounds it 4px). Left corners stay square -- that edge sits flush
+// against the icon rail, not floating.
 :root[data-grw-ui='modern'] .grw-sidebar-collapsed .sidebar-contents-container.open {
+  background-color: var(--grw-glass-bg) !important;
+  background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
   border-radius: 0 var(--grw-radius-lg) var(--grw-radius-lg) 0 !important;
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
 // `.list-group-flush` rows in general (NAS folder browser, home-page
@@ -115,6 +132,8 @@
 :root[data-grw-ui='modern'] #grw-contextual-sub-nav {
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
   border-bottom: 1px solid var(--grw-glass-border);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-shadow-raised);
 }
@@ -128,6 +147,8 @@
   padding-inline: clamp(1rem, 3vw, 2.5rem);
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
   border: 1px solid var(--grw-glass-border);
   border-radius: var(--grw-radius-lg);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);

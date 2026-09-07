@@ -1,11 +1,13 @@
-// Floating windows — dropdown menus, popovers, modals. A *barely* translucent
-// fill (content behind shows through faintly), a hairline border, and a soft
-// lift so it reads as a layer.
+// Floating windows — dropdown menus, popovers, offcanvas, modals. A
+// translucent fill + sheen + a light backdrop blur so text over them reads
+// cleanly.
 //
-// NO backdrop-filter: a non-none backdrop-filter makes the element a
-// containing block for its `position: fixed` descendants, which strands the
-// Messages / AI-chat FloatingPanel and portal-less popovers (see _surfaces).
-// The faint see-through effect here is just the translucent background-color.
+// `backdrop-filter` here is limited to `.dropdown-menu` / `.popover` /
+// `.offcanvas`: Bootstrap & reactstrap position these with Popper's default
+// `absolute` strategy, so blur (which only traps `position: fixed`
+// descendants) is safe. `.modal-content` gets fill + sheen but NOT blur — a
+// modal already covers the viewport (its `.modal-backdrop` dims the rest),
+// so blur buys nothing and `.modal` itself is `position: fixed`.
 
 :root[data-grw-ui='modern'] .dropdown-menu,
 :root[data-grw-ui='modern'] .popover,
@@ -16,6 +18,29 @@
   // translucent fill alone reads as plain tinted color, not glass.
   background-image: var(--grw-glass-sheen);
   border: 1px solid var(--grw-popover-border);
+  border-radius: var(--grw-radius-md);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
+}
+
+:root[data-grw-ui='modern'] .dropdown-menu,
+:root[data-grw-ui='modern'] .popover,
+:root[data-grw-ui='modern'] .offcanvas {
+  -webkit-backdrop-filter: var(--grw-popover-blur);
+  backdrop-filter: var(--grw-popover-blur);
+}
+
+// Floating windows (Messages thread, AI chat) — `FloatingPanel` root. They
+// mount at BasicLayout top level and float over the page, so they take the
+// full glass recipe. The panel's own `backdrop-filter` is safe: it has no
+// `position: fixed` descendants (drag handle is static, resize handle is
+// absolute). The Tailwind base gives it `tw:bg-background` + `tw:rounded-lg`
+// + `tw:border` + `tw:shadow-lg`; override those to the glass equivalents.
+:root[data-grw-ui='modern'] .grw-floating-panel {
+  background-color: var(--grw-glass-bg);
+  background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-glass-blur);
+  backdrop-filter: var(--grw-glass-blur);
+  border: 1px solid var(--grw-glass-border);
   border-radius: var(--grw-radius-md);
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }

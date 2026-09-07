@@ -310,7 +310,9 @@ export const setupNasStorage = (
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
 
-    const archive = archiver('zip', { zlib: { level: 6 } });
+    // Low compression on purpose: a NAS holds mostly already-compressed media,
+    // so a higher level burns CPU for near-zero gain and can stall the stream.
+    const archive = archiver('zip', { zlib: { level: 1 } });
     // ENOENT for a file removed mid-walk is non-fatal; log and keep streaming.
     archive.on('warning', (err) => {
       logger.warn({ err }, 'nas-storage archive warning');

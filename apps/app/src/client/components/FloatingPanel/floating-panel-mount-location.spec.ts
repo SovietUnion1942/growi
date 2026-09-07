@@ -64,4 +64,20 @@ describe('FloatingPanel mount location', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('the modern-UI icon-rail rule pairs its blur with overflow-x: clip', () => {
+    // `.grw-sidebar-nav-secondary-container` is `position: fixed` and lives
+    // inside the rail, so the rail's `backdrop-filter` traps it as a
+    // containing-block child; its buttons overflow the 48px rail and spilled a
+    // horizontal scrollbar until `overflow-x: clip` was added. Keep them
+    // together.
+    const surfaces = readFileSync(
+      join(SRC, 'styles/modern-ui/_surfaces.scss'),
+      'utf8',
+    );
+    const railBlock = surfaces.split('.grw-sidebar-nav {')[1]?.split('}')[0];
+    expect(railBlock).toBeDefined();
+    expect(railBlock).toMatch(/backdrop-filter:/);
+    expect(railBlock).toMatch(/overflow-x:\s*clip/);
+  });
 });

@@ -45,6 +45,39 @@
   box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
 }
 
+// The drag-handle strip (always the panel's first child, wrapping each
+// consumer's own header row) becomes the window titlebar: an Aero glossy
+// caption bar in light, a faint rim-lit strip in dark.
+:root[data-grw-ui='modern'] .grw-floating-panel > div:first-child {
+  background-image: var(--grw-titlebar-bg);
+  box-shadow: var(--grw-glass-inner-hi);
+}
+
+// Window-chrome buttons — matched via the stable aria-label that the shared
+// FloatingPanelControls sets. Square-ish Aero caption buttons; close flushes
+// red on hover like a real one.
+:root[data-grw-ui='modern'] .grw-floating-panel button[aria-label='Minimize'],
+:root[data-grw-ui='modern'] .grw-floating-panel button[aria-label='Maximize'],
+:root[data-grw-ui='modern'] .grw-floating-panel button[aria-label='Restore'],
+:root[data-grw-ui='modern'] .grw-floating-panel button[aria-label='Close'] {
+  border-radius: 8px;
+}
+
+:root[data-grw-ui='modern'] .grw-floating-panel button[aria-label='Close']:hover {
+  color: #fff;
+  background-color: #e04b4b;
+}
+
+// Minimized-panel restore chips (FloatingPanelDock): same glass as the panels.
+:root[data-grw-ui='modern'] .grw-floating-panel-dock > button {
+  background-color: var(--grw-popover-bg);
+  background-image: var(--grw-glass-sheen);
+  -webkit-backdrop-filter: var(--grw-popover-blur);
+  backdrop-filter: var(--grw-popover-blur);
+  border: 1px solid var(--grw-glass-border);
+  box-shadow: var(--grw-glass-inner-hi), var(--grw-glass-shadow);
+}
+
 :root[data-grw-ui='modern'] .dropdown-menu {
   padding: 6px;
 }

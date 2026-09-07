@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { LoadingSpinner } from '@growi/ui/dist/components';
 import { useTranslation } from 'next-i18next';
@@ -10,8 +10,13 @@ import { useNasConfirm } from '../hooks/use-nas-confirm';
 import { useNasEntryActions } from '../hooks/use-nas-entry-actions';
 import { useNasList } from '../hooks/use-nas-list';
 import { useNasPreview } from '../hooks/use-nas-preview';
+import { useNasStorageUsage } from '../hooks/use-nas-storage-usage';
+import type { NasSortDir, NasSortKey } from '../util/nas-entry-sort';
+import { sortNasEntries } from '../util/nas-entry-sort';
 import { NasConfirmDialog } from './NasConfirmDialog';
 import { NasEntryRow } from './NasEntryRow';
+import { NasSortControl } from './NasSortControl';
+import { NasStorageUsageBar } from './NasStorageUsageBar';
 import { NasUploadDropzone } from './NasUploadDropzone';
 
 // The preview modal pulls in reactstrap's Modal and an axios text fetch; it is
@@ -66,8 +71,24 @@ export const NasStorageBrowser = ({
   const [currentPath, setCurrentPath] = useState(initialPath);
   const { entries, loadMore, hasMore, isLoading, error, reload } =
     useNasList(currentPath);
+  const { usage, reload: reloadUsage } = useNasStorageUsage();
 
   const segments = toSegments(currentPath);
+
+  // Sort is a client-side view concern: the API always returns entries in
+  // name/asc order, and re-sorting here avoids a cursor-format change. When the
+  // folder has more pages than are loaded, only the loaded entries are ordered
+  // (surfaced with a hint below).
+  const [sortKey, setSortKey] = useState<NasSortKey>('name');
+  const [sortDir, setSortDir] = useState<NasSortDir>('asc');
+  const sortedEntries = useMemo(
+    () => sortNasEntries(entries, sortKey, sortDir),
+    [entries, sortKey, sortDir],
+  );
+  const handleSortChange = useCallback((key: NasSortKey, dir: NasSortDir) => {
+    setSortKey(key);
+    setSortDir(dir);
+  }, []);
 
   const handleOpenDir = useCallback((name: string) => {
     setCurrentPath((prev) => buildPath([...toSegments(prev), name]));
@@ -134,12 +155,13 @@ export const NasStorageBrowser = ({
           entry.type === 'directory',
         );
         await reload();
+        void reloadUsage();
         setActionError(null);
       } catch (err) {
         setActionError(extractNasErrorMessage(err));
       }
     },
-    [confirm, actions, entryPathOf, reload, t],
+    [confirm, actions, entryPathOf, reload, reloadUsage, t],
   );
 
   // Move without overwrite first; a CONFLICT is the only case that needs the
@@ -254,7 +276,7 @@ export const NasStorageBrowser = ({
   } else {
     body = (
       <ul className="list-group list-group-flush">
-        {entries.map((entry) => (
+        {sortedEntries.map((entry) => (
           <NasEntryRow
             key={`${entry.type}:${entry.name}`}
             entry={entry}
@@ -435,7 +457,16 @@ export const NasStorageBrowser = ({
             upload
           </span>
         </button>
+        <div className="ms-auto">
+          <NasSortControl
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onChange={handleSortChange}
+          />
+        </div>
       </div>
+
+      <NasStorageUsageBar usage={usage} />
 
       {actionError != null && (
         <div
@@ -489,9 +520,19 @@ export const NasStorageBrowser = ({
             currentDirPath={currentPath}
             onUploaded={() => {
               void reload();
+              void reloadUsage();
             }}
           />
         </div>
+      )}
+
+      {hasMore && sortKey !== 'name' && (
+        <p
+          className="small text-muted mb-1"
+          data-testid="nas-sort-partial-hint"
+        >
+          {t('nas_storage.sort.partial_hint')}
+        </p>
       )}
 
       {body}

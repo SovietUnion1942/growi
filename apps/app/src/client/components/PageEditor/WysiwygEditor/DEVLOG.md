@@ -52,14 +52,38 @@ WysiwygEditorMain.module.scss  スタイル (prosemirror.css / gapcursor.css を
 `roundtrip.spec.ts`: prose / tasklist / directive / `$lsx` / frontmatter / html /
 table が byte 安定 (prose のみソフトラップ結合の正規化)。
 
-## 既知の制約
+## 改善 4 点 (2026-09-04)
 
-- テーブルは source_block 編集のみ (リッチ表編集は将来)
-- WYSIWYG 中は他ユーザーの編集をライブマージしない (入場時スナップショット。
-  ydoc には残るので消えない。重複領域は last-write-wins)
+### #1 テーブルグリッドエディタ
+`prosemirror/tableGrid.ts` — `source_block(kind='table')` のカード内に表グリッド。
+`MarkdownTable.fromMarkdownString` でパース → セル `<input>` / 列揃え `<select>` /
+行列の追加削除 → `new MarkdownTable(cells, {align, pad}).normalizeCells().toString()` で
+再シリアライズ → `onCommit` で `setNodeMarkup`。解析不能(`\|` 等)は throw → textarea fallback。
+テーブルは不透明ブロックのまま(往復保護)。セル内 inline markdown は raw 表示。
+
+### #2 外部編集の自動マージ
+`WysiwygHandle.applyExternalMarkdown` + `prosemirror/nodeRangeDiff.ts`。
+非 writeback の CM 変更(= 他ユーザー編集)を検知 → 先頭/末尾一致するトップレベル
+子ノードを除いた 1 レンジを `replaceWith`(meta `ve-external`、履歴に積まない、
+スクロール据え置き)。選択は 範囲前=不変 / 後=マッピング / 内=範囲先頭にクランプ。
+ユーザー編集中(debounce 保留)は先にローカルを flush → Yjs マージ後に親が再度
+`applyExternalMarkdown` を呼ぶ(1 サイクル遅延で収束)。`ve-external` は flush しないので発振しない。
+`lineDiff.ts` — 書き戻し diff を文字単位 → 行単位に変更(交錯時の破壊的結合を抑止)。
+
+### #3 per-user「デフォルトでビジュアル」
+`EditorSettings.defaultToWysiwyg`(consts / validator / PUT / model / swagger)。
+`OptionsSelector` に SwitchItem。`PageEditor` で編集入場時に 1 回だけ `setWysiwygMode(true)`。
+
+### #4 i18n
+`page_edit.wysiwyg.*`(ja/en)。`labels.ts` の `useWysiwygLabels()` が `t()` から
+文字列を組み、React 外の toolbar / NodeView / grid へ props で注入。JP fallback は各所に残置。
+
+## 残る既知の制約
+
+- セル内の inline markdown はグリッドで raw 表示(リッチ化は将来)
+- #2 のカーソルクランプは遠隔編集が同段落に来た場合、段落頭に寄る
+  (`prosemirror-recreate-transform` なら綺麗だが依存追加を避けた)
+- #1 のグリッド/textarea フォーカス中に #2 の reconcile 範囲に入ると編集中セルが失われうる
 - ソフトラップは 1 行に結合される
-- 書き戻しは連続 1 レンジ差分 (分散編集で相手カーソルが飛ぶ)
-- markdown-it と GROWI の remark でパース差異が出る構文があり得る
-  (インライン `$` / math `$…$` / nested directive)。MVP はブロックレベルのみ不透明化
-- collab 同期前にトグルすると空取得の恐れ → ボタンは `codeMirrorEditor.view` が
-  出来るまで押しても実質空。将来 ready フラグでガード
+- markdown-it と GROWI の remark のパース差異が出る構文はブロック単位で不透明化のみ
+- collab 同期前にトグルすると空取得の恐れ(将来 ready フラグでガード)

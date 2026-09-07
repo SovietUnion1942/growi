@@ -115,6 +115,22 @@ describe('setupNasStorage router (integration)', () => {
       expect(second.body.nextCursor).toBeUndefined();
     });
 
+    it('GET /usage returns the backing volume capacity', async () => {
+      const root = await newRoot();
+      currentUser = await seedUser('usage-reader');
+      const app = await buildReadyApp(root);
+
+      const res = await request(app).get('/_api/v3/nas-storage/usage');
+
+      expect(res.status).toBe(200);
+      expect(typeof res.body.totalBytes).toBe('number');
+      expect(res.body.totalBytes).toBeGreaterThan(0);
+      expect(res.body.freeBytes).toBeGreaterThanOrEqual(0);
+      expect(res.body.usedBytes).toBe(
+        Math.max(0, res.body.totalBytes - res.body.freeBytes),
+      );
+    });
+
     it('GET /file streams the bytes with the original filename in Content-Disposition', async () => {
       const root = await newRoot();
       await writeFile(path.join(root, 'report.txt'), 'hello nas');

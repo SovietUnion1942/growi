@@ -142,6 +142,31 @@ describe('createNasStorageService', () => {
     });
   });
 
+  describe('getUsage', () => {
+    it('passes the store capacity reading through on success', async () => {
+      const { store, service } = setup();
+      const usage = {
+        totalBytes: 20_000,
+        freeBytes: 12_000,
+        usedBytes: 8_000,
+      };
+      store.statfs.mockResolvedValue({ ok: true, value: usage });
+
+      const result = await service.getUsage();
+
+      expect(result).toEqual({ ok: true, value: usage });
+    });
+
+    it('is gated on ensureReady', async () => {
+      const { store, service } = setup(false);
+
+      const result = await service.getUsage();
+
+      expect(result.ok).toBe(false);
+      expect(store.statfs).not.toHaveBeenCalled();
+    });
+  });
+
   describe('listFolder', () => {
     it('passes the store result through on success', async () => {
       const { store, service } = setup();

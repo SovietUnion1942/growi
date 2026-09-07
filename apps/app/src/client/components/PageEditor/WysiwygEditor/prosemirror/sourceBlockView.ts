@@ -1,6 +1,12 @@
 import type { Node as PmNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 
+import {
+  createTableGrid,
+  type TableGridHandle,
+  type TableGridLabels,
+} from './tableGrid';
+
 export type SourceBlockLabels = {
   container: string;
   directive: string;
@@ -21,9 +27,28 @@ const DEFAULT_LABELS: SourceBlockLabels = {
   editButton: 'ソース編集',
 };
 
+const DEFAULT_TABLE_LABELS: TableGridLabels = {
+  addRow: '行',
+  addCol: '列',
+  delRow: '行を削除',
+  delCol: '列を削除',
+  alignLeft: '左揃え',
+  alignCenter: '中央揃え',
+  alignRight: '右揃え',
+  alignNone: '揃えなし',
+  editAsText: 'テキストで編集',
+};
+
+export type SourceBlockViewOptions = {
+  labels?: Partial<SourceBlockLabels>;
+  tableLabels?: Partial<TableGridLabels>;
+  autoFormatMarkdownTable?: boolean;
+};
+
 /**
  * GROWI 独自記法 / 生 HTML / テーブル / frontmatter を表示する不透明ノード。
  * WYSIWYG ではリッチ編集せず「ソースをそのまま編集」できるカードにする。
+ * kind==='table' はカード内に表グリッドエディタを出す(解析不能なら textarea)。
  */
 export class SourceBlockView implements NodeView {
   dom: HTMLElement;
@@ -34,22 +59,30 @@ export class SourceBlockView implements NodeView {
 
   private getPos: () => number | undefined;
 
-  private pre: HTMLElement;
+  private labels: SourceBlockLabels;
+
+  private tableLabels: TableGridLabels;
+
+  private autoFormatMarkdownTable: boolean;
+
+  private body: HTMLElement;
 
   private editing = false;
 
-  private labels: SourceBlockLabels;
+  private grid: TableGridHandle | null = null;
 
   constructor(
     node: PmNode,
     view: EditorView,
     getPos: () => number | undefined,
-    labels?: Partial<SourceBlockLabels>,
+    opts?: SourceBlockViewOptions,
   ) {
     this.node = node;
     this.view = view;
     this.getPos = getPos;
-    this.labels = { ...DEFAULT_LABELS, ...labels };
+    this.labels = { ...DEFAULT_LABELS, ...opts?.labels };
+    this.tableLabels = { ...DEFAULT_TABLE_LABELS, ...opts?.tableLabels };
+    this.autoFormatMarkdownTable = opts?.autoFormatMarkdownTable ?? true;
 
     this.dom = document.createElement('div');
     this.dom.className = 've-source-block';
@@ -68,16 +101,50 @@ export class SourceBlockView implements NodeView {
     btn.addEventListener('click', () => this.toggleEdit());
     bar.append(label, btn);
 
-    this.pre = document.createElement('pre');
-    this.pre.className = 've-source-pre';
-    this.pre.textContent = node.attrs.source;
+    this.body = this.buildBody();
+    this.dom.append(bar, this.body);
+  }
 
-    this.dom.append(bar, this.pre);
+  /** kind に応じてグリッド or pre を返す。グリッド化に失敗したら pre。 */
+  private buildBody(): HTMLElement {
+    if (this.node.attrs.kind === 'table') {
+      try {
+        this.grid = createTableGrid({
+          source: this.node.attrs.source,
+          autoFormatMarkdownTable: this.autoFormatMarkdownTable,
+          labels: this.tableLabels,
+          onCommit: (src) => this.commitSource(src),
+        });
+        return this.grid.dom;
+      } catch {
+        this.grid = null;
+      }
+    }
+    const pre = document.createElement('pre');
+    pre.className = 've-source-pre';
+    pre.textContent = this.node.attrs.source;
+    return pre;
+  }
+
+  /** ノードの source 属性を更新(未変更なら何もしない) */
+  private commitSource(value: string): void {
+    const pos = this.getPos();
+    if (pos == null) return;
+    if (value === this.node.attrs.source) return;
+    this.view.dispatch(
+      this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        source: value,
+      }),
+    );
   }
 
   private toggleEdit(): void {
     if (this.editing) return;
     this.editing = true;
+    this.grid?.destroy();
+    this.grid = null;
+
     const ta = document.createElement('textarea');
     ta.className = 've-source-ta';
     ta.value = this.node.attrs.source;
@@ -85,26 +152,16 @@ export class SourceBlockView implements NodeView {
       20,
       Math.max(3, this.node.attrs.source.split('\n').length + 1),
     );
-    this.pre.replaceWith(ta);
+    this.body.replaceWith(ta);
+    this.body = ta;
     ta.focus();
 
     const commit = () => {
-      const pos = this.getPos();
       this.editing = false;
-      if (pos == null) return;
       const value = ta.value;
-      this.pre = document.createElement('pre');
-      this.pre.className = 've-source-pre';
-      this.pre.textContent = value;
-      ta.replaceWith(this.pre);
-      if (value !== this.node.attrs.source) {
-        this.view.dispatch(
-          this.view.state.tr.setNodeMarkup(pos, undefined, {
-            ...this.node.attrs,
-            source: value,
-          }),
-        );
-      }
+      this.body = this.buildBody();
+      ta.replaceWith(this.body);
+      this.commitSource(value);
       this.view.focus();
     };
 
@@ -124,19 +181,31 @@ export class SourceBlockView implements NodeView {
 
   update(node: PmNode): boolean {
     if (node.type !== this.node.type) return false;
+    if (node.attrs.kind !== this.node.attrs.kind) return false;
     this.node = node;
-    if (!this.editing) this.pre.textContent = node.attrs.source;
     this.dom.setAttribute('data-kind', node.attrs.kind);
+    if (this.editing) return true;
+    if (this.grid != null) {
+      this.grid.setSource(node.attrs.source);
+    } else if (this.body instanceof HTMLPreElement) {
+      this.body.textContent = node.attrs.source;
+    }
     return true;
   }
 
   stopEvent(event: Event): boolean {
-    return this.editing && event.target instanceof globalThis.Node
-      ? this.dom.contains(event.target as globalThis.Node)
-      : false;
+    if (!(event.target instanceof globalThis.Node)) return false;
+    if (this.editing) return this.dom.contains(event.target);
+    if (this.grid != null) return this.grid.dom.contains(event.target);
+    return false;
   }
 
   ignoreMutation(): boolean {
     return true;
+  }
+
+  destroy(): void {
+    this.grid?.destroy();
+    this.grid = null;
   }
 }

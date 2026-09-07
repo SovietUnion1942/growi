@@ -328,10 +328,28 @@ const ConfigurationSelector = memo((): JSX.Element => {
     );
   }, [editorSettings, t, update]);
 
+  const renderDefaultToWysiwygMenuItem = useCallback(() => {
+    if (editorSettings == null) {
+      return <></>;
+    }
+
+    const isActive = editorSettings.defaultToWysiwyg;
+
+    return (
+      <SwitchItem
+        inputId="switchDefaultToWysiwyg"
+        onChange={() => update({ defaultToWysiwyg: !isActive })}
+        checked={isActive}
+        text={t('page_edit.wysiwyg.default_to_wysiwyg')}
+      />
+    );
+  }, [editorSettings, t, update]);
+
   return (
     <div className="mx-3 mt-1">
       {renderActiveLineMenuItem()}
       {renderMarkdownTableAutoFormattingMenuItem()}
+      {renderDefaultToWysiwygMenuItem()}
     </div>
   );
 });

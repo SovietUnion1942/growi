@@ -143,6 +143,7 @@ export const setup = (crowi) => {
       body('keymapMode').optional().isString(),
       body('styleActiveLine').optional().isBoolean(),
       body('autoFormatMarkdownTable').optional().isBoolean(),
+      body('defaultToWysiwyg').optional().isBoolean(),
     ],
     inAppNotificationSettings: [
       body('defaultSubscribeRules.*.name').isString(),
@@ -767,6 +768,8 @@ export const setup = (crowi) => {
    *                    type: boolean
    *                  autoFormatMarkdownTable:
    *                    type: boolean
+   *                  defaultToWysiwyg:
+   *                    type: boolean
    *        responses:
    *          200:
    *            description: params of editor settings
@@ -787,14 +790,20 @@ export const setup = (crowi) => {
       const query = { userId: req.user.id };
       const { body } = req;
 
-      const { theme, keymapMode, styleActiveLine, autoFormatMarkdownTable } =
-        body;
+      const {
+        theme,
+        keymapMode,
+        styleActiveLine,
+        autoFormatMarkdownTable,
+        defaultToWysiwyg,
+      } = body;
 
       const document = {
         theme,
         keymapMode,
         styleActiveLine,
         autoFormatMarkdownTable,
+        defaultToWysiwyg,
       };
 
       // Insert if document does not exist, and return new values

@@ -2,6 +2,8 @@ import express from 'express';
 
 import { factory as aiToolsRouteFactory } from '~/features/ai-tools/server/routes/apiv3';
 import { factory as auditLogBulkExportRouteFactory } from '~/features/audit-log-bulk-export/server/routes/apiv3';
+import { setup as setupBoard } from '~/features/board/server/routes/board';
+import { setupClassroomFeed } from '~/features/classroom-feed/server';
 import { setup as setupExternalUserGroup } from '~/features/external-user-group/server/routes/apiv3/external-user-group';
 import { setup as setupExternalUserGroupRelation } from '~/features/external-user-group/server/routes/apiv3/external-user-group-relation';
 import { setup as growiPlugin } from '~/features/growi-plugin/server/routes/apiv3/admin';
@@ -192,6 +194,7 @@ export const setup = (crowi, app) => {
 
   router.use('/messages', setupMessages(crowi));
   router.use('/wiki-gap-suggestions', setupWikiGapSuggestions(crowi));
+  router.use('/board', setupBoard(crowi));
   router.use('/in-app-notification', setupInAppNotification(crowi));
   router.use('/news', newsRoute(crowi));
 
@@ -227,6 +230,7 @@ export const setup = (crowi, app) => {
   router.use('/bookmarks', setupBookmarks(crowi));
   router.use('/attachment', setupAttachment(crowi));
   router.use('/nas-storage', setupNasStorage(crowi));
+  router.use('/classroom-feed', setupClassroomFeed(crowi));
 
   router.use('/slack-integration', setupSlackIntegration(crowi));
 

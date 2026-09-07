@@ -405,6 +405,48 @@
     "editor_config": "Editor Config",
     "Show active line": "Show active line",
     "auto_format_table": "Auto format table",
+    "wysiwyg": {
+      "enter": "Visual editing",
+      "exit": "Back to source",
+      "default_to_wysiwyg": "Open the editor in visual mode",
+      "source_edit": "Edit source",
+      "block": {
+        "container": "::: block",
+        "directive": "Directive",
+        "table": "Table",
+        "html": "HTML",
+        "frontmatter": "Frontmatter",
+        "raw": "Source"
+      },
+      "toolbar": {
+        "h1": "Heading 1",
+        "h2": "Heading 2",
+        "h3": "Heading 3",
+        "paragraph": "Body text",
+        "bold": "Bold",
+        "italic": "Italic",
+        "strike": "Strikethrough",
+        "code": "Inline code",
+        "bullet_list": "Bullet list",
+        "ordered_list": "Numbered list",
+        "task": "Toggle task",
+        "blockquote": "Quote",
+        "code_block": "Code block",
+        "link": "Link",
+        "link_prompt": "Link URL"
+      },
+      "table": {
+        "add_row": "row",
+        "add_col": "column",
+        "del_row": "Delete row",
+        "del_col": "Delete column",
+        "align_left": "Align left",
+        "align_center": "Align center",
+        "align_right": "Align right",
+        "align_none": "No alignment",
+        "edit_as_text": "Edit as text"
+      }
+    },
     "overwrite_scopes": "{{operation}} and Overwrite scopes of all descendants",
     "notice": {
       "conflict": "Couldn't save the changes you made because someone else was editing this page. Please re-edit the affected section after reloading the page."
@@ -1135,6 +1177,17 @@
     "refresh": "Refresh",
     "empty_folder": "This folder is empty.",
     "loading_more": "Loading more...",
+    "sort": {
+      "label": "Sort by",
+      "name": "Name",
+      "modified": "Date",
+      "size": "Size",
+      "partial_hint": "Only the entries loaded so far are sorted. Scroll to the bottom to load the whole folder."
+    },
+    "usage": {
+      "label": "Storage",
+      "summary": "{{used}} / {{total}} used ({{percent}}%, {{free}} free)"
+    },
     "breadcrumb_root": "Root",
     "new_folder": "New folder",
     "upload_button": "Upload",
@@ -1182,7 +1235,7 @@
       "invalid_name_dots": "\".\" and \"..\" cannot be used as a file name.",
       "invalid_name_separator": "A file name cannot contain path separators.",
       "invalid_name_length": "The file name is too long.",
-      "size_hint": "Up to 100 MB per file (limited by the reverse proxy / CDN)."
+      "size_hint": "Large files are uploaded in chunks automatically."
     },
     "preview": {
       "action": "Preview",
@@ -1202,7 +1255,8 @@
       "in_progress": "Uploading folder…",
       "summary": "{{succeeded}} uploaded, {{skipped}} skipped, {{failed}} failed.",
       "failures_title": "Files that failed to upload",
-      "invalid_path": "The path contains an unusable name and was skipped."
+      "invalid_path": "The path contains an unusable name and was skipped.",
+      "progress": "{{processed}} / {{total}} files"
     },
     "confirm": {
       "delete_title": "Delete item",

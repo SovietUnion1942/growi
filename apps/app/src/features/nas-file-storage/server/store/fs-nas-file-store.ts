@@ -10,6 +10,7 @@ import {
   rm,
   rmdir,
   stat,
+  statfs,
 } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -21,6 +22,7 @@ import type {
   NasListPage,
   NasListQuery,
   NasResult,
+  NasStorageUsage,
   PutFileInput,
 } from '../../interfaces';
 import { nasStorageConfig } from '../config/nas-storage-config';
@@ -201,6 +203,26 @@ export class FsNasFileStore implements NasFileStore {
           onRoot: resolved.logicalPath === '/',
         }),
       };
+    }
+  }
+
+  async statfs(): Promise<NasResult<NasStorageUsage>> {
+    try {
+      const s = await statfs(this.root);
+      const totalBytes = Number(s.blocks) * s.bsize;
+      // `bavail` (not `bfree`): space actually writable by an unprivileged
+      // process, which is what the capacity bar should reflect.
+      const freeBytes = Number(s.bavail) * s.bsize;
+      return {
+        ok: true,
+        value: {
+          totalBytes,
+          freeBytes,
+          usedBytes: Math.max(0, totalBytes - freeBytes),
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: normalizeNasError(err, { onRoot: true }) };
     }
   }
 

@@ -9,6 +9,7 @@ import type {
   NasListPage,
   NasListQuery,
   NasResult,
+  NasStorageUsage,
   PutFileInput,
 } from '../../interfaces';
 import type { NasStorageConfig } from '../config/nas-storage-config';
@@ -36,6 +37,8 @@ import { suggestNonConflictingName } from './suggest-non-conflicting-name';
  */
 export interface NasStorageService {
   listFolder(dir: string, query: NasListQuery): Promise<NasResult<NasListPage>>;
+  /** Capacity of the volume backing the NAS root (Req: storage usage bar). */
+  getUsage(): Promise<NasResult<NasStorageUsage>>;
   /**
    * Retained for the legacy stream-based delivery path (`store.openRead`).
    * Prefer `resolveContent` for delivery: it resolves an absolute path without
@@ -181,6 +184,10 @@ export const createNasStorageService = (
       return run('listFolder', { dir }, () => store.list(dir, query), {
         onRoot: true,
       });
+    },
+
+    getUsage() {
+      return run('getUsage', {}, () => store.statfs(), { onRoot: true });
     },
 
     download(logicalPath) {

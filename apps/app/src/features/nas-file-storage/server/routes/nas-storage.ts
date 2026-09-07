@@ -238,6 +238,15 @@ export const setupNasStorage = (
     res.apiv3(result.value);
   });
 
+  router.get('/usage', async (_req: Request, res: ApiV3Response) => {
+    const result = await service.getUsage();
+    if (!result.ok) {
+      respondNasError(res, result.error);
+      return;
+    }
+    res.apiv3(result.value);
+  });
+
   router.get('/file', async (req: Request, res: ApiV3Response) => {
     const logicalPath = asString(req.query.path) ?? '';
     const inlineRequested = parseBool(req.query.inline);

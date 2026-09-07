@@ -11,6 +11,7 @@ export type {
   NasEntryType,
   NasListPage,
   NasListQuery,
+  NasStorageUsage,
 } from './nas-entry';
 export type { NasError, NasErrorCode, NasResult } from './nas-errors';
 export type { NasPreviewEntry, NasPreviewKind } from './nas-preview';

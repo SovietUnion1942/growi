@@ -39,6 +39,14 @@
     rgba(255, 255, 255, 0.12) 50%,
     rgba(255, 255, 255, 0.03) 100%
   );
+  // Floating-window titlebar (the drag-handle strip): Aero's glossy caption
+  // bar — a bright vertical gloss fading into the panel body.
+  --grw-titlebar-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(236, 244, 252, 0.5) 46%,
+    rgba(214, 230, 245, 0.42) 100%
+  );
 
   // Ground painted behind the floating panels: a diagonal light-dark-light
   // sweep (like a light band crossing a satin/glass surface) reads as an
@@ -84,6 +92,13 @@
     rgba(255, 255, 255, 0.05) 24%,
     rgba(255, 255, 255, 0.01) 55%,
     rgba(255, 255, 255, 0.07) 100%
+  );
+  // Liquid Glass titlebar: a faint top rim-light, no gloss.
+  --grw-titlebar-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.09) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(0, 0, 0, 0.06) 100%
   );
 
   --grw-page-ground:

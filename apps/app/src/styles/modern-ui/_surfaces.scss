@@ -31,6 +31,14 @@
 
 // --- Icon rail -----------------------------------------------------------
 :root[data-grw-ui='modern'] .grw-sidebar-nav {
+  // `overflow-x: clip` — the blur below makes this a containing block for its
+  // `position: fixed` descendants; `.grw-sidebar-nav-secondary-container` (the
+  // help / settings / trash / avatar cluster) is one, and its buttons render a
+  // hair wider than the 48px rail, so once trapped here they spilled a
+  // horizontal scrollbar. The rail never has legitimate horizontal overflow
+  // (both sidebar dropdowns portal to `body`). `clip` (not `hidden`) keeps it
+  // from becoming a scroll container.
+  overflow-x: clip;
   background-color: var(--grw-glass-bg);
   background-image: var(--grw-glass-sheen);
   -webkit-backdrop-filter: var(--grw-glass-blur);

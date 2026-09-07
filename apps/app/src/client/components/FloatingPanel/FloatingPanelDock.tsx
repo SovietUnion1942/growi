@@ -18,7 +18,9 @@ export const FloatingPanelDock = (): JSX.Element | null => {
   }
 
   return (
-    <div className="tw:fixed tw:bottom-4 tw:right-4 tw:z-50 tw:flex tw:flex-col tw:gap-2 tw:items-end">
+    // `grw-floating-panel-dock` is a stable hook for the modern-UI skin
+    // (styles/modern-ui/_overlays.scss); the visual styling is Tailwind.
+    <div className="grw-floating-panel-dock tw:fixed tw:bottom-4 tw:right-4 tw:z-50 tw:flex tw:flex-col tw:gap-2 tw:items-end">
       {minimizedPanels.map((entry) => (
         <button
           key={entry.key}

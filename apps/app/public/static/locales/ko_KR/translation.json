@@ -1086,5 +1086,17 @@
     "searching": "검색 중...",
     "noResults": "페이지를 찾을 수 없습니다",
     "candidatesLabel": "페이지 후보"
+  },
+  "task": {
+    "nav_label": "Tasks",
+    "title": "Title",
+    "assignee": "Assignee",
+    "due_date": "Due date",
+    "add": "Add",
+    "new_task_placeholder": "What needs to be done?",
+    "filter_all": "All",
+    "filter_mine": "My tasks",
+    "filter_overdue": "Overdue",
+    "no_tasks": "No tasks yet."
   }
 }

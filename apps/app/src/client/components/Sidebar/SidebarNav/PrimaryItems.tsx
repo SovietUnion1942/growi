@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { NotAvailable } from '~/client/components/NotAvailable';
 import { NasStorageNavItem } from '~/features/nas-file-storage/client/nav/NasStorageNavItem';
+import { TaskNavItem } from '~/features/task/client/nav/TaskNavItem';
 import { isMessagesFeatureEnabled } from '~/interfaces/messages-mode';
 import { SidebarContentsType } from '~/interfaces/ui';
 import { useIsAdmin, useIsGuestUser } from '~/states/context';
@@ -139,6 +140,7 @@ export const PrimaryItems = memo((props: Props) => {
         />
       </NotAvailable>
       <NasStorageNavItem />
+      <TaskNavItem />
     </div>
   );
 });

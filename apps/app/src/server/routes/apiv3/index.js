@@ -21,6 +21,7 @@ import newsRoute from '~/features/news/server/routes/news';
 import { setup as setupPageBulkExport } from '~/features/page-bulk-export/server/routes/apiv3/page-bulk-export';
 import { changesRouteHandlersFactory } from '~/features/revision-diff/server/routes/changes';
 import { diffRouteHandlersFactory } from '~/features/revision-diff/server/routes/diff';
+import { setup as setupTask } from '~/features/task/server/routes/task';
 import { setup as setupTemplates } from '~/features/templates/server/routes/apiv3';
 import { setup as setupBadgeType } from '~/features/user-badge/server/routes/badge-type';
 import { setup as setupUserBadge } from '~/features/user-badge/server/routes/user-badge';
@@ -195,6 +196,7 @@ export const setup = (crowi, app) => {
   router.use('/messages', setupMessages(crowi));
   router.use('/wiki-gap-suggestions', setupWikiGapSuggestions(crowi));
   router.use('/board', setupBoard(crowi));
+  router.use('/tasks', setupTask(crowi));
   router.use('/in-app-notification', setupInAppNotification(crowi));
   router.use('/news', newsRoute(crowi));
 

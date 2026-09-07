@@ -12,6 +12,7 @@ import {
   nasStorageEnabledAtom,
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
+  taskEnabledAtom,
   userBadgeEnabledAtom,
   wikiGapSuggestionsEnabledAtom,
 } from '~/states/server-configurations';
@@ -98,6 +99,7 @@ export const useHydrateGlobalInitialAtoms = (
             commonInitialProps.wikiGapSuggestionsEnabled,
           ),
           createAtomTuple(boardEnabledAtom, commonInitialProps.boardEnabled),
+          createAtomTuple(taskEnabledAtom, commonInitialProps.taskEnabled),
         ];
 
   useHydrateAtoms(tuples);

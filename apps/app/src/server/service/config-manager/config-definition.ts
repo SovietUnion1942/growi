@@ -66,6 +66,7 @@ export const CONFIG_KEYS = [
   'app:userBadgeEnabled',
   'app:wikiGapSuggestionsEnabled',
   'app:boardEnabled',
+  'app:taskEnabled',
   'app:publishOpenAPI',
   'app:maxFileSize',
   'app:fileUploadTimeout',
@@ -528,6 +529,12 @@ export const CONFIG_DEFINITIONS = {
   // registered.
   'app:boardEnabled': defineConfig<boolean>({
     envVarName: 'BOARD_MODE',
+    defaultValue: false,
+  }),
+  // Standalone task feature: the `/_tasks` board page + `/_api/v3/tasks` API.
+  // OFF: the page and API 404 and the sidebar entry is not rendered.
+  'app:taskEnabled': defineConfig<boolean>({
+    envVarName: 'TASK_MODE',
     defaultValue: false,
   }),
   'app:publishOpenAPI': defineConfig<boolean>({

@@ -37,6 +37,7 @@ const baseProps: CommonInitialProps = {
   userBadgeEnabled: false,
   wikiGapSuggestionsEnabled: false,
   boardEnabled: false,
+  taskEnabled: false,
 };
 
 const NasStorageEnabledProbe = ({

@@ -148,6 +148,19 @@ describe('NasStorageBrowser', () => {
     expect(screen.getByText('2.05 kB')).toBeInTheDocument();
   });
 
+  it('offers a folder-download (zip) link on a directory row', () => {
+    mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));
+
+    render(<NasStorageBrowser initialPath="/parent" />);
+
+    const link = screen.getByTestId('nas-entry-download-folder');
+    expect(link).toHaveAttribute(
+      'href',
+      '/_api/v3/nas-storage/archive?path=%2Fparent%2Fdocuments',
+    );
+    expect(link).toHaveAttribute('download');
+  });
+
   it('opens a directory row and re-lists with the child path', async () => {
     mocks.useNasList.mockReturnValue(makeResult({ entries: [dirEntry] }));
 

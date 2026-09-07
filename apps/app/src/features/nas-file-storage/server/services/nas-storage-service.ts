@@ -3,6 +3,7 @@ import loggerFactory, { type Logger } from '~/utils/logger';
 import type {
   BeginChunkedUploadInput,
   BeginChunkedUploadResponse,
+  NasArchiveSource,
   NasEntry,
   NasError,
   NasFileStore,
@@ -39,6 +40,8 @@ export interface NasStorageService {
   listFolder(dir: string, query: NasListQuery): Promise<NasResult<NasListPage>>;
   /** Capacity of the volume backing the NAS root (Req: storage usage bar). */
   getUsage(): Promise<NasResult<NasStorageUsage>>;
+  /** File set for a folder-download zip (Req: folder download). */
+  archiveFolder(logicalDirPath: string): Promise<NasResult<NasArchiveSource>>;
   /**
    * Retained for the legacy stream-based delivery path (`store.openRead`).
    * Prefer `resolveContent` for delivery: it resolves an absolute path without
@@ -188,6 +191,15 @@ export const createNasStorageService = (
 
     getUsage() {
       return run('getUsage', {}, () => store.statfs(), { onRoot: true });
+    },
+
+    archiveFolder(logicalDirPath) {
+      return run(
+        'archiveFolder',
+        { logicalDirPath },
+        () => store.collectArchiveEntries(logicalDirPath),
+        { onRoot: true },
+      );
     },
 
     download(logicalPath) {

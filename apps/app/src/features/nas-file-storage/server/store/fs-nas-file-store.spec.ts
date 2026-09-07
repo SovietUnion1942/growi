@@ -268,6 +268,51 @@ describe('FsNasFileStore', () => {
     });
   });
 
+  describe('collectArchiveEntries', () => {
+    test('lists every file under the folder, prefixed with the folder name', async () => {
+      await mkdir(path.join(root, 'trip/photos'), { recursive: true });
+      await writeFile(path.join(root, 'trip/readme.txt'), 'r');
+      await writeFile(path.join(root, 'trip/photos/a.jpg'), 'a');
+      await writeFile(path.join(root, 'trip/photos/b.jpg'), 'b');
+
+      const res = await store.collectArchiveEntries('/trip');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value.rootName).toBe('trip');
+      expect(res.value.files.map((f) => f.archivePath).sort()).toEqual([
+        'trip/photos/a.jpg',
+        'trip/photos/b.jpg',
+        'trip/readme.txt',
+      ]);
+    });
+
+    test('skips symlinks and hidden entries', async () => {
+      await mkdir(path.join(root, 'dir'), { recursive: true });
+      await writeFile(path.join(root, 'dir/keep.txt'), 'k');
+      await writeFile(path.join(root, 'secret.txt'), 's');
+      await writeFile(path.join(root, 'dir/.hidden'), 'h');
+      await symlink(path.join(root, 'secret.txt'), path.join(root, 'dir/link'));
+
+      const res = await store.collectArchiveEntries('/dir');
+
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.value.files.map((f) => f.archivePath)).toEqual([
+        'dir/keep.txt',
+      ]);
+    });
+
+    test('rejects a non-directory target and the storage root itself', async () => {
+      await writeFile(path.join(root, 'file.txt'), 'x');
+
+      expect((await store.collectArchiveEntries('/file.txt')).ok).toBe(false);
+      const rootRes = await store.collectArchiveEntries('/');
+      expect(rootRes.ok).toBe(false);
+      if (!rootRes.ok) expect(rootRes.error.code).toBe('INVALID_PATH');
+    });
+  });
+
   describe('openRead', () => {
     test('streams the file bytes without reading it all into memory', async () => {
       await writeFile(path.join(root, 'payload.bin'), 'the-bytes');

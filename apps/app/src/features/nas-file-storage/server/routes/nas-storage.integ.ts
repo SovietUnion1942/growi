@@ -131,6 +131,43 @@ describe('setupNasStorage router (integration)', () => {
       );
     });
 
+    it('GET /archive streams the folder as a zip attachment', async () => {
+      const root = await newRoot();
+      await mkdir(path.join(root, 'trip/photos'), { recursive: true });
+      await writeFile(path.join(root, 'trip/notes.txt'), 'hello');
+      await writeFile(path.join(root, 'trip/photos/a.txt'), 'a');
+      currentUser = await seedUser('archiver');
+      const app = await buildReadyApp(root);
+
+      const res = await request(app)
+        .get('/_api/v3/nas-storage/archive')
+        .query({ path: '/trip' })
+        .responseType('blob');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('application/zip');
+      expect(res.headers['content-disposition']).toContain('trip.zip');
+      const body = res.body as Buffer;
+      expect(Buffer.isBuffer(body)).toBe(true);
+      // local-file-header magic "PK\x03\x04"
+      expect(body.subarray(0, 4)).toEqual(
+        Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      );
+      expect(body.length).toBeGreaterThan(0);
+    });
+
+    it('GET /archive rejects the storage root', async () => {
+      const root = await newRoot();
+      currentUser = await seedUser('archiver-root');
+      const app = await buildReadyApp(root);
+
+      const res = await request(app)
+        .get('/_api/v3/nas-storage/archive')
+        .query({ path: '/' });
+
+      expect(res.status).toBe(400);
+    });
+
     it('GET /file streams the bytes with the original filename in Content-Disposition', async () => {
       const root = await newRoot();
       await writeFile(path.join(root, 'report.txt'), 'hello nas');

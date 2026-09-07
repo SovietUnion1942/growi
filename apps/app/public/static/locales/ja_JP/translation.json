@@ -1234,6 +1234,7 @@
     "rename": "名前を変更",
     "delete": "削除",
     "download": "ダウンロード",
+    "download_folder": "フォルダをダウンロード (zip)",
     "dismiss_error": "閉じる",
     "login_required": "NAS ストレージを利用するにはログインしてください。",
     "forbidden": "NAS ストレージにアクセスする権限がありません。",

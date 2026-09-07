@@ -167,6 +167,34 @@ describe('createNasStorageService', () => {
     });
   });
 
+  describe('archiveFolder', () => {
+    it('passes the store archive source through on success', async () => {
+      const { store, service } = setup();
+      const source = {
+        rootName: 'trip',
+        files: [{ absolutePath: '/nas/trip/a.txt', archivePath: 'trip/a.txt' }],
+      };
+      store.collectArchiveEntries.mockResolvedValue({
+        ok: true,
+        value: source,
+      });
+
+      const result = await service.archiveFolder('/trip');
+
+      expect(result).toEqual({ ok: true, value: source });
+      expect(store.collectArchiveEntries).toHaveBeenCalledWith('/trip');
+    });
+
+    it('is gated on ensureReady', async () => {
+      const { store, service } = setup(false);
+
+      const result = await service.archiveFolder('/trip');
+
+      expect(result.ok).toBe(false);
+      expect(store.collectArchiveEntries).not.toHaveBeenCalled();
+    });
+  });
+
   describe('listFolder', () => {
     it('passes the store result through on success', async () => {
       const { store, service } = setup();

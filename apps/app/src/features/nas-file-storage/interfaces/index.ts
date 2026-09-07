@@ -7,6 +7,8 @@ export type {
   CompleteChunkedUploadResponse,
 } from './nas-chunked-upload';
 export type {
+  NasArchiveFile,
+  NasArchiveSource,
   NasEntry,
   NasEntryType,
   NasListPage,

@@ -74,7 +74,11 @@ export const FloatingPanel = ({
 
   return (
     <div
+      // Stable class for the modern-UI skin to hang a glass treatment on
+      // (see styles/modern-ui/_overlays.scss). Own `backdrop-filter` is safe:
+      // the panel has no `position: fixed` descendants of its own.
       className={cn(
+        'grw-floating-panel',
         'tw:fixed tw:z-50 tw:flex tw:flex-col tw:overflow-hidden tw:rounded-lg tw:border tw:bg-background tw:shadow-lg',
         // While minimized, the dock chip (rendered elsewhere by
         // FloatingPanelDock) is the only visible trace of this panel -- hide

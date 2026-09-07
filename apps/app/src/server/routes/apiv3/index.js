@@ -4,7 +4,6 @@ import { factory as aiToolsRouteFactory } from '~/features/ai-tools/server/route
 import { factory as auditLogBulkExportRouteFactory } from '~/features/audit-log-bulk-export/server/routes/apiv3';
 import { setup as setupBoard } from '~/features/board/server/routes/board';
 import { setupClassroomFeed } from '~/features/classroom-feed/server';
-import { setupClassroomSyncTrigger } from '~/features/classroom-sync-trigger/server';
 import { setup as setupExternalUserGroup } from '~/features/external-user-group/server/routes/apiv3/external-user-group';
 import { setup as setupExternalUserGroupRelation } from '~/features/external-user-group/server/routes/apiv3/external-user-group-relation';
 import { setup as growiPlugin } from '~/features/growi-plugin/server/routes/apiv3/admin';
@@ -142,12 +141,6 @@ export const setup = (crowi, app) => {
   // A bare '/nas-storage' here would collide with the non-admin apiV3Router
   // mount of the same name and never reach this handler.
   routerForAdmin.use('/admin/nas-storage', setupNasStorageAdmin(crowi));
-  // Mounted under /admin/ for the same reason as nas-storage above:
-  // /_api/v3/admin/classroom-sync-trigger/run
-  routerForAdmin.use(
-    '/admin/classroom-sync-trigger',
-    setupClassroomSyncTrigger(crowi),
-  );
 
   // auth
   const applicationInstalled = setupApplicationInstalled(crowi);

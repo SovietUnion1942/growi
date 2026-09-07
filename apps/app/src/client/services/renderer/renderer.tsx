@@ -23,6 +23,7 @@ import { RichAttachment } from '~/client/components/ReactMarkdownComponents/Rich
 import { TableWithEditButton } from '~/client/components/ReactMarkdownComponents/TableWithEditButton';
 import * as board from '~/features/board';
 import * as callout from '~/features/callout';
+import * as classroomFeed from '~/features/classroom-feed';
 import {
   remarkPlugin as mermaidRemarkPlugin,
   sanitizeOption as mermaidSanitizeOption,
@@ -87,6 +88,7 @@ export const generateViewOptions = (
     refsGrowiDirective.remarkPlugin,
     wikiGapSuggestions.remarkPlugin,
     board.remarkPlugin,
+    classroomFeed.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -109,6 +111,7 @@ export const generateViewOptions = (
             codeBlock.sanitizeOption,
             wikiGapSuggestions.sanitizeOption,
             board.sanitizeOption,
+            classroomFeed.sanitizeOption,
           ),
         ]
       : () => {};
@@ -152,6 +155,7 @@ export const generateViewOptions = (
     components.img = LightBox;
     components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
     components.board = board.BoardViewer;
+    components.classroomfeed = classroomFeed.ClassroomFeedViewer;
   }
 
   if (config.isEnabledXssPrevention) {
@@ -384,6 +388,7 @@ export const generatePreviewOptions = (
     refsGrowiDirective.remarkPlugin,
     wikiGapSuggestions.remarkPlugin,
     board.remarkPlugin,
+    classroomFeed.remarkPlugin,
   );
   if (config.isEnabledLinebreaks) {
     remarkPlugins.push(breaks);
@@ -406,6 +411,7 @@ export const generatePreviewOptions = (
             codeBlock.sanitizeOption,
             wikiGapSuggestions.sanitizeOption,
             board.sanitizeOption,
+            classroomFeed.sanitizeOption,
           ),
         ]
       : () => {};
@@ -441,6 +447,7 @@ export const generatePreviewOptions = (
     components.img = LightBox;
     components.wikiGapSuggestions = wikiGapSuggestions.WikiGapSuggestionsViewer;
     components.board = board.BoardViewer;
+    components.classroomfeed = classroomFeed.ClassroomFeedViewer;
   }
 
   if (config.isEnabledXssPrevention) {

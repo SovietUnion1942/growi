@@ -97,6 +97,12 @@ export const wikiGapSuggestionsEnabledAtom = atom<boolean>(false);
 export const boardEnabledAtom = atom<boolean>(false);
 
 /**
+ * Atom for the standalone task feature switch (`app:taskEnabled`). Defaults
+ * false. Gates the `/_tasks` page and the sidebar entry.
+ */
+export const taskEnabledAtom = atom<boolean>(false);
+
+/**
  * Atom for users homepage deletion enabled status
  */
 export const isUsersHomepageDeletionEnabledAtom = atom<boolean>(false);

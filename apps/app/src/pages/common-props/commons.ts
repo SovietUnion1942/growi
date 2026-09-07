@@ -54,6 +54,7 @@ export type CommonInitialProps = {
   userBadgeEnabled: boolean;
   wikiGapSuggestionsEnabled: boolean;
   boardEnabled: boolean;
+  taskEnabled: boolean;
 };
 
 export const getServerSideCommonInitialProps: GetServerSideProps<
@@ -164,6 +165,9 @@ export const getServerSideCommonInitialProps: GetServerSideProps<
       // app:boardEnabled — the :board directive viewer and /board/* editor
       // pages are inert when off.
       boardEnabled: configManager.getConfig('app:boardEnabled'),
+      // app:taskEnabled — the /_tasks page and /_api/v3/tasks API 404 and the
+      // sidebar task entry is not rendered when off.
+      taskEnabled: configManager.getConfig('app:taskEnabled'),
     } satisfies CommonInitialProps,
   };
 };

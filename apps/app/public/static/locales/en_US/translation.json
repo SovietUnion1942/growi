@@ -1172,6 +1172,18 @@
     "noResults": "No pages found",
     "candidatesLabel": "Page candidates"
   },
+  "task": {
+    "nav_label": "Tasks",
+    "title": "Title",
+    "assignee": "Assignee",
+    "due_date": "Due date",
+    "add": "Add",
+    "new_task_placeholder": "What needs to be done?",
+    "filter_all": "All",
+    "filter_mine": "My tasks",
+    "filter_overdue": "Overdue",
+    "no_tasks": "No tasks yet."
+  },
   "nas_storage": {
     "nav_label": "NAS Storage",
     "refresh": "Refresh",

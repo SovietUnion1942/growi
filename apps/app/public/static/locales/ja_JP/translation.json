@@ -1212,6 +1212,18 @@
     "noResults": "該当するページがありません",
     "candidatesLabel": "ページ候補"
   },
+  "task": {
+    "nav_label": "タスク",
+    "title": "タイトル",
+    "assignee": "担当者",
+    "due_date": "期限",
+    "add": "追加",
+    "new_task_placeholder": "やることを入力…",
+    "filter_all": "すべて",
+    "filter_mine": "自分のタスク",
+    "filter_overdue": "期限切れ",
+    "no_tasks": "タスクはまだありません。"
+  },
   "nas_storage": {
     "nav_label": "NAS ストレージ",
     "refresh": "更新",

@@ -14,6 +14,7 @@ import {
   pushNotificationEnabledAtom,
   pwaEnabledAtom,
   sysreqNoticeAtom,
+  taskEnabledAtom,
   uaBelowMinAtom,
   uaOsAtom,
   uiTierAtom,
@@ -108,6 +109,7 @@ export const useHydrateGlobalInitialAtoms = (
             commonInitialProps.wikiGapSuggestionsEnabled,
           ),
           createAtomTuple(boardEnabledAtom, commonInitialProps.boardEnabled),
+          createAtomTuple(taskEnabledAtom, commonInitialProps.taskEnabled),
         ];
 
   useHydrateAtoms(tuples);

@@ -28,6 +28,24 @@ export interface NasListPage {
   nextCursor?: string;
 }
 
+/** One file to place into a folder-download archive. */
+export interface NasArchiveFile {
+  absolutePath: string;
+  /** POSIX path inside the archive, including the top-level folder name. */
+  archivePath: string;
+}
+
+/** Everything the route layer needs to stream a folder as a zip. */
+export interface NasArchiveSource {
+  /** Base name for the archive (the folder name), without extension. */
+  rootName: string;
+  /**
+   * Every regular file under the folder, symlinks and hidden entries excluded.
+   * Empty sub-folders are not represented (standard zip behaviour).
+   */
+  files: NasArchiveFile[];
+}
+
 /**
  * Filesystem-level capacity of the volume backing the NAS root. The root sits
  * on its own dedicated volume (a size-capped VHDX in the reference deployment),

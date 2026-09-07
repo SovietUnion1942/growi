@@ -17,6 +17,8 @@ import { pipeline } from 'node:stream/promises';
 
 import type {
   AppendChunkInput,
+  NasArchiveFile,
+  NasArchiveSource,
   NasEntry,
   NasFileStore,
   NasListPage,
@@ -222,6 +224,82 @@ export class FsNasFileStore implements NasFileStore {
         },
       };
     } catch (err) {
+      return { ok: false, error: normalizeNasError(err, { onRoot: true }) };
+    }
+  }
+
+  async collectArchiveEntries(
+    logicalDirPath: string,
+  ): Promise<NasResult<NasArchiveSource>> {
+    const resolved = await resolveSafePath(this.root, logicalDirPath);
+    if (!resolved.ok) {
+      return { ok: false, error: normalizeNasError({ code: resolved.code }) };
+    }
+    if (resolved.logicalPath === '/') {
+      // "Download this folder" targets a real sub-folder; archiving the whole
+      // root is out of scope (and would routinely exceed the volume cap).
+      return { ok: false, error: normalizeNasError({ code: 'INVALID_PATH' }) };
+    }
+
+    try {
+      const rootStat = await lstat(resolved.absolutePath);
+      if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+        return {
+          ok: false,
+          error: normalizeNasError({ code: 'NOT_A_DIRECTORY' }),
+        };
+      }
+
+      const rootName = path.basename(resolved.absolutePath);
+      const maxEntries = nasStorageConfig.maxEntriesPerDir();
+      const files: NasArchiveFile[] = [];
+
+      const walk = async (absDir: string, relDir: string): Promise<void> => {
+        const dirents = await readdir(absDir, { withFileTypes: true });
+        for (const dirent of dirents) {
+          if (!nasStorageConfig.showHidden() && isHiddenName(dirent.name)) {
+            continue;
+          }
+          const abs = path.join(absDir, dirent.name);
+          // `lstat`, never `stat`: a symlink is skipped, never followed — the
+          // archive must not reach outside the root.
+          // biome-ignore lint/performance/noAwaitInLoops: the tree is walked depth-first
+          const st = await lstat(abs);
+          if (st.isSymbolicLink()) {
+            continue;
+          }
+          const rel = relDir === '' ? dirent.name : `${relDir}/${dirent.name}`;
+          if (st.isDirectory()) {
+            await walk(abs, rel);
+          } else if (st.isFile()) {
+            if (files.length >= maxEntries) {
+              throw normalizeNasError({ code: 'TOO_MANY_ENTRIES' });
+            }
+            files.push({
+              absolutePath: abs,
+              archivePath: `${rootName}/${rel}`,
+            });
+          }
+        }
+      };
+
+      await walk(resolved.absolutePath, '');
+      return { ok: true, value: { rootName, files } };
+    } catch (err) {
+      if (
+        err != null &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'TOO_MANY_ENTRIES'
+      ) {
+        return {
+          ok: false,
+          error: {
+            ...normalizeNasError({ code: 'TOO_MANY_ENTRIES' }),
+            limitEntries: nasStorageConfig.maxEntriesPerDir(),
+          },
+        };
+      }
       return { ok: false, error: normalizeNasError(err, { onRoot: true }) };
     }
   }

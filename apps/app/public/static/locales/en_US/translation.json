@@ -1183,6 +1183,7 @@
     "rename": "Rename",
     "delete": "Delete",
     "download": "Download",
+    "download_folder": "Download folder (zip)",
     "dismiss_error": "Dismiss",
     "login_required": "Please log in to access NAS storage.",
     "forbidden": "You do not have permission to access NAS storage.",

@@ -115,11 +115,17 @@ export const NasStorageBrowser = ({
   );
 
   // Native browser download: the <a> GET carries the session cookie, and the
-  // server sends `Content-Disposition: attachment` (Req 4.1). Files only — a
-  // directory has no downloadable content.
+  // server sends `Content-Disposition: attachment` (Req 4.1).
   const downloadUrlOf = useCallback(
     (name: string): string =>
       `/_api/v3/nas-storage/file?path=${encodeURIComponent(entryPathOf(name))}`,
+    [entryPathOf],
+  );
+
+  // A folder downloads as a streamed zip from the same GET-with-cookie path.
+  const archiveUrlOf = useCallback(
+    (name: string): string =>
+      `/_api/v3/nas-storage/archive?path=${encodeURIComponent(entryPathOf(name))}`,
     [entryPathOf],
   );
 
@@ -313,7 +319,7 @@ export const NasStorageBrowser = ({
                 </span>
               ) : (
                 <span className="d-flex align-items-center gap-1">
-                  {entry.type === 'file' && (
+                  {entry.type === 'file' ? (
                     <a
                       className="btn btn-sm btn-outline-secondary"
                       href={downloadUrlOf(entry.name)}
@@ -327,6 +333,23 @@ export const NasStorageBrowser = ({
                       </span>
                       <span className="visually-hidden">
                         {t('nas_storage.download')}
+                      </span>
+                    </a>
+                  ) : (
+                    <a
+                      className="btn btn-sm btn-outline-secondary"
+                      href={archiveUrlOf(entry.name)}
+                      download
+                      data-testid="nas-entry-download-folder"
+                    >
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
+                        folder_zip
+                      </span>
+                      <span className="visually-hidden">
+                        {t('nas_storage.download_folder')}
                       </span>
                     </a>
                   )}

@@ -1,5 +1,6 @@
 import type { IUser } from '@growi/core';
 import { ErrorV3 } from '@growi/core/dist/models';
+import archiver from 'archiver';
 import type {
   ErrorRequestHandler,
   Request,
@@ -289,6 +290,41 @@ export const setupNasStorage = (
         res.apiv3Err(new ErrorV3('nas_storage.error.unknown', 'UNKNOWN'), 500);
       },
     );
+  });
+
+  router.get('/archive', async (req: Request, res: ApiV3Response) => {
+    const logicalPath = asString(req.query.path) ?? '';
+
+    const result = await service.archiveFolder(logicalPath);
+    if (!result.ok) {
+      respondNasError(res, result.error);
+      return;
+    }
+    const { rootName, files } = result.value;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      contentDisposition(`${rootName}.zip`, 'attachment'),
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    // ENOENT for a file removed mid-walk is non-fatal; log and keep streaming.
+    archive.on('warning', (err) => {
+      logger.warn({ err }, 'nas-storage archive warning');
+    });
+    archive.on('error', (err) => {
+      logger.error({ err }, 'nas-storage archive stream failed');
+      res.destroy(err instanceof Error ? err : undefined);
+    });
+
+    archive.pipe(res);
+    for (const file of files) {
+      archive.file(file.absolutePath, { name: file.archivePath });
+    }
+    void archive.finalize();
   });
 
   router.post(

@@ -6,6 +6,7 @@
  */
 
 import type {
+  NasArchiveSource,
   NasEntry,
   NasListPage,
   NasListQuery,
@@ -34,6 +35,14 @@ export interface NasFileStore {
   statEntry(logicalPath: string): Promise<NasResult<NasEntry>>;
   /** Capacity of the volume backing the NAS root (`node:fs` `statfs`). */
   statfs(): Promise<NasResult<NasStorageUsage>>;
+  /**
+   * Recursively list every regular file under a folder for a zip download.
+   * Symlinks and hidden entries are skipped; a non-directory or the storage
+   * root itself is rejected.
+   */
+  collectArchiveEntries(
+    logicalDirPath: string,
+  ): Promise<NasResult<NasArchiveSource>>;
   openRead(
     logicalPath: string,
   ): Promise<NasResult<{ stream: NodeJS.ReadableStream; entry: NasEntry }>>;

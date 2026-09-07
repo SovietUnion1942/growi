@@ -27,3 +27,16 @@ export interface NasListPage {
   /** Absent on the final page. */
   nextCursor?: string;
 }
+
+/**
+ * Filesystem-level capacity of the volume backing the NAS root. The root sits
+ * on its own dedicated volume (a size-capped VHDX in the reference deployment),
+ * so this doubles as the storage quota for the whole feature.
+ */
+export interface NasStorageUsage {
+  totalBytes: number;
+  /** Space still writable by an unprivileged process. */
+  freeBytes: number;
+  /** `totalBytes - freeBytes`. */
+  usedBytes: number;
+}

@@ -92,8 +92,9 @@ wiki 内の共有ファイル置き場。ページ添付とは**完全に独立*
   ディスク満杯かマウント断（書きかけファイルは残らない）。
 - **アップロードが 413 で失敗（アプリのログに届かない）** — 前段のリバースプロキシ／CDN のリクエストボディ上限。
   GROWI 自体は multer の `fileSize` を無制限にできるが、nginx の `client_max_body_size`（NAS 用 location は
-  個別に緩める）と、Cloudflare 無料プランの **1 リクエスト 100MB** ハード上限が実質の天井になる。
-  UI の「1ファイルあたり最大100MBまで」は `nas_storage.upload.size_hint` で調整。
+  個別に緩める）と、Cloudflare 無料プランの **1 リクエスト 100MB** ハード上限が単発 `POST /files` の天井になる。
+  90 MiB 超のファイルはクライアントが自動的に分割アップロード（8 MiB チャンクの `PUT /uploads/:id` 逐次追記）に
+  切り替えるので、この上限は単発パスにしか影響しない。`nas_storage.upload.size_hint` はその旨の案内。
 - **巨大フォルダが開かない** — `GROWI_NAS_MAX_ENTRIES_PER_DIR`（既定 50,000）超過。
 
 ## 非スコープ

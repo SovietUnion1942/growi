@@ -42,6 +42,7 @@ export const Playground = (): JSX.Element => {
       keymapMode: editorKeymap,
       styleActiveLine: true,
       autoFormatMarkdownTable: true,
+      defaultToWysiwyg: false,
       pasteMode: editorPaste,
     });
   }, [editorKeymap, editorTheme, editorPaste]);

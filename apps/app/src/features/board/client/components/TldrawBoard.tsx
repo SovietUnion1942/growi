@@ -1,11 +1,16 @@
 import type { JSX } from 'react';
 import React, { useMemo } from 'react';
-import { Tldraw } from 'tldraw';
+import { type TLComponents, Tldraw } from 'tldraw';
 
 import { BOARD_YJS_WEBSOCKET_BASE_PATH } from '../../interfaces/board';
 import './TldrawBoard.vendor-styles.prebuilt';
 
+import { BoardMainMenu } from './board-editor/BoardMainMenu';
 import { useYjsStore } from './use-yjs-store';
+
+const components: TLComponents = {
+  MainMenu: BoardMainMenu,
+};
 
 type Props = {
   boardId: string;
@@ -47,7 +52,11 @@ export const TldrawBoard = React.memo((props: Props): JSX.Element => {
       data-testid="tldraw-board"
       style={{ position: embed ? 'absolute' : 'fixed', inset: 0 }}
     >
-      <Tldraw store={storeWithStatus} licenseKey={licenseKey} />
+      <Tldraw
+        store={storeWithStatus}
+        licenseKey={licenseKey}
+        components={components}
+      />
     </div>
   );
 });

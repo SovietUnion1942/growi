@@ -5,7 +5,12 @@
  * touching `node:fs`. Types only — no runtime imports.
  */
 
-import type { NasEntry, NasListPage, NasListQuery } from './nas-entry';
+import type {
+  NasEntry,
+  NasListPage,
+  NasListQuery,
+  NasStorageUsage,
+} from './nas-entry';
 import type { NasResult } from './nas-errors';
 
 export interface PutFileInput {
@@ -27,6 +32,8 @@ export interface AppendChunkInput {
 export interface NasFileStore {
   list(dir: string, query: NasListQuery): Promise<NasResult<NasListPage>>;
   statEntry(logicalPath: string): Promise<NasResult<NasEntry>>;
+  /** Capacity of the volume backing the NAS root (`node:fs` `statfs`). */
+  statfs(): Promise<NasResult<NasStorageUsage>>;
   openRead(
     logicalPath: string,
   ): Promise<NasResult<{ stream: NodeJS.ReadableStream; entry: NasEntry }>>;

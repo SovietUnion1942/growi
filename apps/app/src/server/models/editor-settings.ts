@@ -18,6 +18,7 @@ const editorSettingsSchema = new Schema<
   keymapMode: { type: String },
   styleActiveLine: { type: Boolean, default: false },
   autoFormatMarkdownTable: { type: Boolean, default: true },
+  defaultToWysiwyg: { type: Boolean, default: false },
 });
 
 export default getOrCreateModel<EditorSettingsDocument, EditorSettingsModel>(
